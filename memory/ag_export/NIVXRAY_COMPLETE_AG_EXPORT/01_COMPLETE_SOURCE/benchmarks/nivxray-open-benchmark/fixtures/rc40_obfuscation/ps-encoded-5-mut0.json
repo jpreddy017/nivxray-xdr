@@ -1,0 +1,11 @@
+{
+  "id": "ps-encoded-5-mut0",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand bgBlAHQAIAB1AHMAZQByACAAYgBhAGMAawBkAG8AbwByACAAUABAAHMAcwB3ADAAcgBkACAALwBhAGQAZAA=",
+  "expected_keywords": [
+    "backdoor",
+    "net user"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

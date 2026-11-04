@@ -1,0 +1,57 @@
+[
+  {
+    "check": "vercel.json parses and declares redirects",
+    "pass": true,
+    "detail": "6 rules"
+  },
+  {
+    "check": "SPA rewrite present (deep links must not 404)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "no permanent (308) redirects while the topology is moving",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "xdr.nivxforge.com/ lands on its own product (/xdr)",
+    "pass": true,
+    "detail": "SETTLED \u2192 ('xdr.nivxforge.com', '/xdr') \u00b7 ['xdr.nivxforge.com/ -[/]-> /xdr']"
+  },
+  {
+    "check": "edr.nivxforge.com/ lands on its own product (/edr)",
+    "pass": true,
+    "detail": "SETTLED \u2192 ('edr.nivxforge.com', '/edr') \u00b7 ['edr.nivxforge.com/ -[/]-> /edr']"
+  },
+  {
+    "check": "route table read from App.jsx",
+    "pass": true,
+    "detail": "42 /xdr \u00b7 13 /edr"
+  },
+  {
+    "check": "all 13 /edr routes leave the XDR host",
+    "pass": true,
+    "detail": "every /edr route redirects to the EDR host"
+  },
+  {
+    "check": "all 42 /xdr routes leave the EDR host",
+    "pass": true,
+    "detail": "every /xdr route redirects to the XDR host"
+  },
+  {
+    "check": "each host keeps its OWN product routes (no self-redirect)",
+    "pass": true,
+    "detail": "own routes served locally"
+  },
+  {
+    "check": "every rule chain terminates (no loops, no ping-pong)",
+    "pass": true,
+    "detail": "16 host/path combinations settle"
+  },
+  {
+    "check": "preview / *.vercel.app hosts are NOT redirected (Preview XDR+EDR safe)",
+    "pass": true,
+    "detail": "no rule matches a non-production host"
+  }
+]

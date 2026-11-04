@@ -81,7 +81,7 @@ export default function ScenarioIntelligencePanel({ incident }) {
   return (
     <section data-testid="xdr-scenario-panel" style={{ marginTop: 14 }}>
       <div style={header}>
-        <BookOpen size={13} style={{ color: "#facc15" }} />
+        <BookOpen size={13} style={{ color: "var(--nx-medium)" }} />
         <b style={{ fontFamily: "var(--mono)", fontSize: 12,
                                 letterSpacing: 0.3 }}>SCENARIO INTELLIGENCE</b>
         <span style={metaChip}>
@@ -122,7 +122,7 @@ export default function ScenarioIntelligencePanel({ incident }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6,
                                         flexWrap: "wrap" }}>
                 <span style={{ ...pill, borderColor: "#facc15",
-                                              color: "#facc15" }}>
+                                              color: "var(--nx-medium)" }}>
                   {m.scenario_id}
                 </span>
                 <b style={{ fontFamily: "var(--mono)", fontSize: 11.5 }}>
@@ -194,7 +194,7 @@ export default function ScenarioIntelligencePanel({ incident }) {
                         {m.expected_evidence_gap.slice(0, 6).map((e, i) => (
                           <span key={i}
                                             style={{ ...chip, borderColor: "#f87171",
-                                                            color: "#f87171" }}
+                                                            color: "var(--nx-critical)" }}
                                             data-testid={`xdr-scenario-gap-${m.scenario_id}-${i}`}>
                             {e}
                           </span>
@@ -212,7 +212,7 @@ export default function ScenarioIntelligencePanel({ incident }) {
                 <div style={{ marginTop: 6, fontSize: 10, fontFamily: "var(--mono)" }}>
                   <span style={sectTitle}>Missing ATT&CK: </span>
                   {m.missing_techniques.map((t) => (
-                    <span key={t} style={{ ...chip, color: "#f472b6",
+                    <span key={t} style={{ ...chip, color: "var(--nx-purple)",
                                                                 borderColor: "#f472b6",
                                                                 marginRight: 3 }}
                                 data-testid={`xdr-scenario-tech-${m.scenario_id}-${t}`}>

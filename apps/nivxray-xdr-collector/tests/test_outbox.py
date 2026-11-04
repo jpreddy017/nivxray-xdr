@@ -113,11 +113,14 @@ async def test_5xx_marks_retrying_with_backoff(monkeypatch):
     assert result2["drained"] == 0
 
 
-# ── 5 · 4xx (non-408/429) fatal ───────────────────────────────
+# ── 5 · 4xx (non-408/429) fatal ONLY when app-attributed (G1-R1) ──
 @pytest.mark.asyncio
 async def test_4xx_marks_dead_letter(monkeypatch):
     def handler(request):
-        return httpx.Response(400, text="bad envelope")
+        # X-Request-ID proves the authoritative application answered, so this
+        # 400 is a real refusal and stays terminal (fail-closed).
+        return httpx.Response(400, text="bad envelope",
+                              headers={"X-Request-ID": "nvx-test-400"})
     ingest = _configured_ingest(monkeypatch, handler)
     ob = Outbox()
     rid, _ = ob.record(_env(eid="fatal-1"))

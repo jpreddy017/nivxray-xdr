@@ -89,6 +89,12 @@ def validate_config() -> None:
             f"NivXRay config error — missing required env var(s): {missing}. "
             "Populate backend/.env before starting the server."
         )
+    # P0-PROD-1 · cryptographic secret closure. In production this
+    # refuses to serve when a mandatory secret is absent, blank or a
+    # placeholder, or when a development/deployment credential is present
+    # in the application runtime. Names only — never values.
+    from security.secret_policy import assert_production_ready
+    assert_production_ready()
 
 
 # ---------------------------------------------------------------------------

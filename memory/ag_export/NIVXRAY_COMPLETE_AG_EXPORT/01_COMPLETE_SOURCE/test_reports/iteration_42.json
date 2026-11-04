@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 9.4 PowerShell Semantic Intelligence — full backend + frontend E2E validation PASSED. 46/46 pre-existing pytest tests green (test_ps_semantic_v2.py 16, test_ps_encodedcommand_xor_guard.py 2, test_investigation_quality.py 28). Added new 5-test API contract suite (test_phase94_api_contract.py) hitting live POST /api/v2/auto-investigate — all 5 pass: IEX+DownloadString malicious verdict + phase 9.4 fields, loopback-only benign/needs_review, format-string reconstruction, AMSI text signal, legacy backward compat. Frontend E2E via /auto-investigate: SemanticIntelligencePanel renders inside the ADVANCED accordion with all data-testids (semantic-v2-panel-0, verdict-0, behaviors-0 + 6 behavior cards including C2 Communication/PowerShell Invoke-Expression/WebClient DownloadString/In-Memory Script Execution/Remote Script Download/External Network Communication, timeline-0 with 5 APPLIED steps, graph-0 with 4 lanes decoders/script/behaviors/iocs, ast-0 toggle expands to show statements). Legacy chain-semantic-0 also renders — backward compatibility preserved. Verdict shown: MALICIOUS · conf 99% · Risk 75 · Behavior 100 · IOC 12 · Obfuscation 50. Total: 51/51 backend, 100% frontend.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AutoInvestigatePage", "issues": ["SemanticIntelligencePanel is nested inside the collapsed 'ADVANCED · RAW ARTIFACTS · DECODER OUTPUT' accordion. This is fine functionally but a first-time analyst may not know to expand it. Consider promoting the v2 panel above the collapsed section OR expanding it by default when a PowerShell chain is present."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ps_semantic_v2.py",
+    "/app/backend/tests/test_ps_encodedcommand_xor_guard.py",
+    "/app/backend/tests/test_investigation_quality.py",
+    "/app/backend/tests/test_phase94_api_contract.py",
+    "/app/test_reports/pytest/ps_semantic_v2.xml"
+  ],
+  "action_items": [
+    "OPTIONAL UX: Auto-expand the ADVANCED accordion when a PowerShell chain with semantic v2 data is present, so analysts see the Explainable Verdict / Behavior Cards / Decode Timeline / Evidence Graph / AST Tree without having to scroll to the bottom and click.",
+    "OPTIONAL UX: Consider surfacing the Explainable Verdict (MALICIOUS + sub-score bars) at the TOP of the report alongside INVESTIGATION VERDICT — right now they're 2000+ pixels apart and analysts might miss the sub-score breakdown."
+  ],
+  "critical_code_review_comments": [
+    "Field name inconsistency: API accepts 'incident_text' not 'raw_incident' as one might guess from the internal naming. Consider aliasing or documenting.",
+    "Sync endpoint POST /api/v2/auto-investigate now DOES populate decode_pipeline.chains[].semantic with Phase 9.4 fields — this diverges from iteration_41's note that chains[] were async-only. Good improvement; consider updating docs.",
+    "Preview URL is slow on cold-start (~30-60s for first login). Tests need timeouts >=90s and retry loops.",
+    "Frontend fills a controlled textarea via React state; playwright .fill() may not trigger React onChange. Using page.keyboard.insert_text() after clicking the textarea works reliably. Consider adding onInput handler or data-testid to the incident textarea to make automation more robust."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase94_api_contract.py (new — 5 API contract tests)"
+  ],
+  "success_rate": {"backend": "100% (51/51 — 46 pytest + 5 API contract)", "frontend": "100% (all Phase 9.4 UI elements present + legacy chain-semantic preserved + AST toggle works)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None (used deterministic payloads at runtime)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 9.4 is fully green. The SemanticIntelligencePanel data-testids are: semantic-v2-panel-{i}, semantic-v2-verdict-{i} (contains 4 sub-score bars + rationale + top signals), semantic-v2-behaviors-{i} with semantic-v2-behavior-{i}-{j}, semantic-v2-timeline-{i} with semantic-v2-timeline-step-{i}-{j}, semantic-v2-graph-{i} with semantic-v2-graph-lane-{decoders|script|behaviors|iocs}-{i} and semantic-v2-graph-node-{lane}-{i}-{j}, semantic-v2-ast-{i} with semantic-v2-ast-toggle-{i}. The panel lives INSIDE the '▶ ADVANCED · RAW ARTIFACTS · DECODER OUTPUT' collapsed accordion at bottom of the report — expand it by clicking 'ADVANCED' text before asserting. Backend API field is 'incident_text' (not raw_incident). Login can take 30-60s on cold start — use timeouts >=90s. To fill the textarea in E2E, use ta.click() then page.keyboard.insert_text(payload) — .fill() may not trip React onChange."
+}

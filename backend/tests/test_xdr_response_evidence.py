@@ -18,6 +18,38 @@ from fastapi import FastAPI
 from httpx   import AsyncClient, ASGITransport
 
 from routers.xdr_response_evidence import router
+from deps import get_current_user, init_database, validate_config
+
+validate_config()
+init_database()
+
+# P0 (2026-06-21) · the READ routes on this plane now resolve the tenant from
+# the verified principal and the incident from THE incident authority, so a
+# harness that presents no principal correctly gets "no tenant ⇒ nothing".
+# This suite exists to prove the evidence WRITE contract, so it presents a
+# cross-tenant principal explicitly and seeds the incident ids it addresses.
+# The authorization itself is proven in
+# `tests/test_p0_response_execution_tenant_scope.py` and
+# `tests/test_xdr_rbac_enforcement.py`.
+_HARNESS_PRINCIPAL = {"email": "admin@nivxray.com", "role": "admin"}
+_HARNESS_INCIDENTS = ("INC-1", "INC-2", "INC-9", "INC-EMPTY")
+
+
+@pytest.fixture(autouse=True)
+def _seed_harness_incidents():
+    import os
+    from datetime import datetime, timezone
+    from pymongo import MongoClient
+    db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+    now = datetime.now(timezone.utc).isoformat()
+    db.workspace_cases.delete_many({"id": {"$in": list(_HARNESS_INCIDENTS)}})
+    for i, cid in enumerate(_HARNESS_INCIDENTS):
+        db.workspace_cases.insert_one({
+            "id": cid, "doc_type": "xdr_incident", "tenant_id": "acme",
+            "incident_number": f"INC000099{i}", "title": "response harness",
+            "incident_state": "new", "created_at": now, "updated_at": now})
+    yield
+    db.workspace_cases.delete_many({"id": {"$in": list(_HARNESS_INCIDENTS)}})
 
 
 # ── Minimal in-memory Motor stand-in ─────────────────────────────────
@@ -72,9 +104,29 @@ class _FakeDb:
 
 
 def _app() -> FastAPI:
+    """Harness app for the EVIDENCE-WRITING contract only.
+
+    2026-06: this suite predates the router being gated by
+    `require_permission("response.execute")` / `("evidence.read")`, so every
+    request was correctly refused as `unauthenticated` and the suite stopped
+    testing what it is for.
+
+    The gates are therefore overridden HERE, explicitly and visibly, so these
+    tests can assert the three-collection write contract. The gates
+    themselves are NOT trusted to this harness: that the real application
+    refuses an unauthenticated / unauthorized / cross-tenant caller on
+    `/api/xdr/response-evidence` is proven against the real ASGI graph in
+    `tests/test_xdr_rbac_enforcement.py` and `tests/test_p0_security_gate.py`.
+    """
     app = FastAPI()
     app.state.db = _FakeDb()
     app.include_router(router, prefix="/api")
+    for route in app.routes:
+        for dep in getattr(route, "dependant", None).dependencies \
+                if getattr(route, "dependant", None) else []:
+            if dep.call is not None:
+                app.dependency_overrides[dep.call] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: _HARNESS_PRINCIPAL
     return app
 
 
@@ -219,23 +271,28 @@ async def test_list_incident_response_executions_returns_only_matching_incident(
 
 @pytest.mark.asyncio
 async def test_list_incident_response_executions_tenant_scoped():
+    """P0.1 · the incident owns the tenant, so a foreign tenant ASSERTION on
+    that incident can no longer create a row at all: the write fails closed
+    and only the incident's own tenant appears in the response history."""
     app = _app()
     async with AsyncClient(transport=ASGITransport(app=app),
                               base_url="http://t") as c:
-        # Two tenants writing to the same incident id.
-        for tid in ("acme", "globex"):
-            body = {**BODY, "execution_id": f"exec-tenant-{tid}",
-                       "tenant_id": tid,
-                       "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}}
-            await c.post("/api/xdr/response-evidence", json=body)
+        ok = await c.post("/api/xdr/response-evidence", json={
+            **BODY, "execution_id": "exec-tenant-acme", "tenant_id": "acme",
+            "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}})
+        denied = await c.post("/api/xdr/response-evidence", json={
+            **BODY, "execution_id": "exec-tenant-globex", "tenant_id": "globex",
+            "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}})
         acme = await c.get("/api/xdr/incidents/INC-9/response-executions",
                                 params={"tenant_id": "acme"})
         globex = await c.get("/api/xdr/incidents/INC-9/response-executions",
                                   params={"tenant_id": "globex"})
+    assert ok.status_code == 200, ok.text
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["error"] == "tenant_authority_denied"
     assert acme.json()["count"]   == 1
-    assert globex.json()["count"] == 1
-    assert acme.json()["executions"][0]["tenant_id"]   == "acme"
-    assert globex.json()["executions"][0]["tenant_id"] == "globex"
+    assert globex.json()["count"] == 0
+    assert acme.json()["executions"][0]["tenant_id"] == "acme"
 
 
 @pytest.mark.asyncio
@@ -243,7 +300,14 @@ async def test_list_incident_response_executions_empty():
     app = _app()
     async with AsyncClient(transport=ASGITransport(app=app),
                               base_url="http://t") as c:
-        r = await c.get("/api/xdr/incidents/UNKNOWN/response-executions")
-    assert r.status_code == 200
-    assert r.json()["count"] == 0
-    assert r.json()["executions"] == []
+        addressable = await c.get(
+            "/api/xdr/incidents/INC-EMPTY/response-executions")
+        unknown = await c.get(
+            "/api/xdr/incidents/UNKNOWN/response-executions")
+    # an addressable incident with no execution → honest empty state
+    assert addressable.status_code == 200
+    assert addressable.json()["count"] == 0
+    assert addressable.json()["executions"] == []
+    # P0 · an incident that cannot be addressed is 404, not an empty list:
+    # "no executions" and "not your incident" are different answers.
+    assert unknown.status_code == 404

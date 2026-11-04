@@ -1,0 +1,24 @@
+{
+  "id": "3des-inline-ps-3",
+  "algorithm": "3DES",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "utf8-key",
+    "utf8-iv",
+    "base64-cipher-decode"
+  ],
+  "runtime_stages": [
+    "tripledes-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-2-mut4",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.dmc';            $x = -join ($s[-1..-7]);            Invoke-Expression $x",
+  "expected_keywords": [
+    "cmd.ex"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

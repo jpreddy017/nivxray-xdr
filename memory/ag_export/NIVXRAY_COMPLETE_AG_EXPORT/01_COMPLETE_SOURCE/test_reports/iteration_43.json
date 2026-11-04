@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 43 verified the user-reported corrupt-decode bug fix. Backend: all 55 targeted pytest cases passed (test_ps_decode_error_contract.py 9/9, test_ps_semantic_v2.py 16/16, test_ps_encodedcommand_xor_guard.py 3/3, test_investigation_quality.py 27/27). A new API-contract test (test_iter43_decode_api_contract.py, 2/2) hit POST /api/v2/auto-investigate with the exact corrupt sample and asserted every field of the decode_error contract (b64_bytes=179, first_invalid_offset=80, 'illegal encoding' reason, all 7 decoder attempts with expected statuses, hex_preview hex-only, behaviors_v2/ast_tree/verdict_breakdown/mitre_ids all empty, recovered_script==''); the valid-EncodedCommand happy path still yields decode_outcome='fully_decoded' + malicious verdict + c2/download behaviors. Frontend E2E on preview URL confirmed the Investigation Workspace uses the new semantic pipeline: for the corrupt sample the SemanticIntelligencePanel renders the DecodeFailureCard (semantic-v2-decode-error-*) with all 7 recovery attempts, causes, and a hex-only preview; semantic-recovered-* is NOT rendered (anti-garbage) and semantic-v2-behaviors-* is suppressed. For the valid sample, the full v2 panel + behaviors + verdict + AST all still render — zero regression. Wiring verified: ps_semantic.py imports recover_powershell_from_b64 + looks_like_powershell from ps_recovery.py and delegates the decode chain.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ps_decode_error_contract.py",
+    "/app/backend/tests/test_ps_semantic_v2.py",
+    "/app/backend/tests/test_ps_encodedcommand_xor_guard.py",
+    "/app/backend/tests/test_investigation_quality.py",
+    "/app/backend/tests/test_iter43_decode_api_contract.py",
+    "/app/test_reports/pytest/iter43_decode_contract.xml",
+    "/app/test_reports/screenshots/iter43_decode_failure.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Legacy chain analyzer (upstream of SemanticIntelligencePanel) still surfaces xor-brute latin-1 output in the 'RECOVERED PAYLOAD · ARTEFACTS' section above the semantic panel on the corrupt sample. Not in scope for this iteration (fix scope was the semantic pipeline and its UI card, both are correct), but consider gating that upstream artefact block by the same looks_like_powershell() validator so the legacy view also stops rendering visible garbage.",
+    "ps_semantic.py at ~579 lines is approaching the 700-line soft cap — worth a future split into decode/normalize/behavior submodules."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter43_decode_api_contract.py (new)"
+  ],
+  "success_rate": {"backend": "100% (57/57 targeted tests)", "frontend": "100% (corrupt-path decode-failure card + valid-path regression)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used ephemeral incident_text payloads.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Decoder-correctness contract for corrupt PS EncodedCommand is locked and verified end-to-end. The exact user-reported corrupt sample from the review request is now baked into test_iter43_decode_api_contract.py as a live-API regression, and test_ps_decode_error_contract.py holds the unit-level regression. Both must remain green in future iterations. The DecodeFailureCard testids used: semantic-v2-panel-{i}, semantic-v2-decode-error-{i}, semantic-v2-decode-error-hex-{i}, semantic-v2-decode-error-causes-{i}, semantic-v2-decode-error-attempts-{i}, semantic-v2-decode-error-attempt-{i}-{j}. On decode_error the panel MUST NOT emit semantic-recovered-* or semantic-v2-behaviors-*.",
+  "rca of the issue": "Original bug: ps_semantic.decode_powershell_encoded() silently fell back to latin-1 when UTF-16LE strict failed, producing renderable but garbage strings ('QK,9RIi8cIw*,...') that then flowed into recovered_script and were rendered by a <pre> block in the UI. Fix (already implemented by main agent, verified here): (1) ps_recovery.py implements a deterministic decoder chain (utf16le → compression sniff → utf8 → ascii → utf16be → xor-brute) with each candidate gated by looks_like_powershell() requiring ≥90% printable ASCII + at least one PS token; (2) ps_semantic.analyze() halts with decode_outcome='decode_error' + recovered_script='' when every decoder in the chain fails; (3) SemanticIntelligencePanel.jsx conditionally renders the DecodeFailureCard (only decode-error card + timeline) instead of the full v2 panel; (4) AutoInvestigatePage.jsx suppresses the recovered_script <pre> block when the string is empty. Reproduction on preview URL confirmed by iter43 E2E: corrupt sample → DecodeFailureCard, valid sample → full v2 panel with behaviors + malicious verdict."
+}

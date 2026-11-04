@@ -19,6 +19,8 @@ import { Plus, RefreshCcw, Play, Square, Power, PowerOff, PlayCircle,
                  Trash2, CheckCircle2, AlertTriangle, XCircle, Cpu,
                  ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
+import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
 
@@ -46,23 +48,37 @@ export default function CollectorsBody() {
   const [showAdd,   setShowAdd]   = useState(false);
   const [openId,    setOpenId]    = useState(null);
   const [refresh,   setRefresh]   = useState(0);
+  // Tenant comes from the EXISTING tenant contract (`lib/tenant`), never from
+  // a literal in this file.
+  //
+  // This used to be `useState("default")`. The registry has no `default`
+  // tenant, so in production every load answered
+  // `403 {code:"TENANT_NOT_FOUND", reason, tenant_id}`, that OBJECT was put in
+  // `err` and rendered as a React child, and React #31 unmounted the whole
+  // tree — the Collectors route went black on arrival. Preview only survived
+  // because its registry still carries a legacy `default` entry.
+  const [tenant,    setTenant]    = useState(() => activeTenant() || "");
+  // No tenant selected ⇒ send no header ⇒ the backend answers TENANT_REQUIRED.
+  // Fail-closed is preserved; it is simply now READABLE.
+  const hdrs = () => (tenant ? { headers: { "X-Tenant-Id": tenant } } : {});
 
   useEffect(() => {
     (async () => {
       setBusy(true); setErr(null);
       try {
         const [list, cat] = await Promise.all([
-          api.get("/xdr/collectors"),
-          api.get("/xdr/collectors/protocols/catalog"),
+          api.get("/xdr/collectors", hdrs()),
+          api.get("/xdr/collectors/protocols/catalog", hdrs()),
         ]);
         setRows(list?.data?.data?.collectors || []);
         setProtocols(cat?.data?.data?.protocols || {});
         setCounts(cat?.data?.data?.counts || {});
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setRows([]);
+        setErr(refusalText(e));
       } finally { setBusy(false); }
     })();
-  }, [refresh]);
+  }, [refresh, tenant]);
 
   const act = async (fn) => {
     try { await fn(); setRefresh((n) => n + 1); }
@@ -103,6 +119,22 @@ export default function CollectorsBody() {
         stats={stats}
         testid="col-hero"
         actions={<>
+          <label style={{ display: "flex", alignItems: "center", gap: 5,
+                              fontSize: 10.5, color: "var(--faint)",
+                              fontFamily: "var(--mono)" }}>
+            TENANT
+            <input value={tenant} data-testid="col-tenant-context"
+                       onChange={(e) => {
+                         const next = e.target.value.trim();
+                         setTenant(next);
+                         setActiveTenant(next || null);
+                       }}
+                       placeholder="authoritative tenant"
+                       style={{ width: 150, padding: "3px 6px", fontSize: 11,
+                                       border: "1px solid var(--border)", borderRadius: 3,
+                                       background: "var(--panel2)", color: "var(--text)",
+                                       fontFamily: "var(--mono)" }} />
+          </label>
           <button className="btn" data-testid="col-add-btn-hero"
                        onClick={() => setShowAdd(true)}
                        style={{ padding: "3px 10px", fontSize: 11 }}>
@@ -148,7 +180,7 @@ export default function CollectorsBody() {
             <StateBadge state={r.state} />
             <div>{r.enabled
               ? <span style={{ color: "var(--mint)" }}>ENABLED</span>
-              : <span style={{ color: "#f87171" }}>DISABLED</span>}</div>
+              : <span style={{ color: "var(--nx-critical)" }}>DISABLED</span>}</div>
             <div style={{ fontSize: 10, color: "var(--faint)" }}>
               {r.events_received || 0} / {r.events_parsed || 0} /{" "}
               {r.events_normalized || 0}
@@ -162,28 +194,29 @@ export default function CollectorsBody() {
                            title="Start"
                            data-testid={`col-start-${r.id}`}
                            onClick={() => act(() => api.post(
-                              `/xdr/collectors/${r.id}/start`))}>
+                              `/xdr/collectors/${r.id}/start`, null, hdrs()))}>
                 <Play size={11} />
               </button>
               <button className="btn ghost" style={iconBtn}
                            title="Stop"
                            data-testid={`col-stop-${r.id}`}
                            onClick={() => act(() => api.post(
-                              `/xdr/collectors/${r.id}/stop`))}>
+                              `/xdr/collectors/${r.id}/stop`, null, hdrs()))}>
                 <Square size={11} />
               </button>
               <button className="btn ghost" style={iconBtn}
                            title={r.enabled ? "Disable" : "Enable"}
                            data-testid={`col-toggle-${r.id}`}
                            onClick={() => act(() => api.post(
-                              `/xdr/collectors/${r.id}/${r.enabled ? "disable" : "enable"}`))}>
+                              `/xdr/collectors/${r.id}/${r.enabled ? "disable" : "enable"}`,
+                              null, hdrs()))}>
                 {r.enabled ? <PowerOff size={11} /> : <Power size={11} />}
               </button>
               <button className="btn ghost" style={iconBtn}
                            title="Test"
                            data-testid={`col-test-${r.id}`}
                            onClick={() => act(() => api.post(
-                              `/xdr/collectors/${r.id}/test`))}>
+                              `/xdr/collectors/${r.id}/test`, null, hdrs()))}>
                 <PlayCircle size={11} />
               </button>
               <button className="btn ghost" style={iconBtn}
@@ -191,7 +224,8 @@ export default function CollectorsBody() {
                            data-testid={`col-delete-${r.id}`}
                            onClick={() => {
                               if (!window.confirm(`Delete '${r.name}'?`)) return;
-                              act(() => api.delete(`/xdr/collectors/${r.id}`));
+                              act(() => api.delete(`/xdr/collectors/${r.id}`,
+                                                                  hdrs()));
                            }}>
                 <Trash2 size={11} />
               </button>
@@ -208,6 +242,7 @@ export default function CollectorsBody() {
       {showAdd && <AddCollectorModal
         protocols={protocols}
         onClose={() => setShowAdd(false)}
+        tenant={tenant}
         onCreated={() => { setShowAdd(false); setRefresh((n) => n + 1); }}
       />}
 
@@ -264,7 +299,7 @@ function ProtoBadge({ counts }) {
 }
 
 
-function AddCollectorModal({ protocols, onClose, onCreated }) {
+function AddCollectorModal({ protocols, onClose, onCreated, tenant }) {
   const keys = Object.keys(protocols).sort();
   const [name,     setName]     = useState("");
   const [protocol, setProtocol] = useState(keys[0] || "syslog");
@@ -277,7 +312,8 @@ function AddCollectorModal({ protocols, onClose, onCreated }) {
     setBusy(true); setErr(null);
     try {
       await api.post("/xdr/collectors",
-        { name, protocol, tls, auth_kind: auth });
+        { name, protocol, tls, auth_kind: auth },
+        { headers: { "X-Tenant-Id": tenant } });
       onCreated();
     } catch (e) {
       const d = e?.response?.data?.detail;

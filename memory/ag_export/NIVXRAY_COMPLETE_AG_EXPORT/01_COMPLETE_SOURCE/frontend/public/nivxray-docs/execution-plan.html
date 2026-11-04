@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NivXRay · Execution Plan from Audit (ADR-0008)</title>
+<style>:root {
+  --bg:#0f1218; --fg:#e6edf3; --muted:#8b96a5; --accent:#7ee787;
+  --card:#161b22; --border:#30363d; --code-bg:#1c2128; --link:#79c0ff;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,ui-sans-serif,system-ui,sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+main { max-width:920px; margin:0 auto; padding:56px 40px 120px; }
+nav.topbar { background:#0b0e13; border-bottom:1px solid var(--border);
+  padding:14px 40px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:10; }
+nav.topbar a { color:var(--link); text-decoration:none; margin-right:16px; font-size:13px; }
+nav.topbar a.brand { color:var(--accent); font-weight:600; }
+nav.topbar a:hover { text-decoration:underline; }
+h1 { font-size:32px; margin:32px 0 12px; letter-spacing:-.02em; }
+h2 { font-size:24px; margin:44px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); letter-spacing:-.01em; }
+h3 { font-size:19px; margin:28px 0 10px; color:#c9d1d9; }
+h4 { font-size:16px; margin:22px 0 8px; color:#c9d1d9; }
+p, li { color:var(--fg); }
+a { color:var(--link); }
+strong { color:#ffdf5d; }
+em { color:#c9d1d9; }
+code { background:var(--code-bg); padding:2px 6px; border-radius:4px; font-size:13px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Cascadia Mono",monospace; color:#ffa657; }
+pre { background:var(--code-bg); padding:16px 20px; border-radius:8px; overflow-x:auto;
+  border:1px solid var(--border); }
+pre code { background:transparent; padding:0; color:#c9d1d9; font-size:12.5px; line-height:1.55; }
+blockquote { border-left:3px solid var(--accent); background:#141a20; padding:12px 20px;
+  margin:16px 0; color:#c9d1d9; border-radius:4px; }
+table { border-collapse:collapse; width:100%; margin:16px 0; font-size:13.5px; }
+th, td { border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top; }
+th { background:#141a20; color:#c9d1d9; font-weight:600; }
+tr:nth-child(even) td { background:#131820; }
+hr { border:none; border-top:1px solid var(--border); margin:32px 0; }
+ul, ol { padding-left:24px; }
+li { margin:4px 0; }
+.meta { color:var(--muted); font-size:13px; margin-bottom:24px; }
+.legend-live      { color:#7ee787; }
+.legend-shadow    { color:#f0d05e; }
+.legend-disc      { color:#ffa657; }
+.legend-partial   { color:#79c0ff; }
+.legend-exp       { color:#d2a8ff; }
+.legend-planned   { color:#8b96a5; }
+.legend-dead      { color:#ff7b72; }
+@media print {
+  nav.topbar { display:none; }
+  main { max-width:none; padding:24px 32px; }
+  body { background:#fff; color:#000; }
+  h1,h2,h3,h4 { color:#000; }
+  code, pre { background:#f4f4f4; color:#000; }
+  pre { border:1px solid #ddd; }
+  th { background:#eee; color:#000; }
+  a { color:#0057aa; }
+  blockquote { background:#f4f4f4; color:#333; }
+}</style>
+</head><body>
+<nav class="topbar">
+  <div>
+    <a class="brand" href="index.html">NivXRay Docs</a>
+    <a href="product-blueprint.html">Blueprint</a>
+    <a href="current-state-audit.html">Audit</a>
+    <a href="execution-plan.html">Execution Plan</a>
+    <a href="route-classification.html">Routes</a>
+    <a href="tweetfeed-evaluation.html">TweetFeed</a>
+  </div>
+  <div style="color:#8b96a5;font-size:12px;">Session-9 baseline · read-only</div>
+</nav>
+<main>
+<div class="meta">Source: <code>/app/memory/adr/0008-execution-plan-from-audit.md</code></div>
+<h1 id="adr-0008-post-audit-execution-plan-nivxray">ADR-0008 — Post-Audit Execution Plan (NivXRay)</h1>
+<p><strong>Status</strong>: Accepted · 2026-08-11
+<strong>Author</strong>: E1 (agent) under owner direction · Session-8
+<strong>Baseline</strong>: <a href="./0007-current-state-master-snapshot.md"><code>0007-current-state-master-snapshot.md</code></a>
+<strong>Scope</strong>: <strong>planning artifact only.</strong> No product code changes are authorised by this ADR itself. Downstream sessions consume it as their execution constitution.</p>
+<hr />
+<h2 id="1-purpose">§1 · Purpose</h2>
+<p>Convert the 360° current-state audit (ADR-0007) into an operational execution plan that:</p>
+<ol>
+<li>Preserves the honest strengths NivXRay ships today.</li>
+<li>Prevents accidental deletion of correctly-shadowed architecture.</li>
+<li>Sequences the two next-generation capabilities (Security Hardening · Server-Side File Mode) as <strong>gates</strong>, not as parallel feature work.</li>
+<li>Defines how each shadow subsystem is promoted from shadow to authoritative, and under what evidence.</li>
+<li>Locks the target promotion architecture so all future work maps onto one destination.</li>
+</ol>
+<hr />
+<h2 id="2-governing-principles-locked">§2 · Governing Principles (locked)</h2>
+<p>The following rules apply to every downstream session until this ADR is superseded.</p>
+<h3 id="p1-shadow-dead">P1 · Shadow ≠ dead</h3>
+<p>No shadow-flagged subsystem may be deleted on the basis of "zero production documents." A shadow flag means the code observes without influencing outputs — that is a design choice, not a bug. Deletion requires evidence that the subsystem's contract is broken, superseded, or duplicated by a live one.</p>
+<h3 id="p2-workspace-behavior-is-regression-locked">P2 · Workspace behavior is regression-locked</h3>
+<p>Any change that reaches the Workspace request path (<code>WorkspacePage.jsx</code>, <code>/api/die/*</code>, <code>/api/investigation/*</code>, <code>/api/upload</code>, <code>/api/analyze/*</code>, <code>/api/cases/*</code>) must:
+- ship with a matching test in <code>backend/tests/canonical/api/</code> or <code>frontend/src/**/__tests__/</code>.
+- preserve the P0.3 payload allow-list (<code>iocs · lolbas · mitre · narrative · ida · confidence · health · incident_tactics · metadata · input</code>).
+- preserve the P0.2 evidence chain gate.
+- preserve Sample1 byte-identity.</p>
+<h3 id="p3-security-is-a-production-gate-not-a-feature">P3 · Security is a production gate, not a feature</h3>
+<p>The four security softnesses documented in ADR-0007 §12 (CORS <code>*</code> + credentials · no login throttle · unbounded archive unpack · same-process parser isolation) block external-customer exposure. They do <strong>not</strong> block internal development. Enterprise SoW / SaaS pricing conversations must not proceed until the P0 Security Hardening Gate closes.</p>
+<h3 id="p4-server-side-file-mode-is-the-foundation-not-an-increment">P4 · Server-Side File Mode is the foundation, not an increment</h3>
+<p>The 32 KB / 256 KB / 512 KB caps are architectural, not cosmetic. Increasing them in place would be treating the symptom. A file-store + provenance envelope + input router is required before any real telemetry adapter (Sysmon, EVTX, EDR export) can be built honestly.</p>
+<h3 id="p5-route-removal-requires-classification-never-route-count-intuition">P5 · Route removal requires classification, never route-count intuition</h3>
+<p>466 operations with only ~74 frontend consumers looks like waste but is not evidence. A route may serve integration, admin, test, or machine-to-machine consumers not visible in <code>WorkspacePage.jsx</code>. Deletion only follows an evidence-backed DEAD classification from ADR-0009.</p>
+<h3 id="p6-determinism-must-be-test-proven">P6 · Determinism must be test-proven</h3>
+<p>NivXRay reports carry a SHA-256 signature. Until a CI test proves that byte-for-byte re-render produces the same signature, the determinism claim is asserted, not demonstrated. This gap must be closed before any customer sees a signed report.</p>
+<h3 id="p7-no-opportunistic-feature-expansion">P7 · No opportunistic feature expansion</h3>
+<p>No new subsystem, engine, adapter, or panel may start until (a) the current shadow subsystems have a documented promotion criterion (see §4) and (b) the security gate strategy is in place. Rationale: NivXRay's compounding cost today is duplicate pipelines, not missing capabilities.</p>
+<h3 id="p8-documentation-must-track-implementation">P8 · Documentation must track implementation</h3>
+<p>Every change to a shipping code path updates ADR-0007 (or its successor) in the same commit. <code>memory/PRD.md</code> remains the handoff pointer. Docs marked "aligned" in ADR-0007 §22 may not silently regress to "drift."</p>
+<hr />
+<h2 id="3-the-two-realities-locked-terminology">§3 · The Two Realities (locked terminology)</h2>
+<p>For the remainder of NivXRay's development lifecycle, every capability is described using this two-column terminology:</p>
+<div class="codehilite"><pre><span></span><code>                           NivXRay
+                              │
+        ┌─────────────────────┴─────────────────────┐
+        │                                           │
+   RC5 / DIE PATH                              v2 PATH
+   ──────────────                             ────────
+   LIVE                                       IMPLEMENTED
+   CONNECTED                                  BUT SHADOW
+   REGRESSION-LOCKED                          DISCONNECTED
+        │                                           │
+        ▼                                           ▼
+   • services/die/*                           • v2/investigation/ikg.py
+   • canonical/* (SSOT + projections)         • v2/verdict/ (engine v3)
+   • /api/die/* (21 routes)                   • v2/case_engine/
+   • /api/investigation/* (21 routes)         • v2/routers/ingest.py
+   • WorkspacePage.jsx                        • v2/artifact_store/
+</code></pre></div>
+
+<p>Both realities are <strong>preserved</strong>. The path from RC5 to v2 is a promotion path, not a replacement.</p>
+<hr />
+<h2 id="4-the-five-shadow-subsystems-preservation-promotion-criteria">§4 · The Five Shadow Subsystems — Preservation &amp; Promotion Criteria</h2>
+<p>Each shadow subsystem below is <strong>kept</strong> by default. Promotion from shadow to authoritative requires all listed criteria to be met with evidence.</p>
+<h3 id="41-ikg-nivx_flag_case_engineshadow">4.1 · IKG (<code>NIVX_FLAG_CASE_ENGINE=shadow</code>)</h3>
+<ul>
+<li><strong>State today</strong>: 13 node types + 14 edge types coded in <code>backend/v2/investigation/ikg.py</code>. Persistence collections (<code>v2_case_events/entities/behaviors/relationships/reports</code>) contain 0 documents.</li>
+<li><strong>Recommendation</strong>: KEEP SHADOW.</li>
+<li><strong>Promotion criteria</strong>:
+  1. Persistence writer live end-to-end (all 5 v2 case collections receive rows for a canonical test case).
+  2. Every IKG node passes P0.2-equivalent provenance check.
+  3. Timeline / Attack Chain / Attack Story can be re-projected from IKG and produce byte-identical output to the current canonical projections for the Sample1 case.
+  4. Regression test proving Workspace output is unchanged when IKG writer is active.</li>
+</ul>
+<h3 id="42-verdict-engine-v3-nivx_flag_verdict_engine_v3shadow">4.2 · Verdict Engine v3 (<code>NIVX_FLAG_VERDICT_ENGINE_V3=shadow</code>)</h3>
+<ul>
+<li><strong>State today</strong>: full engine at <code>backend/v2/verdict/{engine,weights,profiles,correlation,progressions,signals}.py</code>. Endpoints return 503.</li>
+<li><strong>Recommendation</strong>: KEEP SHADOW.</li>
+<li><strong>Promotion criteria</strong>:
+  1. Replay pack: for the last N canonical investigations, v3 must produce a verdict that either matches the canonical projection or has a documented, explainable delta.
+  2. Adaptive Weight Profile default (<code>soc_balanced</code>) is locked and versioned.
+  3. Negative-explainability path (<code>why_is_this_not</code>) has ≥ 10 registered patterns.
+  4. <code>contributors[]</code> field mapping documented for every band.
+  5. CI parity test between canonical projection and v3 default profile.</li>
+</ul>
+<h3 id="43-case-engine-nivx_flag_case_engineshadow-shared-with-ikg">4.3 · Case Engine (<code>NIVX_FLAG_CASE_ENGINE=shadow</code> — shared with IKG)</h3>
+<ul>
+<li><strong>State today</strong>: schema + store scaffolding in <code>backend/v2/case_engine/</code>.</li>
+<li><strong>Recommendation</strong>: KEEP SHADOW.</li>
+<li><strong>Promotion criteria</strong>:
+  1. All Workspace case CRUD (<code>/api/cases/*</code>, <code>/api/investigation/*</code>) can be re-served from <code>v2_cases</code> without behavior change (parity test).
+  2. Dual-write on for 30 days without regressions.
+  3. Read cutover shipped behind a per-tenant flag (future — when tenancy exists).</li>
+</ul>
+<h3 id="44-adapters-nivx_flag_adaptersshadow">4.4 · Adapters (<code>NIVX_FLAG_ADAPTERS=shadow</code>)</h3>
+<ul>
+<li><strong>State today</strong>: 6 ingest routes; EVTX returns 501; no FE consumer.</li>
+<li><strong>Recommendation</strong>: KEEP SHADOW.</li>
+<li><strong>Promotion criteria</strong> — <strong>cannot promote until Server-Side File Mode exists</strong>:
+  1. Server-Side File Mode is live (see §5.2).
+  2. Real Sysmon / EVTX / CSV-Splunk adapter converts to the canonical event bag.
+  3. Timeline / Query panels consume events from adapter-produced canonical events without code changes.</li>
+</ul>
+<h3 id="45-artifact-store-nivx_flag_artifact_storeshadow">4.5 · Artifact Store (<code>NIVX_FLAG_ARTIFACT_STORE=shadow</code>)</h3>
+<ul>
+<li><strong>State today</strong>: <code>v2_artifact_store</code> has 15 rows from shadow observation.</li>
+<li><strong>Recommendation</strong>: KEEP SHADOW.</li>
+<li><strong>Promotion criteria</strong>:
+  1. Coupled with Server-Side File Mode — the file store <em>is</em> the artifact store's persistence layer.
+  2. Every uploaded artifact and every decoded child artifact carries a provenance envelope (see §5.2).
+  3. Recursive discovery termination proof.</li>
+</ul>
+<h3 id="46-feature-flag-governance-added-in-this-adr">4.6 · Feature-flag governance (added in this ADR)</h3>
+<ul>
+<li>Any promotion (<code>shadow → enabled</code>) requires an ADR update documenting the flip.</li>
+<li>Any regression (<code>enabled → shadow</code>) requires a rollback ADR.</li>
+<li>Any deletion (<code>shadow → removed</code>) requires evidence per P1.</li>
+</ul>
+<hr />
+<h2 id="5-sequenced-execution-post-adr-0008">§5 · Sequenced Execution (post-ADR-0008)</h2>
+<p>The following sequence applies to the <strong>next implementation sessions</strong> (i.e., NOT this session; this session ends at ADR-0009).</p>
+<h3 id="51-p0-security-hardening-gate-implementation-session-s1">5.1 · P0 · Security Hardening Gate (implementation session S+1)</h3>
+<p>Contained, high-signal, gate-shaped. Ship together; do not split.</p>
+<ul>
+<li>Login rate-limit (<code>/api/auth/login</code>) — sliding-window Redis-alternative in-memory + monotonic counter with lockout after N failures per IP + email.</li>
+<li>Archive-recursion cap on <code>/api/upload</code> — max member count, max total uncompressed bytes, max nesting depth. Fail-loud on breach.</li>
+<li>CORS explicit-origin allow-list — replace <code>["*"]</code> with a configured list of allowed origins from env; keep <code>allow_credentials=True</code> only for allow-listed origins.</li>
+<li>Same-process parser isolation review — document (in ADR-0010) the residual risk and set a policy about which parsers require future subprocess/sandbox isolation.</li>
+<li>Regression tests for each of the above, added to the P0.3 firewall.</li>
+</ul>
+<p><strong>Gate condition:</strong> All four items green + Workspace regression suite green + no new failure in the canonical suite. Once green, NivXRay is production-safe for single-tenant SaaS.</p>
+<h3 id="52-p1-server-side-file-mode-implementation-session-s2">5.2 · P1 · Server-Side File Mode (implementation session S+2)</h3>
+<p><strong>Architecture (owner-mandated):</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">Browser</span>
+<span class="w">   </span><span class="err">│</span><span class="w">  </span><span class="n">upload</span><span class="w"> </span><span class="p">(</span><span class="n">multipart</span><span class="p">)</span>
+<span class="w">   </span><span class="err">▼</span>
+<span class="n">Backend</span><span class="w"> </span><span class="n">File</span><span class="w"> </span><span class="n">Store</span><span class="w">          </span><span class="err">←</span><span class="w"> </span><span class="n">GridFS</span><span class="w"> </span><span class="p">(</span><span class="ow">or</span><span class="w"> </span><span class="n">dedicated</span><span class="w"> </span><span class="n">collection</span><span class="p">)</span>
+<span class="w">   </span><span class="err">│</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">file_id</span><span class="w">           </span><span class="p">(</span><span class="n">UUIDv4</span><span class="p">)</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">sha256</span><span class="w">            </span><span class="p">(</span><span class="n">content</span><span class="o">-</span><span class="n">addressed</span><span class="p">)</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">size</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">mime_type</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">original_filename</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">uploaded_by</span><span class="w">       </span><span class="p">(</span><span class="n">user</span><span class="w"> </span><span class="n">email</span><span class="p">)</span>
+<span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">uploaded_at</span><span class="w">       </span><span class="p">(</span><span class="n">ISO</span><span class="o">-</span><span class="mi">8601</span><span class="w"> </span><span class="n">UTC</span><span class="p">)</span>
+<span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="n">provenance</span><span class="w">        </span><span class="p">(</span><span class="n">source</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">original</span><span class="w"> </span><span class="n">path</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">archive</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">parent_file_id</span><span class="p">)</span>
+<span class="w">        </span><span class="err">│</span>
+<span class="w">        </span><span class="err">▼</span>
+<span class="n">Input</span><span class="w"> </span><span class="n">Router</span><span class="w"> </span><span class="p">(</span><span class="n">new</span><span class="p">)</span><span class="w">          </span><span class="err">←</span><span class="w"> </span><span class="n">inspects</span><span class="w"> </span><span class="n">sha256</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">mime</span><span class="p">;</span><span class="w"> </span><span class="n">dispatches</span><span class="w"> </span><span class="n">to</span>
+<span class="w">   </span><span class="err">│</span><span class="w">                          </span><span class="n">the</span><span class="w"> </span><span class="n">right</span><span class="w"> </span><span class="n">analyzer</span><span class="o">/</span><span class="n">adapter</span><span class="w"> </span><span class="n">without</span><span class="w"> </span><span class="n">the</span>
+<span class="w">   </span><span class="err">▼</span><span class="w">                          </span><span class="n">frontend</span><span class="w"> </span><span class="n">seeing</span><span class="w"> </span><span class="n">raw</span><span class="w"> </span><span class="n">bytes</span>
+<span class="n">Adapter</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Analyzer</span>
+<span class="w">   </span><span class="err">│</span>
+<span class="w">   </span><span class="err">▼</span>
+<span class="n">Canonical</span><span class="w"> </span><span class="n">Event</span><span class="w"> </span><span class="n">Bag</span><span class="w">         </span><span class="err">←</span><span class="w"> </span><span class="n">same</span><span class="w"> </span><span class="n">bag</span><span class="w"> </span><span class="n">Timeline</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Query</span><span class="w"> </span><span class="n">consume</span><span class="w"> </span><span class="n">today</span>
+</code></pre></div>
+
+<p><strong>Non-goals for this session:</strong>
+- Do not increase the client-side cap. The cap disappears because file bytes never go through React state.
+- Do not delete <code>/api/upload</code> — extend it. The old endpoint continues to work for ≤ 256 KB text pastes.</p>
+<p><strong>Deliverables:</strong>
+- New router <code>routers/files.py</code> (<code>POST /api/files</code>, <code>GET /api/files/{file_id}</code>, <code>DELETE /api/files/{file_id}</code> — admin/owner).
+- Input Router module <code>services/input_router.py</code>.
+- Frontend upload flow returns a <code>file_id</code> reference; existing panels resolve it on demand.
+- Regression: existing 32 KB paste path unchanged.</p>
+<h3 id="53-p2-real-telemetry-adapter-implementation-session-s3">5.3 · P2 · Real Telemetry Adapter (implementation session S+3)</h3>
+<p>Only after §5.1 + §5.2 close. Two candidates, in priority order:</p>
+<ol>
+<li><strong>Sysmon / EVTX adapter</strong> — feeds canonical event bag. <code>python-evtx</code> is the missing dependency called out in <code>v2/routers/ingest.py::ingest_evtx_stub</code>.</li>
+<li><strong>Splunk <code>_raw</code> CSV recognizer</strong> — extends <code>csv_edr_analyzer.py</code> to unwrap Splunk / Cisco AMP exports currently silently falling into the prose path.</li>
+</ol>
+<h3 id="54-p3-shadow-promotion-waves-implementation-sessions-s4-to-sn">5.4 · P3 · Shadow Promotion Waves (implementation sessions S+4 to S+N)</h3>
+<p>Only after §5.3 close. Each subsystem promoted with its ADR-0008 §4 criteria met and a dedicated wave-report ADR.</p>
+<h3 id="55-parallel-small-scope-quality-work-any-session">5.5 · Parallel small-scope quality work (any session)</h3>
+<ul>
+<li>Determinism CI gate (produced in this session — see ADR-0008 companion test).</li>
+<li>Route classification review (ADR-0009).</li>
+<li>Documentation drift closure (ADR-0007 §22 items).</li>
+<li>Workspace regression protection expansion.</li>
+</ul>
+<hr />
+<h2 id="6-target-architecture-locked">§6 · Target Architecture (locked)</h2>
+<p>The following is the destination. Every downstream ADR must map new work onto this diagram.</p>
+<div class="codehilite"><pre><span></span><code><span class="w">                             </span><span class="n">INPUT</span><span class="w"> </span><span class="p">(</span><span class="n">paste</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">upload</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">adapter</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">webhook</span><span class="p">)</span>
+<span class="w">                                            </span><span class="err">│</span>
+<span class="w">                                            </span><span class="err">▼</span>
+<span class="w">                         </span><span class="err">┌───────────────</span><span class="w"> </span><span class="n">Input</span><span class="w"> </span><span class="n">Router</span><span class="w"> </span><span class="err">───────────────┐</span>
+<span class="w">                         </span><span class="err">│</span><span class="w">  </span><span class="p">(</span><span class="n">sha256</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">provenance</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">mime</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">size</span><span class="p">)</span><span class="w">        </span><span class="err">│</span>
+<span class="w">                         </span><span class="err">└─────────────────┬───────────────────────────┘</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                        </span><span class="n">Adapter</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Analyzer</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Artifact</span><span class="w"> </span><span class="n">Router</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                              </span><span class="n">Canonical</span><span class="w"> </span><span class="n">Event</span><span class="w"> </span><span class="n">Bag</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                    </span><span class="n">Recursive</span><span class="w"> </span><span class="n">Artifact</span><span class="w"> </span><span class="n">Discovery</span><span class="w"> </span><span class="p">(</span><span class="n">fixed</span><span class="o">-</span><span class="n">point</span><span class="p">)</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                     </span><span class="n">Investigation</span><span class="w"> </span><span class="n">Knowledge</span><span class="w"> </span><span class="n">Graph</span><span class="w"> </span><span class="p">(</span><span class="n">IKG</span><span class="p">)</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                            </span><span class="err">┌──────────────┼──────────────┐</span>
+<span class="w">                            </span><span class="err">│</span><span class="w">              </span><span class="err">│</span><span class="w">              </span><span class="err">│</span>
+<span class="w">                            </span><span class="err">▼</span><span class="w">              </span><span class="err">▼</span><span class="w">              </span><span class="err">▼</span>
+<span class="w">                       </span><span class="n">Correlation</span><span class="w">     </span><span class="n">Verdict</span><span class="w"> </span><span class="n">v3</span><span class="w">      </span><span class="n">ATT</span><span class="o">&amp;</span><span class="n">CK</span>
+<span class="w">                            </span><span class="err">│</span><span class="w">              </span><span class="err">│</span><span class="w">              </span><span class="err">│</span>
+<span class="w">                            </span><span class="err">└──────────────┼──────────────┘</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                                     </span><span class="n">Attack</span><span class="w"> </span><span class="n">Story</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                                      </span><span class="n">Mitigation</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                          </span><span class="n">Report</span><span class="w"> </span><span class="p">(</span><span class="n">STIX</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Sigma</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">YARA</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Nav</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">MDR</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">MD</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">PDF</span><span class="p">)</span>
+<span class="w">                                           </span><span class="err">│</span>
+<span class="w">                                           </span><span class="err">▼</span>
+<span class="w">                                       </span><span class="n">Workspace</span>
+</code></pre></div>
+
+<p><strong>Rules of the target:</strong>
+- Every arrow is a pure function of its input at its layer.
+- Every node writes to persistence with <code>evidence_ref</code> provenance.
+- Every projection consumer reads from the layer above it — never a peer layer.
+- No layer invents facts; when evidence is absent, the layer emits <code>None</code> or <code>"no evidence"</code> (never a generic fallback).</p>
+<hr />
+<h2 id="7-migration-boundaries-do-not-cross-prematurely">§7 · Migration Boundaries (do NOT cross prematurely)</h2>
+<ul>
+<li><strong>Adapter tier does not go live before Server-Side File Mode</strong> (P4).</li>
+<li><strong>IKG persistence does not go live before Case Engine parity is proven</strong> (§4.3).</li>
+<li><strong>Verdict v3 does not go authoritative before replay parity is CI-locked</strong> (§4.2).</li>
+<li><strong>Multi-tenancy does not begin before security gate closes</strong> (§5.1).</li>
+<li><strong>STIX/TAXII pull ingestion does not begin before determinism CI passes</strong> (§5.5).</li>
+</ul>
+<hr />
+<h2 id="8-do-not-build-yet-list">§8 · Do-NOT-Build-Yet List</h2>
+<p>The following are explicitly deferred, with rationale:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Deferred until</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-tenant / SSO / Google OAuth</td>
+<td>after §5.1</td>
+<td>Security gate must close first</td>
+</tr>
+<tr>
+<td>CrowdStrike / Defender / S1 / Cisco XDR adapters</td>
+<td>after §5.3</td>
+<td>Sysmon/EVTX proves the ingest pipeline first</td>
+</tr>
+<tr>
+<td>STIX/TAXII pull ingestion</td>
+<td>after §5.5</td>
+<td>Determinism must be provable first</td>
+</tr>
+<tr>
+<td>Cross-case / fleet-scale hunt</td>
+<td>after §5.3</td>
+<td>No telemetry corpus yet</td>
+</tr>
+<tr>
+<td>Saved-query UI</td>
+<td>after Query/Hunt v2</td>
+<td>Backend needs a <code>saved_queries</code> collection first</td>
+</tr>
+<tr>
+<td>New AI feature (auto-triage, LLM summarizer v2)</td>
+<td>after §5.3</td>
+<td>No new engines until existing engines are one product</td>
+</tr>
+<tr>
+<td>Nivxforge section pages (Threat Intel / Threat Hunting / KB / Reports / History)</td>
+<td>after §5.3</td>
+<td>Convert placeholder pages to real capability only when telemetry ingestion exists</td>
+</tr>
+<tr>
+<td>Any new NIVX_FLAG_*</td>
+<td>after §4.6</td>
+<td>Governance discipline first</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-session-discipline">§9 · Session Discipline</h2>
+<ul>
+<li>No implementation session may exceed one "gate" from §5 without owner approval.</li>
+<li>No implementation session may modify Workspace behavior without a matching regression test in the same commit.</li>
+<li>No implementation session may bypass an ADR update for the docs it touches.</li>
+<li>Sessions that discover contradictions with ADR-0007 must open an ADR-0007-addendum in the same session.</li>
+</ul>
+<hr />
+<h2 id="10-success-metrics-measurable-testable">§10 · Success Metrics (measurable, testable)</h2>
+<p>By the time §5.1 + §5.2 + §5.3 + §5.5 close, NivXRay demonstrably:</p>
+<ol>
+<li>Refuses malformed archives with a size/depth guard test.</li>
+<li>Refuses login brute-force with a rate-limit test.</li>
+<li>Rejects non-allow-listed origins under CORS.</li>
+<li>Accepts a real EVTX file end-to-end and produces a canonical Timeline.</li>
+<li>Recognises a Splunk <code>_raw</code> CSV and produces a canonical Timeline.</li>
+<li>Emits byte-identical Markdown / STIX for the same canonical envelope (determinism CI green).</li>
+<li>Reveals none of the four ADR-0007 §12 softnesses under the security regression suite.</li>
+<li>Adds zero new shadow flags without an ADR entry.</li>
+</ol>
+<hr />
+<h2 id="11-what-this-adr-does-not-do">§11 · What This ADR Does NOT Do</h2>
+<ul>
+<li>Does not authorise deletion of any route.</li>
+<li>Does not authorise promotion of any shadow flag.</li>
+<li>Does not modify Workspace behavior.</li>
+<li>Does not add new features.</li>
+<li>Does not deprecate legacy modules.</li>
+<li>Does not commit to a specific timeline — sessions are gated by evidence, not date.</li>
+</ul>
+<hr />
+<h2 id="12-companion-artifacts-session-8">§12 · Companion Artifacts (Session-8)</h2>
+<ul>
+<li><code>0007-current-state-master-snapshot.md</code> — reality baseline.</li>
+<li><code>0009-route-classification.md</code> — evidence-backed API surface reality (this session).</li>
+<li><code>backend/tests/canonical/api/test_report_determinism.py</code> — determinism CI gate (this session).</li>
+</ul>
+<p><em>End of ADR-0008.</em></p>
+</main>
+</body></html>

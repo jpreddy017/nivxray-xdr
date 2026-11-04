@@ -1,0 +1,30 @@
+{
+  "summary": "NivXRay A+B+C stability gate verification on PRODUCTION (https://nivxray.nivxforge.com). Login succeeded (HTTP 200, JWT stored as localStorage 'nvx_token'). Case Library loaded (48 cases). Exactly ONE case named 'Phase1' exists on production and its payload is 67 characters (the CISA advisory URL 'https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-071a'), NOT the required 17,681 characters. Per the strict acceptance-gate guardrail #4 (abort if length !== 17681, do not edit the payload), testing was ABORTED before Gates A/B/C were exercised. No 'Prev Mode' / 'Prod Mode' switcher exists anywhere in the app. No code was changed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Phase1 gate payload precondition", "issue": "Saved production case 'Phase1' contains a 67-char URL, not the 17,681-char payload the gate requires. GET /api/cases returns input_len=67; DOM [data-testid='input-textarea'].value.length === 67. No history record on production has input_length 17681 (closest: an unnamed 17,732-char record from 2026-08-13).", "affected_selectors": ["[data-testid='input-textarea']", "[data-testid='workspace-case-name']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_73.json"],
+  "action_items": [
+    "Re-save the exact 17,681-character payload on PRODUCTION as case 'Phase1' (currently it holds only the 67-char CISA URL), then re-request the A/B/C gate run.",
+    "Clarify the 'Prev Mode' / 'Prod Mode' requirement: no mode toggle exists in the code (no data-testid='mode-toggle', no 'Prev Mode'/'Prod Mode' UI text). Only 'recovery-mode-toggle' (STRICT / BEST-EFFORT) exists. Provide the correct mechanism or drop the dual-mode requirement.",
+    "Correct the test-request selector name: the input testid is 'input-textarea', not 'analyst-input'.",
+    "Update /app/memory/test_credentials.md - it states NivXRay#2026! was retired, but that password is currently valid on PRODUCTION (preview uses a different one). This ambiguity risks false auth failures."
+  ],
+  "critical_code_review_comments": [
+    "PageErrorBoundary fallback testid is 'workspace-crash-fallback' (text 'Something went wrong in the workspace.') - gate scripts should assert on that testid.",
+    "One benign console 404 (failed resource load) observed on the production workspace page after case open; not a React error, but worth identifying."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only scope)", "frontend": "Aborted at precondition - 0 of 3 gates executed"},
+  "seed_data_creation": "None. No data created or modified on production (read-only verification).",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "PROD https://nivxray.nivxforge.com - admin@nivxray.com / NivXRay#2026! (verified HTTP 200 via curl and via UI login)",
+  "context_for_next_testing_agent": "Production login works with NivXRay#2026! (JWT -> localStorage key 'nvx_token'). Cases modal: click [data-testid='btn-open-cases'], search box placeholder 'Search by case name', then click the row's 'OPEN' text button (the row label renders as '\ud83d\udcbe Phase1', so get_by_text('Phase1', exact=True) does NOT match). Input testid = 'input-textarea'; status line testid = 'status-line'; case chip testid = 'workspace-case-name'. Error boundary fallback testid = 'workspace-crash-fallback'. There is NO Prev/Prod mode toggle. Production 'Phase1' case id = 509eef80-b446-4a6f-b166-b8dfce8f3ce4 with 67-char input.",
+  "rca_of_the_issue": "The acceptance gate's precondition (17,681-character payload saved as case 'Phase1' on production) is not satisfied. The production case 'Phase1' stores the analyst's original 67-char CISA URL input, not the ~17.7 KB acquired advisory text. Likely the 17,681-char content was the URL-acquisition output present only in the live browser session at authoring time and was never persisted into the case input field (URL acquisition on that CISA link also returns HTTP 403 per the owner's deferred Fix 2). Reproduction: POST /api/auth/login -> GET /api/cases (Phase1 input_len=67) -> open Phase1 in Workspace -> document.querySelector('[data-testid=\"input-textarea\"]').value.length === 67. Mitigation: paste and save the exact 17,681-char payload into the production 'Phase1' case, then re-run the gate."
+}

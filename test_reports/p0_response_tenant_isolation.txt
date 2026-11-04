@@ -1,0 +1,25 @@
+edge: https://greeting-app-5782.preview.emergentagent.com
+
+PASS · anonymous list → 403
+PASS · tenant analyst without the evidence.read grant is refused, disclosing nothing → 403
+PASS · cross-tenant list is denied without disclosure → 403
+PASS · the other direction is denied too → 404
+PASS · fabricated scope cannot widen access ?tenant_id=default → 404
+PASS · fabricated scope cannot widen access ?tenant_id=nivx-live → 404
+PASS · fabricated scope cannot widen access ?customer=default → 404
+PASS · fabricated scope cannot widen access ?tenant=default → 404
+PASS · fabricated scope cannot widen access {'X-Tenant-Id': 'default'} → 404
+PASS · fabricated scope cannot widen access {'X-Principal-Id': 'admin@nivxray.com'} → 404
+PASS · fabricated scope cannot widen access {'X-Tenant': 'default', 'X-Customer-Id': 'default'} → 404
+PASS · cross-tenant admin access is unchanged → 200
+PASS · the answer reports the SERVER-resolved scope, not a client value keys=['count', 'executions', 'incident_id', 'tenant_id', 'tenant_scope']
+PASS · a requested tenant can only NARROW the resolved scope → 200 tenant_id=nivx-live count=0
+PASS · anonymous execution detail → 403
+PASS · an unknown execution id is 404 for an authorized principal → 404
+PASS · execution detail cannot be widened by a requested tenant → 403
+PASS · valid-looking id does not enumerate evidence · exec_0000000000000 → 404
+PASS · valid-looking id does not enumerate evidence · evt_c972032f8eb510 → 404
+PASS · valid-looking id does not enumerate evidence · tf_487f2c73b75943a → 404
+PASS · valid-looking id does not enumerate evidence · sysmon-1-b10bc713e → 404
+
+P0 RESPONSE TENANT ISOLATION · 21 PASS · 0 FAIL

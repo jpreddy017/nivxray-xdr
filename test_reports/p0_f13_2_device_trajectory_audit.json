@@ -1,0 +1,87 @@
+{
+ "phase": "P0-F.13.2",
+ "generated_at": "2026-09-07",
+ "status": "CANONICAL_TRAJECTORY_CONFIRMED",
+ "method": "repository trace + live API probe (scripts/p0_f13_2_dual_trajectory_probe.py) + runtime DOM assertions. No claim in this report rests on JSX inspection alone.",
+
+ "implementations": {
+  "A_xdr_case_context": {
+   "nav_label_before_this_pass": "Device Trajectory",
+   "route": "/edr/trajectory -> EdrTrajectoryResolver -> /xdr/endpoints/:device/trajectory",
+   "component": "xdr/pages/EdrTrajectoryResolver.jsx -> xdr/pages/XdrEntity360Page.jsx (initialTab='trajectory') -> xdr/components/TrajectoryWorkspace.jsx + TrajectoryNavigator.jsx + TrajectoryLifelineCanvas.jsx",
+   "shell": "XdrShell (global)",
+   "api": "GET /api/edr/device-trajectory?device=&hours=",
+   "substrate": "v2_shadow_observations (+ workspace_cases.verdict_stage2.evidence[] + services.activity.ActivityInventory)",
+   "lane_model": "58 lifelines: 13 grouped by PROCESS NAME + 45 artifact/network lifelines, over 5 fixed swim-lanes (system/process/file/network/registry)",
+   "live_counts": {"events_returned": 6356, "lanes": {"system": 4, "process": 449, "file": 3, "network": 5900, "registry": 0}, "events_with_process_iid": 452, "events_with_parent_iid": 384},
+   "case_coupling": "carries case_ids / incident index; identity resolved via device_iid with hostname fallback",
+   "classification": "NIVXFORGE_VALID_EXTENSION (XDR case/entity-context projection) — NOT legacy, NOT a duplicate engine"
+  },
+  "B_amp_operational": {
+   "nav_label_before_this_pass": "Device Trajectory · AMP",
+   "route": "/xdr/edr/device-trajectory (alias /edr/device-trajectory)",
+   "component": "nivxforge/trajectory/EdrDeviceTrajectoryPage.jsx + AmpCanvas/AmpNavigator/AmpActivityPanel/AmpComputerHeader/AmpFilterBar/AmpIcons",
+   "shell": "NivXForgeConsole (EDR-only) BEFORE this pass; nested inside XdrShell AFTER P0-F.13.3",
+   "api": "GET /api/edr/endpoints/{endpoint_id}/trajectory",
+   "engine_id": "nivxray::edr_plane::trajectory_window",
+   "substrate": "v2_shadow_observations — SAME substrate as implementation A",
+   "lane_model": "491 lanes keyed on process_iid / file path / network peer; axis_scope=ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT; lane_axis_version=4d58c1df305bef37",
+   "live_counts": {"total_lanes": 491, "group_counts": {"PROCESS": 446, "FILE": 3, "NETWORK": 41, "OTHER": 1}, "observations_all_time": 6356, "lanes_with_authoritative_parent_iid": 378, "parent_resolved_to_lane": 375},
+   "case_coupling": "NONE — endpoint-scoped, requires no incident or case",
+   "classification": "CANONICAL operational EDR Device Trajectory (owner vote 2026-09-07)"
+  }
+ },
+
+ "canonical_route": "/xdr/edr/device-trajectory",
+ "canonical_component": "apps/nivxray-xdr/src/nivxforge/trajectory/EdrDeviceTrajectoryPage.jsx",
+ "legacy_route": "NONE — implementation A is not legacy; it is the XDR case-context projection and stays reachable at /xdr/endpoints/:device (Entity 360 · Device Trajectory tab)",
+ "duplicate_trajectory": false,
+ "duplicate_trajectory_detail": "ARCHITECTURAL_DUPLICATION = NO at the engine level (one substrate, two read projections, no second telemetry/evidence/detection store) and YES at the navigation-label level before this pass, where two EDR sidebar entries were both called Device Trajectory. Resolved: the EDR operational sub-nav now has exactly ONE 'Device Trajectory' pointing at the canonical AMP renderer.",
+
+ "evidence_integrity": "PASS",
+ "evidence_integrity_detail": [
+  "Both projections read v2_shadow_observations; trajectory_window.py declares COLLECTION = 'v2_shadow_observations' and creates no store of its own.",
+  "Lineage uses authoritative process_iid/parent_iid only. 378 of 491 lanes carry a declared parent_iid, 375 resolve to an observed process lane; the remainder are reported as PARENT_NOT_REPORTED_BY_SENSOR (68) or PARENT_NOT_OBSERVED_VISIBILITY_GAP (3) instead of being given an invented ancestor.",
+  "Every event carries provenance.raw_event_id / canonical_event_id / evidence_id and detected_by with basis; 4000/4000 sampled dispositions are UNKNOWN_NOT_ASSESSED — nothing is called clean.",
+  "No mock or fixture path exists in the AMP page or the projection."
+ ],
+
+ "explained_not_defects": {
+  "dotted_lifelines": "446 of 446 process lanes are END_NOT_OBSERVED — the Linux sensor emits no process_exit. Lifelines are therefore solid to the last observation and dashed open after it. DATASET/SENSOR gap.",
+  "uniform_glyphs_in_system_section": "This endpoint's entire event vocabulary is network_connect 3731, process_create 262, detection 4, file_write 3. The System section is all process_create, so one shape is correct. 13 shapes exist; 4 are exercisable on this host.",
+  "files_and_network_not_visible": "Present and real at rows 453-488 (41 network + 3 file lanes, e.g. 104.18.10.243, /tmp/edrwatch/postfix_probe.sh) — simply below 446 process rows."
+ },
+
+ "proven_gaps_at_audit_time": [
+  {"id": "canvas_hatch", "state": "CISCO_BASELINE_GAP", "evidence": "0 pattern fills inside amp-canvas", "disposition": "FIXED in P0-F.13.3 as amp-canvas-hatch-before/after = 'no sensor coverage' outside the observed evidence range"},
+  {"id": "selected_event_temporal_guide", "state": "CISCO_BASELINE_GAP", "evidence": "selection drew only a glyph ring and row tint; 0 guide elements", "disposition": "FIXED in P0-F.13.3 as amp-temporal-guide with data-at + axis time chip"},
+  {"id": "global_shell_absent", "state": "CISCO_BASELINE_GAP", "evidence": "AMP route rendered NivXForgeConsole: xdr-shell 0, xdr-topbar-search 0", "disposition": "FIXED in P0-F.13.3 — see p0_f13_2b report"},
+  {"id": "legacy_header_capabilities", "state": "NIVXFORGE_VALID_EXTENSION", "evidence": "implementation A has breadcrumbs, 1h/6h/24h/7d/30d/All, Export, Refresh, Fit to observations", "disposition": "IMPLEMENTED then REMOVED at owner instruction 2026-09-07: 'Dont add Device Trajectory things to Device Trajectory · AMP'"}
+ ],
+
+ "regression": "PASS — test_reports/iteration_102.json: backend 6/6, frontend 13/13, 11/11 EDR routes; P0-F.13.1 mechanics (wheel/shift/ctrl, drag, navigator drag, Files & Network deep rows, Activity->Details->Back, no debug footer) re-verified.",
+
+ "recommendations": [
+  "Keep AMP as the base renderer; XDR contributes context (incident pivot), never the rendering model.",
+  "Do not delete the Entity 360 trajectory: it answers a different question (what did this endpoint contribute to this case).",
+  "Sensor work, not UI work, is what will remove the dashed-lifeline dominance: collect process_exit.",
+  "P0-F.14 Fleet File Trajectory is now unblocked; note /api/edr/file-trajectory and XdrFleetFileTrajectoryPage already exist and must be reused rather than rebuilt."
+ ],
+
+ "final_output": {
+  "IMPLEMENTATION_A": "XDR case/entity-context projection (valid, keep, reachable from Entity 360)",
+  "IMPLEMENTATION_B": "Canonical operational NivXForge EDR Device Trajectory (AMP renderer)",
+  "CISCO_VISUAL_CONFORMANCE": "PARTIAL -> see p0_f13_2a report; 2 proven gaps fixed, remaining deltas are dataset-driven, not renderer defects",
+  "ARCHITECTURAL_DUPLICATION": "NO (engine) / RESOLVED (navigation)",
+  "REAL_DATA_PROVEN": "YES",
+  "RECOMMENDED_CANONICAL_TRAJECTORY": "/xdr/edr/device-trajectory (EdrDeviceTrajectoryPage.jsx)",
+  "RECOMMENDED_NEXT_ACTION": "P0-F.14 Fleet File Trajectory, reusing /api/edr/file-trajectory",
+  "CHANGES_PERFORMED": [
+   "EDR sub-nav collapsed to one 'Device Trajectory' -> canonical AMP route",
+   "canvas no-sensor-coverage hatch",
+   "selected-event temporal guide",
+   "global shell restoration (see p0_f13_2b)",
+   "server-validated XDR pivot context (GET /api/edr/context)"
+  ]
+ }
+}

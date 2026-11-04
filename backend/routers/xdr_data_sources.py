@@ -51,15 +51,13 @@ def _coll():
     return _db()["xdr_data_sources"] if _db() is not None else None
 
 
-# ── Principal extraction (identical shape to sibling routers) ────
+# ── Principal extraction ─────────────────────────────────────────
+# A0.5 · delegated to the SINGLE authority (`routers.xdr_rbac`). The local
+# copy carried the T-RISK-1 `"default"` tenant fallback and the T-RISK-2
+# `"admin@nivxray.com"` identity fallback; both now fail closed.
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
 
 
 # ── Canonical vocabularies ────────────────────────────────────────
@@ -72,6 +70,10 @@ SOURCE_KINDS: dict[str, dict[str, Any]] = {
     "cef_syslog":           {"protocol": "syslog",   "canonical": "canonical.log"},
     "leef_syslog":          {"protocol": "syslog",   "canonical": "canonical.log"},
     "windows_event_fwd":    {"protocol": "wef",      "canonical": "canonical.host.process"},
+    #: G1/S2 · a Windows endpoint acquiring its OWN channels natively. Kept
+    #: distinct from `windows_event_fwd`, which is forwarding over WinRM.
+    "windows_eventlog_native": {"protocol": "windows-eventlog",
+                                                  "canonical": "canonical.host.process"},
     "sysmon_wef":           {"protocol": "wef",      "canonical": "canonical.host.process"},
     "generic_webhook":      {"protocol": "webhook",  "canonical": "canonical.event"},
     "generic_rest":         {"protocol": "rest",     "canonical": "canonical.event"},
@@ -207,7 +209,13 @@ def create_data_source(body: CreateDataSourceBody, request: Request):
         "events_parsed":         0,
         "events_normalized":     0,
         "events_error":          0,
+        # W2 · deliveries whose parse/normalization outcome the
+        # collector never declared. Unknown is its own count: it is
+        # never folded into parsed, normalized or error.
+        "events_parse_unmeasured":     0,
+        "events_normalize_unmeasured": 0,
         "created_at":            now,
+
         "updated_at":            now,
         "created_by":            pid,
     }

@@ -1,0 +1,32 @@
+{
+  "summary": "Phase 9.5c+ validation. Backend fully green: 695/695 pytest passing, Golden Corpus 51/51 = 100.0%, all 15 originals (GC-001..GC-015) still pass, all 18 benign enterprise samples (GC-150..GC-167) rate Benign/Suspicious (no Malicious/Critical FPs), latency dict populated with mean_ms=0.264, p50=0.185, p95=0.617, p99=0.994, max=0.994, total_ms=13.44 and every SampleResult has duration_ms > 0. golden_delta.py exits 0 and emits both 'Pipeline latency (ms per sample)' section and '✅ **PASS**'. Frontend compiles successfully; backend /api/rc5/parse returns 200 with exec_graph/behaviors/mitre/lolbins_v2/verdict_v2/explain. E2E analyst flow: login OK, /analyst/rc5 renders 3 of 4 requested panels (execution-graph-panel, behavior-timeline-panel, mitre-drilldown-panel visible; mitre row expansion works, showing sigma detection snippet + evidence node IDs). Two data-key mismatches break the sticky-verdict-header rendering and empty-state the execution graph.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AnalystRC5Page.jsx (StickyVerdictHeader gate)", "issue": "Sticky verdict header never renders. Line 138 checks `rc5?.verdict` but the /api/rc5/parse response uses key `verdict_v2` (no `verdict` field at top level). Result: <StickyVerdictHeader data-testid='sticky-verdict-header'> is never mounted after Analyze. Fix: change condition to `rc5?.verdict_v2` and pass `verdict={rc5.verdict_v2}`.", "selector": "[data-testid='sticky-verdict-header']", "priority": "HIGH"},
+      {"component": "AnalystRC5Page.jsx (ExecutionGraphSVG prop)", "issue": "Execution graph panel renders but shows empty state 'No execution graph yet — analyze a sample first.' even after a successful Analyze. Line 229 passes `graph={rc5.graph}` but backend returns the graph under key `exec_graph` (contains nodes + schema_version). Fix: change to `graph={rc5.exec_graph}`.", "selector": "[data-testid='execution-graph-panel'] [data-testid='execution-graph-svg']", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Analyze → render RC5 output", "issue": "Frontend/backend key contract drift: page references rc5.verdict and rc5.graph; API contract uses verdict_v2 and exec_graph. Behaviors/mitre/mitre_navigator keys match correctly.", "affected_selectors": ["[data-testid='sticky-verdict-header']", "[data-testid='execution-graph-svg']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/rc5/", "/app/backend/scripts/golden_delta.py", "/tmp/delta.md", "/tmp/head.json"],
+  "action_items": [
+    "In /app/frontend/src/pages/AnalystRC5Page.jsx line 138-143: replace `rc5?.verdict` with `rc5?.verdict_v2` and prop `verdict={rc5.verdict_v2}` so the StickyVerdictHeader mounts.",
+    "In /app/frontend/src/pages/AnalystRC5Page.jsx line 229: replace `graph={rc5.graph}` with `graph={rc5.exec_graph}` so ExecutionGraphSVG receives its nodes array (backend already returns exec_graph.nodes).",
+    "After both fixes, re-run analyst E2E to confirm sticky-verdict-header + execution-graph-svg render."
+  ],
+  "critical_code_review_comments": [
+    "Prop-plumbing bug in AnalystRC5Page.jsx: page uses rc5.verdict_v2 in one code path (line 359) but rc5.verdict for the sticky header (line 138) — inconsistent naming inside the same file.",
+    "No frontend normalization of API response — a small selector/adapter function (e.g. extractGraph, extractVerdict) would prevent silent key drift when the backend contract evolves."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "75% (3 of 4 required data-testid panels functional post-Analyze)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend / corpus / latency / delta CLI are all fully green per Phase 9.5c+ charter. Only frontend prop-plumbing in AnalystRC5Page.jsx needs a two-line fix (verdict_v2 + exec_graph). After the fix, verify sticky-verdict-header is visible with data-testid='sticky-verdict-header' and that ExecutionGraphSVG renders SVG nodes (not the empty-state <text>). Backend contract keys: verdict_v2 (object), exec_graph (object with nodes[]), behaviors (array), mitre (array), mitre_navigator (object).",
+  "rca of the issue": "RC: Frontend AnalystRC5Page.jsx was patched to consume 4 new SOC-Prime components, but two prop bindings reference legacy/renamed API keys (`rc5.verdict`, `rc5.graph`) that never existed in the /api/rc5/parse payload — the real keys are `verdict_v2` and `exec_graph`. Repro: login as admin, navigate /analyst/rc5, click Analyze. Backend returns HTTP 200 with populated verdict_v2 + exec_graph, but React sees `rc5.verdict === undefined` (gate fails, sticky header never mounts) and `rc5.graph === undefined` (ExecutionGraphSVG renders its empty-state placeholder). Mitigation: change line 138 gate + line 140 prop to verdict_v2, and line 229 prop to exec_graph. No backend change needed."
+}

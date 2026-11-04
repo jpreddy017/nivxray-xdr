@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode
-from powershell_ast import deobfuscate_ps
+from powershell_ast import deobfuscate_ps, find_unresolved, COSMETIC_KINDS
 from amsi_detector import detect_amsi_bypass
 
 
@@ -245,20 +245,100 @@ def split_pipeline(text: str) -> List[Dict[str, str]]:
     return [p for p in parts if p["cmd"]]
 
 
-def tokenize(cmd: str) -> List[str]:
-    """Shell-aware tokenizer. Uses shlex for POSIX-ish rules, but silently
-    falls back to a whitespace split when shlex raises on unbalanced quotes.
+def tokenize_windows(cmd: str) -> List[str]:
+    """Windows / PowerShell argv split.
+
+    R-1 · On Windows `\\` is a PATH SEPARATOR, never an escape character.
+    POSIX `shlex` deletes it, which silently rewrites
+    `C:\\Windows\\System32\\cmd.exe` into `C:WindowsSystem32cmd.exe` — the
+    observed evidence no longer matches the recorded evidence. This tokenizer
+    honours quoting but treats every other character literally.
     """
+    toks: List[str] = []
+    buf: List[str] = []
+    started = False
+    quote: Optional[str] = None
+    for ch in cmd:
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                buf.append(ch)
+            continue
+        if ch in ('"', "'"):
+            quote = ch
+            started = True
+            continue
+        if ch.isspace():
+            if started or buf:
+                toks.append("".join(buf))
+            buf = []
+            started = False
+            continue
+        buf.append(ch)
+        started = True
+    if started or buf:
+        toks.append("".join(buf))
+    return [t for t in toks if t != ""]
+
+
+# Shapes that prove the command line is Windows-native, where `\` must be
+# preserved. Deliberately conservative: POSIX behaviour is unchanged otherwise.
+_WINDOWS_SHAPE_RE = re.compile(
+    r"(?:[A-Za-z]:[\\/])"                     # C:\ or C:/
+    r"|(?:\\\\[\w.$-]+\\)"                    # \\host\share
+    r"|(?:%\w+%)"                             # %TEMP%
+    r"|(?:\$env:)"                            # $env:TEMP
+    r"|(?:\.(?:exe|cmd|bat|ps1|vbs|vbe|js|jse|dll|msi|hta|scr)\b)",
+    re.I,
+)
+
+
+def tokenize_with_mode(cmd: str) -> Tuple[List[str], str]:
+    """Tokenize and report WHICH grammar was used, so callers can be honest."""
     if not cmd:
-        return []
+        return [], "empty"
+    if _WINDOWS_SHAPE_RE.search(cmd):
+        return tokenize_windows(cmd), "windows-argv"
     try:
-        return shlex.split(cmd, posix=True)
+        return shlex.split(cmd, posix=True), "posix-shlex"
     except ValueError:
-        # Try Windows-style (posix=False leaves quotes attached)
         try:
-            return shlex.split(cmd, posix=False)
+            return shlex.split(cmd, posix=False), "posix-shlex-noquote"
         except ValueError:
-            return cmd.split()
+            return cmd.split(), "whitespace"
+
+
+def tokenize(cmd: str) -> List[str]:
+    """Shell-aware tokenizer. Windows-shaped command lines are split with
+    Windows argv rules (backslash preserved); everything else uses POSIX
+    `shlex`, falling back to a whitespace split on unbalanced quotes."""
+    return tokenize_with_mode(cmd)[0]
+
+
+def first_token_span(cmd: str) -> Tuple[str, int, int]:
+    """Exact observed substring of the leading token, plus its char range.
+
+    R-1 evidence contract: `parsed_structure.executable_span.text` is a
+    byte-for-byte slice of the input. Nothing is normalised here.
+    """
+    n = len(cmd)
+    i = 0
+    while i < n and cmd[i].isspace():
+        i += 1
+    start = i
+    quote: Optional[str] = None
+    while i < n:
+        ch = cmd[i]
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in ('"', "'"):
+            quote = ch
+        elif ch.isspace():
+            break
+        i += 1
+    return cmd[start:i], start, i
 
 
 # =============================================================================
@@ -294,6 +374,95 @@ class PayloadSpan:
     reason: str
     offset: int = -1       # char offset in original input (best-effort)
     interpreter: Optional[str] = None
+    # R-3 · artifact classification. A span that is only one operand of a
+    # larger expression is a FRAGMENT and must NOT be decoded on its own.
+    artifact_class: str = "ENCODED_ARTIFACT"
+    fragment_of: Optional[str] = None
+
+
+# R-3 · artifact classes
+ARTIFACT_FRAGMENT    = "FRAGMENT"
+ARTIFACT_CONSTRUCTED = "CONSTRUCTED_VALUE"
+ARTIFACT_ENCODED     = "ENCODED_ARTIFACT"
+ARTIFACT_DECODED     = "DECODED_ARTIFACT"
+ARTIFACT_EXECUTABLE  = "EXECUTABLE_ARTIFACT"
+ARTIFACT_SHELLCODE   = "SHELLCODE_ARTIFACT"
+
+# R-2 · decode status vocabulary. Replaces the `applied: bool` over-claim.
+DECODE_NOT_REQUIRED        = "NOT_REQUIRED"
+DECODE_DETECTED            = "DETECTED"
+DECODE_PARTIALLY_RECOVERED = "PARTIALLY_RECOVERED"
+DECODE_RECOVERED           = "RECOVERED"
+DECODE_AMBIGUOUS           = "AMBIGUOUS"
+DECODE_UNSUPPORTED         = "UNSUPPORTED"
+DECODE_LIMIT_REACHED       = "LIMIT_REACHED"
+DECODE_FAILED              = "FAILED"
+
+_STR_LIT_ANY = r"""(?:'(?:[^'\n]|'')*'|"(?:[^"\n\\]|\\.)*")"""
+
+
+def _fragment_ranges(cmd: str) -> List[Tuple[int, int, str]]:
+    """R-3 · char ranges of string literals that are operands of a `+` chain.
+
+    Their contents are FRAGMENTs of a value that is assembled at runtime. A
+    fragment is not a payload: decoding it independently produces garbage and
+    is the reason 40-char slices were being promoted to "standalone base64".
+    Returns (start, end, enclosing_expression) triples.
+    """
+    lits = [(m.start(), m.end()) for m in re.finditer(_STR_LIT_ANY, cmd)]
+    parts: List[Tuple[int, int]] = []
+    for s, e in lits:
+        before = cmd[:s].rstrip()
+        after = cmd[e:].lstrip()
+        if before.endswith("+") or after.startswith("+"):
+            parts.append((s, e))
+    if not parts:
+        return []
+    # Merge literals joined by `+` (with any operand between) into one chain.
+    chains: List[List[int]] = [[parts[0][0], parts[0][1]]]
+    for s, e in parts[1:]:
+        glue = cmd[chains[-1][1]:s]
+        if "+" in glue and "\n" not in glue and len(glue) <= 64:
+            chains[-1][1] = e
+        else:
+            chains.append([s, e])
+    out: List[Tuple[int, int, str]] = []
+    for a, b in chains:
+        expr = cmd[a:b]
+        out.append((a, b, expr[:240] + ("…" if len(expr) > 240 else "")))
+    return out
+
+
+def _classify_spans(cmd: str, spans: List[PayloadSpan]) -> List[PayloadSpan]:
+    """Assign R-3 artifact classes in place and return the list."""
+    frags = _fragment_ranges(cmd)
+    for s in spans:
+        off = s.offset if s.offset >= 0 else _safe_index(cmd, s.span_text)
+        if off < 0:
+            continue
+        end = off + len(s.span_text)
+        for a, b, expr in frags:
+            if off >= a and end <= b:
+                s.artifact_class = ARTIFACT_FRAGMENT
+                s.fragment_of = expr
+                break
+    return spans
+
+
+def _classify_decoded(payload: str, is_shellcode: bool) -> str:
+    """R-3 · what class of artifact did a decode actually produce?"""
+    if is_shellcode:
+        return ARTIFACT_SHELLCODE
+    if not payload:
+        return ARTIFACT_DECODED
+    if re.search(
+        r"(?:\bIEX\b|Invoke-Expression|Invoke-Command|Invoke-WebRequest|"
+        r"Start-Process|New-Object|\bcmd(?:\.exe)?\s+/c\b|\bpowershell\b|"
+        r"\bnetsh\b|\bipconfig\b|\bschtasks\b|\breg\s+add\b|\bcurl\b|\bwget\b|"
+        r"\$\w+\s*=|::)", payload, re.I,
+    ):
+        return ARTIFACT_EXECUTABLE
+    return ARTIFACT_DECODED
 
 
 def _find_payload_spans(cmd: str, tokens: List[str],
@@ -904,20 +1073,34 @@ def analyze_command(text: str,
     # Tokenise the first (or only) segment for arg profile matching. Downstream
     # segments still contribute to behavior classification.
     primary_seg = pipeline[0]["cmd"] if pipeline else text
-    tokens = tokenize(primary_seg)
+    tokens, tok_mode = tokenize_with_mode(primary_seg)
 
     # Parsed structure ---------------------------------------------------------
+    # R-1 · evidence preservation. `executable_span.text` is a byte-for-byte
+    # slice of the observed command line; `executable` is that slice with only
+    # surrounding quotes removed. Path separators are never rewritten.
+    exe_raw, exe_start, exe_end = first_token_span(primary_seg)
+    exe_unquoted = exe_raw
+    if len(exe_unquoted) >= 2 and exe_unquoted[0] == exe_unquoted[-1] \
+       and exe_unquoted[0] in ("'", '"'):
+        exe_unquoted = exe_unquoted[1:-1]
     executable = tokens[0] if tokens else ""
     switches = [t for t in tokens[1:] if t.startswith(("-", "/"))]
     non_switches = [t for t in tokens[1:] if not t.startswith(("-", "/"))]
     parsed_structure = {
         "interpreter":       prof.name if prof else "generic",
         "executable":        executable,
+        "executable_span":   {"text": exe_raw, "start": exe_start, "end": exe_end},
+        "evidence_preserved": executable == exe_unquoted,
+        "tokenizer":         tok_mode,
         "switches":          switches,
         "arguments":         non_switches,
         "pipeline_segments": [p["cmd"] for p in pipeline],
         "pipeline_ops":      [p["op"]  for p in pipeline if p["op"]],
-        "token_count":       len(tokens),
+        # R-1 · this was never a measure of PowerShell program complexity — it
+        # is the shell token count of the outer command line. Named honestly.
+        "shell_token_count": len(tokens),
+        "token_count":       len(tokens),   # deprecated mirror of shell_token_count
     }
 
     # Payload spans ------------------------------------------------------------
@@ -925,9 +1108,14 @@ def analyze_command(text: str,
     # Filter out spans that sit inside file-operand tokens (certutil -decode file.b64)
     if prof:
         spans = [s for s in spans if not _is_inside_file_operand(s.span_text, tokens, prof)]
+    # R-3 · classify before gating. A FRAGMENT is an operand of a runtime-built
+    # value, not a payload, and is never decoded independently.
+    spans = _classify_spans(text, spans)
+    fragments = [s for s in spans if s.artifact_class == ARTIFACT_FRAGMENT]
 
     # Confidence gate + tie detection ------------------------------------------
-    high_conf = [s for s in spans if s.confidence >= 0.80]
+    high_conf = [s for s in spans
+                 if s.confidence >= 0.80 and s.artifact_class != ARTIFACT_FRAGMENT]
     needs_choice = False
     choice_reason = ""
     if high_conf:
@@ -964,6 +1152,7 @@ def analyze_command(text: str,
     _MAX_NESTED = 3
     _seen_span_hashes = {hash((s.span_text, s.encoding)) for s in to_decode}
     frontier = list(decodes)
+    _limit_reached = False
     # For each freshly-decoded output, capture any XOR key referenced in its
     # own body so we can carry it forward when we peel nested payloads.
     from payload_sanitizer import find_xor_key as _find_xor_key
@@ -977,24 +1166,40 @@ def analyze_command(text: str,
                 continue
             parent_xor = _find_xor_key(payload)
             nested_spans = _find_payload_spans(payload, tokenize(payload), prof)
+            nested_spans = _classify_spans(payload, nested_spans)
             nested_spans = [s for s in nested_spans if s.confidence >= 0.80
+                            and s.artifact_class != ARTIFACT_FRAGMENT
                             and hash((s.span_text, s.encoding)) not in _seen_span_hashes]
             for ns in nested_spans:
                 _seen_span_hashes.add(hash((ns.span_text, ns.encoding)))
                 sub = _decode_span(ns, hint_xor_key=parent_xor)
                 sub["role"] = f"nested · {ns.role} (in {d['role']})"
                 sub["nested_from"] = d.get("role")
+                sub["depth"] = (d.get("depth") or 0) + 1
                 decodes.append(sub)
                 next_frontier.append(sub)
         frontier = next_frontier
         if not frontier:
             break
+    else:
+        # The loop exhausted its pass budget with work still queued — the
+        # artifact graph was truncated, and the status must say so (R-2).
+        _limit_reached = bool(frontier)
+
+    # R-3 · label every decode with the class of artifact it produced.
+    for d in decodes:
+        d.setdefault("depth", 0)
+        d["artifact_class"] = _classify_decoded(
+            d.get("final_output") or "", bool(d.get("is_shellcode")))
 
     # PowerShell AST deobfuscation — post-decode polish. Apply to (a) the raw
     # command if the interpreter is PowerShell, and (b) each decoded output
     # so nested obfuscation gets resolved too.
-    ast_report: Dict[str, Any] = {"applied": False, "transformations": [],
-                                   "bindings": {}, "final": ""}
+    ast_report: Dict[str, Any] = {
+        "applied": False, "transformations": [], "bindings": {}, "final": "",
+        "semantic_transformations": 0, "incomplete_transformations": 0,
+        "unresolved_expressions": [],
+    }
     # Trigger AST deobfuscation when we recognise the interpreter as PowerShell
     # OR when the raw text carries strong PowerShell syntax markers even in the
     # absence of an explicit `powershell.exe` prefix.
@@ -1006,17 +1211,25 @@ def analyze_command(text: str,
     if (prof and prof.name == "powershell") or ps_hints:
         combined = "\n".join([text] + [d.get("final_output") or "" for d in decodes])
         deob = deobfuscate_ps(combined)
+        # R-2 · a cosmetic pass (keyword case normalisation) is NOT a recovery.
+        semantic_tx = [t for t in deob["transformations"]
+                       if t["kind"] not in COSMETIC_KINDS]
         if deob["transformations"]:
             ast_report = {
-                "applied":         True,
+                "applied":         bool(semantic_tx),
                 "transformations": deob["transformations"],
                 "bindings":        deob["bindings"],
                 "final":           deob["output"],
+                "semantic_transformations":   len(semantic_tx),
+                "incomplete_transformations": deob["incomplete_transformations"],
+                "unresolved_expressions":     deob["unresolved"],
             }
             # If the deobfuscated output differs materially from the raw
             # command, treat it as an additional "decode chain" so it flows
             # into IOC extraction, MITRE mapping and behavior classification.
-            if deob["output"] and deob["output"] != combined:
+            # R-2 · only a SEMANTIC change qualifies. Case normalisation alone
+            # must not manufacture a decode chain.
+            if semantic_tx and deob["output"] and deob["output"] != combined:
                 decodes.append({
                     "span": text[:200] + ("…" if len(text) > 200 else ""),
                     "encoding": "ps-ast",
@@ -1024,12 +1237,18 @@ def analyze_command(text: str,
                     "confidence": 0.90,
                     "chains": [{
                         "engine": "ps-ast",
-                        "steps": [{"op": t["kind"], "reason": t.get("detail", "")}
+                        "steps": [{"op": t["kind"],
+                                   "reason": t.get("detail", ""),
+                                   "complete": t.get("complete", True)}
                                   for t in deob["transformations"]],
                         "output": deob["output"],
                     }],
                     "final_output": deob["output"],
                     "is_shellcode": False,
+                    "depth": 0,
+                    "artifact_class": ARTIFACT_CONSTRUCTED,
+                    "complete": deob["incomplete_transformations"] == 0
+                                and not deob["unresolved"],
                 })
 
     # AMSI / ETW bypass detection — scan the raw command AND every decoded /
@@ -1090,6 +1309,83 @@ def analyze_command(text: str,
     inline      = reconstruct_inline(text, to_decode, decodes)
     summary     = summarize(prof, behaviors, iocs, decodes)
 
+    # ----- R-2 · honest decode status ---------------------------------------
+    # Unresolved constructs are collected from the ORIGINAL text and from every
+    # recovered layer, because a nested layer can introduce new ones.
+    unresolved: List[Dict[str, Any]] = []
+    _seen_unres = set()
+    for src_label, src_text in (
+        [("original_command", text)]
+        + [(d.get("role") or "decoded", d.get("final_output") or "") for d in decodes]
+    ):
+        if not src_text:
+            continue
+        for u in find_unresolved(src_text, ast_report.get("bindings") or {}):
+            key = (u["kind"], u["expression"])
+            if key in _seen_unres:
+                continue
+            _seen_unres.add(key)
+            unresolved.append({**u, "found_in": src_label})
+
+    recovered_layers = [d for d in decodes if (d.get("final_output") or "")]
+    attempted = bool(to_decode) or bool(ast_report.get("semantic_transformations"))
+
+    if needs_choice:
+        decode_status = DECODE_AMBIGUOUS
+        status_reason = choice_reason
+    elif not spans and not attempted and not unresolved:
+        decode_status = DECODE_NOT_REQUIRED
+        status_reason = "No encoded or obfuscated construct was identified."
+    elif not recovered_layers and attempted:
+        decode_status = DECODE_FAILED
+        status_reason = ("Decoding was attempted on "
+                         f"{len(to_decode)} span(s) and produced no usable output.")
+    elif not recovered_layers:
+        decode_status = DECODE_DETECTED
+        status_reason = (f"{len(spans)} candidate artifact(s) identified; none met "
+                         "the autonomous-decode bar.")
+    elif _limit_reached:
+        decode_status = DECODE_LIMIT_REACHED
+        status_reason = (f"Recursive decode stopped at the {_MAX_NESTED}-layer "
+                         "budget with layers still pending.")
+    elif unresolved:
+        decode_status = DECODE_PARTIALLY_RECOVERED
+        status_reason = (f"{len(recovered_layers)} layer(s) recovered, but "
+                         f"{len(unresolved)} construct(s) were not evaluated.")
+    else:
+        decode_status = DECODE_RECOVERED
+        status_reason = f"{len(recovered_layers)} layer(s) recovered to a fixed point."
+
+    # Invariant (R-2): RECOVERED is impossible while anything is unresolved.
+    if decode_status == DECODE_RECOVERED and unresolved:
+        decode_status = DECODE_PARTIALLY_RECOVERED
+        status_reason = ("Downgraded: unresolved constructs remain, so the "
+                         "recovery is partial by definition.")
+
+    # ----- R-3 · canonical artifact, promoted only when it is trustworthy ----
+    deepest = None
+    for d in recovered_layers:
+        if d.get("artifact_class") == ARTIFACT_CONSTRUCTED:
+            continue
+        if deepest is None or (d.get("depth") or 0) >= (deepest.get("depth") or 0):
+            deepest = d
+    promote = decode_status == DECODE_RECOVERED and deepest is not None
+    canonical = {
+        "promoted":       promote,
+        "decode_status":  decode_status,
+        "artifact_class": deepest.get("artifact_class") if deepest else None,
+        "source_role":    deepest.get("role") if deepest else None,
+        "depth":          (deepest.get("depth") or 0) if deepest else None,
+        "text":           (deepest.get("final_output") or "") if promote else None,
+        "candidate_text": None if promote else (
+            (deepest.get("final_output") or "") if deepest else None),
+        "reason": ("Deepest deterministically recovered layer at a fixed point."
+                   if promote else
+                   f"Not promoted — decode status is {decode_status}. "
+                   "A partial or ambiguous reconstruction is never presented as "
+                   "the canonical decoded artifact."),
+    }
+
     return {
         "original_command":       text,
         "parsed_structure":       parsed_structure,
@@ -1102,12 +1398,19 @@ def analyze_command(text: str,
                 "reason":     s.reason,
                 "offset":     s.offset,
                 "auto_decoded": s in to_decode,
+                "artifact_class": s.artifact_class,
+                "fragment_of":    s.fragment_of,
             } for s in spans
         ],
+        "fragment_count":         len(fragments),
         "needs_choice":           needs_choice,
         "choice_reason":          choice_reason,
         "decode_chains":          decodes,
         "final_decoded_inline":   inline,
+        "decode_status":          decode_status,
+        "decode_status_reason":   status_reason,
+        "unresolved_expressions": unresolved,
+        "canonical_decoded_artifact": canonical,
         "ast_deobfuscation":      ast_report,
         "amsi_bypass":            amsi,
         "iocs":                   iocs,

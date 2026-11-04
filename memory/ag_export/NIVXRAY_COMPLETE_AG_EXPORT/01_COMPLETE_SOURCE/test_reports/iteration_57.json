@@ -1,0 +1,23 @@
+{
+  "summary": "PE Binary Analysis (Phase 1 · Cycle 1) validated end-to-end. Backend: 61/61 pytest passing across the full requested regression set (tests/test_pe_analyzer.py 7/7, test_binary_terminal_state.py 4/4, test_iedde_ssot_wiring.py 7/7, test_iedde_endpoint.py 8/8, test_iedde_stage2_stage3.py 22/22, test_pr212_canonical_evidence_recovery.py 13/13). services.pe_analyzer.is_available()==True; analyze_pe() on real t32.exe returns available=True with x86 exe overview, md5/sha1/sha256/imphash populated, sections with entropy+R/W/X characteristics, imports non-empty, findings sorted by severity and include 'imphash_available'. analyze_pe(b'not a pe') -> available=True, error='not_a_pe'. analyze_pe(b'MZ'+\\x00*500) -> error='pe_parse_failed'. Deterministic across runs (test_analyze_pe_is_deterministic passed). Recipe planner integration attaches pe_analysis to BinaryArtifact when kind=='PE'. Negative-shadow test_plain_text_starting_with_mz_not_labelled_binary still passes. Frontend: logged in as admin@nivxray.com on public preview URL, pasted the powershell.exe -c \"[Convert]::FromBase64String('{b64}')\" payload with the fabricated small PE, clicked btn-nivxray-decode: ribbon-terminal-state-badge='Binary Artifact Recovered', iedde-decision-trace present, pe-analysis-error rendered with reasoned 'PE ANALYSIS FAILED · pe_parse_failed — pefile could not parse the payload: PEFormatError: Invalid NT Headers signature.' (this is the intended graceful-degradation path per review request — MUST count as PASS). All existing panels intact: recipe-panel, decoding-trace-panel, output-card, recovery-status-ribbon, iedde-decision-trace, threat-analysis-panel, investigation-brain-panel, operations-panel (recipe steps, output tabs, kill-chain graph all rendered normally below new PE panel).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_pe_analyzer.py",
+    "/app/test_reports/pytest/iter57_pe_analyzer.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "services/pe_analyzer.py is 500 lines but well-scoped and readable; single-responsibility respected — no split needed at this size.",
+    "Rule 21 (Determinism) properly enforced via sorted imports/exports/resources/findings; findings sort key uses (severity_order, code) so stable across Python versions.",
+    "PEAnalysisPanel.jsx (~452 lines) collapsible + graceful-degradation paths cleanly separated; consider splitting the Findings/Sections/Imports sub-panels into their own files if it grows further.",
+    "Real large PE payload (~130KB base64) may trigger Cloudflare edge timeouts through the public preview URL — the fallback to fabricated tiny PE (hitting pe-analysis-error) is the correct exercise per owner directive."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (61/61)", "frontend": "100% (all data-testids present with expected values, graceful-degradation surface exercised, no existing panel disturbed)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None (read-only decode/analyze; no persistent case data created).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable regression: cd /app/backend && python -m pytest tests/test_pe_analyzer.py tests/test_binary_terminal_state.py tests/test_iedde_ssot_wiring.py tests/test_iedde_endpoint.py tests/test_iedde_stage2_stage3.py tests/test_pr212_canonical_evidence_recovery.py -v -o addopts=. Real PE sample lives at /root/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/t32.exe. Fabricated tiny PE (base64 provided in review request) exercises the pe-analysis-error graceful-degradation surface — that IS the intended PASS path. Next cycle: YARA + Broken Payload Diagnostics + Favorites (do NOT test here)."
+}

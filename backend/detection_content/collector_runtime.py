@@ -233,7 +233,7 @@ def bootstrap_snort_collector() -> dict:
 # ── P0.4 · Golden E2E harness (§17, §18, §37) ───────────────────
 
 GOLDEN_SNORT_EVENT = {
-    "timestamp":  "2026-02-30T12:34:56.789Z",
+    "timestamp":  "2026-02-28T12:34:56.789Z",
     "event_type": "alert",
     "src_ip":     "203.0.113.42",
     "src_port":   443,

@@ -1,0 +1,107 @@
+[
+  {
+    "check": "build succeeds with scope=edr",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "build succeeds with scope=xdr",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "build succeeds with scope=UNSET",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "scope=edr is inlined into the bundle",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "scope=xdr is inlined into the bundle",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "scope UNSET leaves the guard inert (no scope literal needed)",
+    "pass": true,
+    "detail": "unscoped build"
+  },
+  {
+    "check": "[scope=edr] / lands on /edr",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "[scope=edr] unknown path lands on /edr",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "[scope=edr] every /xdr path is blocked and XDR never renders",
+    "pass": true,
+    "detail": "3 foreign paths blocked"
+  },
+  {
+    "check": "[scope=edr] guard does not loop on a host with no edge rule",
+    "pass": true,
+    "detail": "settled at /xdr/incidents"
+  },
+  {
+    "check": "[scope=edr] own product route is NOT blocked",
+    "pass": true,
+    "detail": "/login?returnTo=%2Fedr%2Fdetections"
+  },
+  {
+    "check": "[scope=edr] neutral /login is reachable",
+    "pass": true,
+    "detail": "/login"
+  },
+  {
+    "check": "[scope=xdr] / lands on /xdr",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "[scope=xdr] unknown path lands on /xdr",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "[scope=xdr] every /edr path is blocked and EDR never renders",
+    "pass": true,
+    "detail": "3 foreign paths blocked"
+  },
+  {
+    "check": "[scope=xdr] guard does not loop on a host with no edge rule",
+    "pass": true,
+    "detail": "settled at /edr/detections"
+  },
+  {
+    "check": "[scope=xdr] own product route is NOT blocked",
+    "pass": true,
+    "detail": "/login?returnTo=%2Fxdr%2Fincidents"
+  },
+  {
+    "check": "[scope=xdr] neutral /login is reachable",
+    "pass": true,
+    "detail": "/login"
+  },
+  {
+    "check": "[scope=UNSET] / lands on /xdr",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "[scope=UNSET] unknown path lands on /xdr",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "[scope=UNSET] combined deployment shows NO guard (Preview XDR/EDR untouched)",
+    "pass": true,
+    "detail": "/login?returnTo=%2Fedr%2Fdetections"
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "id": "c2-derived-key-2",
+  "algorithm": "AES-CBC",
+  "key_status": "c2-derived",
+  "recoverable_stages": [
+    "base64-decode-cipher"
+  ],
+  "runtime_stages": [
+    "http-request-key-fetch",
+    "aes-cbc-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [
+    "http://n1x.io/keys.txt"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1071.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

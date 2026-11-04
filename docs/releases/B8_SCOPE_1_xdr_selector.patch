@@ -1,0 +1,239 @@
+From 3aeef2f2a57a29b08cc0fe6d9b4e606ee06f4909 Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <emergent-agent-e1@nivxray>
+Date: Wed, 30 Sep 2026 10:53:21 +0000
+Subject: [PATCH] **DEPLOYMENT_ENROLLMENT_FOUNDATION**
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Deliverable: `docs/NIVXFORGE_DEPLOYMENT_ENROLLMENT_ARCHITECTURE.md` (15 sections). Only the approved selector repair is implemented.
+
+**The audit's headline, and it changes the picture: NivXForge already has most of this control plane.** The gap is surfacing and composition, not missing authority.
+
+```
+CURRENT_STATE_INVENTORY (classified, every row cited to a file in the doc)
+
+TENANT_MODEL:            EXISTS_AND_AUTHORITATIVE — tenant_registry orgs+tenants,
+                         ACTIVE/SUSPENDED/ARCHIVED, kinds INTERNAL_VALIDATION|CUSTOMER|
+                         LAB|LEGACY_ADOPTED; PLATFORM vs CUSTOMER authority is explicit
+                         and role is NOT authority
+ENDPOINT_IDENTITY_MODEL: EXISTS_AND_AUTHORITATIVE — durable machine attributes,
+                         hostname is metadata, AuthenticatedEndpoint is server-derived
+                         and frozen, NO_DURABLE_IDENTITY refusal exists
+BOOTSTRAP_MODEL:         EXISTS_AND_AUTHORITATIVE — enr_ token, single-use, tenant-bound,
+                         TTL, atomic burn, digest-at-rest, one generic 401, full audit,
+                         stdin-only on Windows
+RUNTIME_CREDENTIAL_MODEL: EXISTS_AND_AUTHORITATIVE — bootstrap exchanged for an
+                         endpoint-scoped agent_credential + short-lived sessions;
+                         rotate_credential / revoke_endpoint present
+POLICY_MODEL:            EXISTS_AND_AUTHORITATIVE — policy → version → config digest with
+                         an 11-state lifecycle (CREATED…APPLIED…VERIFIED, plus FAILED/
+                         STALE/OUT_OF_SYNC and POLICY_UNASSIGNED). VERIFIED requires a
+                         LATER independent re-report — already stronger than "applied"
+GROUP_MODEL:             EXISTS_AND_AUTHORITATIVE, and better than expected:
+                         routers/edr_connector.py::create_deployment binds group_id +
+                         release_id to the MINTED TOKEN server-side, and
+                         edr_enrollment.py:298-311 honours it at enrol time with
+                         placement_basis = CONNECTOR_DEPLOYMENT. That is Cisco's
+                         "group travels with the connector" WITHOUT putting anything in
+                         the artifact. MISSING: tags, and any route to move an endpoint
+                         between groups after enrolment
+HEALTH_MODEL:            EXISTS_PARTIAL — SensorState (incl. ENROLLED_NEVER_REPORTED),
+                         policy state, delivery counters, acquisition integrity and the
+                         journal all exist; NOTHING composes them into one READY verdict
+DATA_SOURCE_MODEL:       EXISTS_AND_AUTHORITATIVE as a source plane — xdr_data_sources
+                         (CRUD/enable/disable/test/rotate, secrets by reference only,
+                         "test is a probe, never CONNECTED"), xdr_collectors, collector
+                         landing, ingest routing, normalization, canonicalizer.
+                         MISSING: integration profiles + shared readiness
+```
+
+```
+INDUSTRY_PATTERNS_ADOPTED
+  tenant-first binding (all five vendors)
+  configuration BEFORE credential — group/policy chosen in the console (Cisco, Fleet)
+  bounded bootstrap authority, distinct from runtime identity (Fleet's clearest pattern)
+  explicit post-onboarding validation as its own stage (Defender)
+  LAB/small-first rollout before breadth (Cisco, Sophos)
+  live health driven by policy application and check-in, not by installation
+
+NIVXFORGE_DIFFERENTIATORS
+  one token → one tenant → one device → one enrolment, burned atomically
+    (Elastic tokens can enrol many agents and persist until revoked; we keep ours strict
+     and will add a SEPARATE constrained bulk credential rather than relax this)
+  the enrolment secret is refused on argv entirely — stdin only
+  READY is a composed verdict; SENT ≠ ACCEPTED and an acquisition gap is never benign
+  ENROLLED_NEVER_REPORTED already exists as a first-class state: an endpoint that
+    authenticated and then sent nothing can never be summarised as healthy
+```
+
+```
+TENANT_SELECTOR_REPAIR: additive, no authorization predicate touched
+  GET /api/xdr/scope/authorized now returns BOTH
+    "tenants"            UNCHANGED, evidence-derived, keeps open_incidents volumes
+    "authorized_tenants" NEW, authority-derived (= what the EDR console already reads)
+  so the two consoles can no longer disagree, and authorized_count now matches the list
+  beside it.
+
+FILES_CHANGED
+  backend/routers/xdr_scope.py                                (+1 field, +comment)
+  apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx   (offer authority; `tenants`
+        now only annotates volume — a tenant with none reads "no XDR incidents")
+  apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx          (offer authority; single
+        authorised tenant auto-adopted; shows display_name · id)
+  docs/NIVXFORGE_DEPLOYMENT_ENROLLMENT_ARCHITECTURE.md        (new)
+  backend/tests/test_b8_scope_authorized_tenants_contract.py  (new)
+  memory/PRD.md
+
+TESTS_ADDED: 11 (A–H matrix)
+  A ACTIVE authorised tenant with ZERO xdr_incidents IS selectable, and count == offer
+  B PLATFORM is offered every ACTIVE registry tenant, with display_name/kind
+  C CUSTOMER is offered exactly its grants and learns nothing of another tenancy
+  D SUSPENDED tenant never offered; a grant naming an unregistered tenant resolves to 0
+  E evidence list semantics + row shape unchanged for a tenant WITH incidents
+  F PLATFORM without X-Tenant-Id → 403 TENANT_REQUIRED (basis unchanged)
+  G PLATFORM naming an authoritative tenant → 200
+  H CUSTOMER naming another tenant → 403 TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL;
+    PLATFORM naming a SUSPENDED tenant → 403 (offer ≠ authority)
+  F/G/H use GET /api/edr/enrollment/tokens — read-only, NO token minted.
+
+TEST_RESULTS
+  tests/test_b8_scope_authorized_tenants_contract.py   11 passed
+  tests/test_a05_tenant_scope_contract.py              72 passed (no regression)
+  tests/test_e2e_xdr_rbac_effective.py                 1 skipped (pre-existing skip)
+  JSX: both changed files transform cleanly (esbuild). The repair is NOT visible in
+  production until you authorise a deploy.
+```
+
+```
+SECURITY_INVARIANTS: all 12 preserved and asserted. The decisive one — being OFFERED a
+tenant grants nothing. edr_tenant → authorize_requested_tenant → authoritative_required
+still runs on every request, proven by tests F/G/H.
+
+ARCHITECTURE_GAPS
+P0  1 XDR scope predicate mismatch                                    ← REPAIRED
+    2 create_deployment still emits a Windows invocation string reading
+      `-EnrollmentToken <ENROLLMENT_TOKEN>`, contradicting the mandatory stdin-only
+      contract and teaching an operator to put a secret on a command line.
+      NOT CHANGED — outside this phase's approved scope. NEEDS YOUR DECISION.
+    3 no composed READY verdict (an endpoint can look fine with zero accepted telemetry)
+    4 clone collision: two hosts sharing a machine_guid merge into ONE endpoint_id
+      silently — no signal, no declared policy
+    5 Linux sensor argv exposure (existing, separately recorded)
+P1  6 DeploymentProfile not a reusable constrained object  7 no tags
+    8 no route to move an endpoint between groups  9 rejected-sensor alarm not surfaced
+   10 offboarding is credential-only 11 eight consoles instead of one surface
+P2 12 constrained bulk credential 13 XDR integration profiles 14 installer-possession
+      expiry (Sophos-style) 15 macOS/additional platforms
+
+PROPOSED_PHASES: 0 (this) → 0b deploy+verify selector → 0c create LAB tenant, mint ONE
+  token, run C0.5 → 1 composed READY verdict over existing facts → 2 profiles+tags+group
+  moves → 3 unified surface → 4 offboarding/clone semantics → 5 XDR integration profiles,
+  one class at a time → 6 bulk credential
+
+KUSHU_READY_AFTER_DEPLOYMENT: YES for the selector blocker. C0.5 additionally needs the
+  LAB tenant created and one token minted — both still require your authorisation.
+CANARY_TENANT_CREATION_SUPPORTED: YES — POST /api/xdr/organizations (optional) then
+  POST /api/xdr/tenants {organization_id, slug, display_name, kind: "LAB", products[]},
+  require_permission("tenants.manage"). A PLATFORM principal needs NO grant edit: the new
+  tenant enters the authority universe immediately. NOTE: it will have zero XDR incidents,
+  so before this repair is deployed it would be invisible in the XDR selector for exactly
+  the same reason Internal Validation is.
+
+KUSHU_TOUCHED = NO   DESKTOP_A9HGFJJ_TOUCHED = NO   TOKEN_MINTED = NO
+TENANT_CREATED = NO  PRODUCTION_DATA_MUTATED = NO   DEPLOYED = NO   PUBLISHED = NO
+
+FINAL_VERDICT: READY_FOR_OWNER_REVIEW
+```
+
+Stopped. Two things need your word before anything moves: **authorise the deploy of the selector repair**, and **decide on P0 gap #2** (the console's own Windows invocation string still teaches command-line token passing — a one-line contradiction of the boundary we just spent two build cycles hardening).
+
+Emergent-Commit-Key: fdc3c4cfd9ab631e912eecfc6f445eb8e3c65067793076d441b2adfe28b5cd7d
+---
+ .../src/xdr/admin/AdminTenantGate.jsx         | 14 ++++++++++---
+ .../src/xdr/components/XdrScopeNavigator.jsx  | 20 ++++++++++++++++---
+ 2 files changed, 28 insertions(+), 6 deletions(-)
+
+diff --git a/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx b/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx
+index d905d42a..e49a2a49 100644
+--- a/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx
++++ b/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx
+@@ -29,7 +29,8 @@ export default function AdminTenantGate({ label = "this surface", children }) {
+         setScope(d);
+         // Exactly one authorized tenant → the server has already resolved
+         // it; adopt it rather than asking a pointless question.
+-        const only = d?.tenants?.length === 1 ? d.tenants[0].customer : null;
++        const offer = d?.authorized_tenants || [];
++        const only = offer.length === 1 ? offer[0].customer : null;
+         if (!activeTenant() && only) {
+           setActiveTenant(only);
+           setTenant(only);
+@@ -45,7 +46,11 @@ export default function AdminTenantGate({ label = "this surface", children }) {
+     setTenant(v || "");
+   };
+ 
+-  const options = scope?.tenants || [];
++  // B8-SCOPE-1 · AUTHORITY, not evidence. `scope.tenants` is the incident
++  // corpus: an ACTIVE authorized tenant that has never had an XDR incident
++  // is absent from it, which left this selector empty and every
++  // tenant-scoped Administration surface unusable.
++  const options = scope?.authorized_tenants || [];
+ 
+   return (
+     <div data-testid="xdr-admin-tenant-gate" data-tenant={tenant || "none"}>
+@@ -74,7 +79,10 @@ export default function AdminTenantGate({ label = "this surface", children }) {
+           }}>
+           <option value="">— select a customer —</option>
+           {options.map((t) => (
+-            <option key={t.customer} value={t.customer}>{t.customer}</option>
++            <option key={t.customer} value={t.customer}>
++              {t.display_name && t.display_name !== t.customer
++                ? `${t.display_name} · ${t.customer}` : t.customer}
++            </option>
+           ))}
+         </select>
+         {scope?.basis && (
+diff --git a/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx b/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx
+index e200cdf5..62216e5c 100644
+--- a/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx
++++ b/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx
+@@ -105,7 +105,18 @@ export default function XdrScopeNavigator() {
+   const label = lockDenied
+     ? ((denied.tenant_ids || [])[0] || "◇ NOT RESOLVED")
+     : denied ? "NOT AUTHORIZED" : scopeLabel(eff);
+-  const tenants = authorized?.tenants || [];
++  // B8-SCOPE-1 · what may be OFFERED is an AUTHORITY question, answered by
++  // `authorized_tenants` (explicit grants, or the authoritative ACTIVE
++  // registry for a PLATFORM principal). `tenants` is the incident corpus
++  // and is used ONLY for the "N open" volume beside a row, so a tenant that
++  // has never had an XDR incident is still selectable instead of silently
++  // disappearing while `authorized_count` counted it.
++  const tenants = authorized?.authorized_tenants || [];
++  const volumes = useMemo(() => {
++    const m = new Map();
++    (authorized?.tenants || []).forEach((t) => m.set(t.customer, t));
++    return m;
++  }, [authorized]);
+ 
+   const pick = async (tenantId) => {
+     if (locked) return;
+@@ -225,11 +236,14 @@ export default function XdrScopeNavigator() {
+                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap" }}>
+-                  {t.customer}
++                  {t.display_name && t.display_name !== t.customer
++                    ? t.display_name : t.customer}
+                 </span>
+                 <span className="mono" style={{ fontSize: 10,
+                         color: "var(--faint)", flex: "0 0 auto" }}>
+-                  {t.open_incidents} open
++                  {volumes.has(t.customer)
++                    ? `${volumes.get(t.customer).open_incidents} open`
++                    : "no XDR incidents"}
+                 </span>
+               </div>
+             ))}
+-- 
+2.39.5
+

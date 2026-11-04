@@ -1,0 +1,10 @@
+{
+  "id": "batch-envvar-4",
+  "category": "batch-envvar",
+  "command_line": "set p=c_e_r_t_u_t_i_l_._e_x_e && start \"\" %p:_=%",
+  "expected_keywords": [
+    "certut"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

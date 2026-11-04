@@ -1,0 +1,23 @@
+{
+  "summary": "P1-02c FINAL VALIDATION — all three P0 fixes on top of iteration_50 verified GREEN. (1) SHELLCODE PARITY: MSFvenom-style payload (fc e8 82 00 00 00 60 ... 149.28.81.19 ... Mozilla/5.0 MSIE 9.0) sent to POST /api/decode/smart returns reached_shellcode=true, cio.metadata.shellcode.is_shellcode=true, family='Metasploit Meterpreter (reverse_tcp/https · x86 stager)', arch='x86_64', size>0, c2_ips contains '149.28.81.19', evidence graph has 'shellcode_detected' node, verdict=Malicious @ 99%. X-Lab Decoded Output Preview shows a proper SHELLCODE banner (data-testid='shellcode-banner') with family, arch and c2 IPs — raw GZIP bytes are NOT visible. (2) Sprint 1 regression: 'hello world' → Informational @ ≤30%, 'echo hello' not Malicious @ ≤75%. (3) VEC timeline: verdict-explanation-card compact mode now renders vec-timeline (last 4 steps). Backend parity 67 passed / 13 skipped / 0 failed. Custom review-request suite 6/6 passed. OSINT enrichment unchanged (engine='shared:workspace', providers array present, URL/IP/AbuseIPDB/URLScan lens all render). No console errors on X-Lab (only 2 unrelated 404s for optional assets).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_p1_02c_final.py",
+    "/app/backend/tests/parity/"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Both iteration_50 P0 regressions are resolved — topology_signal now requires at least one attack-worthy kind before firing HIGH, and VerdictExplanationCard shows a compact 4-step timeline.",
+    "New shellcode_analyzer + synthetic 'shellcode_detected' node cleanly threads through fact_substrate → builder → evidence_classes → verdict_engine; ladder frames get decorated with isShellcode/shellcode metadata and the raw-bytes preview is suppressed in favour of the analyst banner.",
+    "Confidence on 'echo hello' is now well within the ≤75% ceiling and 'hello world' back to Informational; benign 2-layer decode chains no longer promoted."
+  ],
+  "updated_files": ["/app/backend/tests/test_p1_02c_final.py (new pytest for all 6 review-request assertions)"],
+  "success_rate": {"backend": "100% (6/6 review-request tests + 67/13/0 parity)", "frontend": "100% (shellcode banner + vec-timeline + osint lens all render, verdict Malicious @ 99%)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iteration_50 P0s all cleared. Reusable test: /app/backend/tests/test_p1_02c_final.py — run with REACT_APP_BACKEND_URL set to the public preview URL (localhost:8001 also works but 60s timeout can hit on shellcode analysis). Auth token via POST /api/auth/login. Frontend shellcode testids: shellcode-banner, shellcode-family, shellcode-arch, shellcode-c2-ips. VEC testids: verdict-explanation-card, vec-timeline.",
+  "rca of the issue": "No open issues. All three P0 fixes from iteration_50 (execution_chain_correlated gating, VEC timeline in compact mode, shellcode banner parity) are confirmed working end-to-end backend+frontend."
+}

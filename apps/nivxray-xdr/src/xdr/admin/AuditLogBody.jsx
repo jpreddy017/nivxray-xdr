@@ -9,6 +9,7 @@ import React, { useEffect, useState } from "react";
 import { ShieldCheck, RefreshCw, Search } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 export default function AuditLogBody() {
@@ -31,8 +32,7 @@ export default function AuditLogBody() {
       setState({ loading: false, err: null });
     } catch (e) {
       setRows([]);
-      setState({ loading: false, err: e?.response?.data?.detail
-                                        || e?.message || "audit-log fetch failed" });
+      setState({ loading: false, err: refusalText(e, "audit-log fetch failed")});
     }
   };
 
@@ -42,7 +42,7 @@ export default function AuditLogBody() {
       setChain(r?.data?.data || null);
     } catch (e) {
       setChain({ status: "unavailable",
-                       reason: e?.response?.data?.detail || e?.message });
+                       reason: refusalText(e)});
     }
   };
 

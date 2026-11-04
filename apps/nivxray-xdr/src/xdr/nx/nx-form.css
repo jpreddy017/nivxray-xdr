@@ -1,0 +1,143 @@
+/* ──────────────────────────────────────────────────────────────────
+   Nx · FORM primitives.
+
+   The investigation surfaces had tables, panes and chips but no form
+   language, so analyst-input tabs fell back to legacy `rl-*` classes
+   whose stylesheet is not loaded on these routes — labels rendered as
+   naked text, textareas collapsed to three characters wide and muted
+   colours resolved to nothing.
+
+   Every value resolves from the nx tokens with the console variables as
+   fallback, so one definition works in both the light and the dark
+   theme.
+   ────────────────────────────────────────────────────────────────── */
+
+.nx-form { display: grid; gap: 14px; padding: 12px 14px 14px; }
+
+/* Two columns on wide viewports, one on narrow. `--span` lets a field
+   claim the full row (notes, summaries). */
+.nx-form--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 900px) { .nx-form--2 { grid-template-columns: minmax(0, 1fr); } }
+.nx-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.nx-field--wide { grid-column: 1 / -1; }
+
+.nx-label {
+  font-size: 10px; font-weight: 800; letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--nx-muted, var(--muted, #6b7280));
+}
+.nx-req { color: var(--nx-critical, #E5484D); margin-left: 3px; }
+
+.nx-input, .nx-textarea, .nx-select {
+  width: 100%; box-sizing: border-box;
+  font: inherit; font-size: 12px; line-height: 1.55;
+  color: var(--nx-text, var(--text, #111827));
+  background: var(--nx-surf, var(--panel, #fff));
+  border: 1px solid var(--nx-bd-strong, var(--border, #d1d5db));
+  border-radius: 4px; padding: 7px 9px;
+  transition: border-color .15s ease, box-shadow .15s ease,
+              background-color .15s ease;
+}
+.nx-textarea {
+  min-height: 112px; resize: vertical;
+  font-family: var(--nx-font-mono, var(--mono, ui-monospace, monospace));
+  font-size: 11.5px;
+}
+.nx-select { appearance: none; padding-right: 30px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%,
+      var(--nx-muted, #6b7280) 50%),
+    linear-gradient(135deg, var(--nx-muted, #6b7280) 50%, transparent 50%);
+  background-position: calc(100% - 15px) calc(50% + 1px),
+                       calc(100% - 10px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.nx-input::placeholder, .nx-textarea::placeholder {
+  color: var(--nx-faint, var(--faint, #9ca3af)); opacity: 1;
+}
+.nx-input:hover, .nx-textarea:hover, .nx-select:hover {
+  border-color: var(--nx-muted, var(--muted, #9ca3af));
+}
+.nx-input:focus, .nx-textarea:focus, .nx-select:focus {
+  outline: none;
+  border-color: var(--nx-teal, #0ea5e9);
+  box-shadow: 0 0 0 3px color-mix(in srgb,
+    var(--nx-teal, #0ea5e9) 22%, transparent);
+}
+.nx-input:disabled, .nx-textarea:disabled, .nx-select:disabled {
+  opacity: .55; cursor: not-allowed;
+}
+
+.nx-help {
+  font-size: 10.5px; line-height: 1.6;
+  color: var(--nx-faint, var(--faint, #6b7280));
+}
+.nx-help--mono { font-family: var(--nx-font-mono, var(--mono, monospace)); }
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.nx-actions {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 14px 14px;
+}
+.nx-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .2px;
+  padding: 7px 14px; border-radius: 4px; cursor: pointer;
+  color: var(--nx-text, var(--text, #111827));
+  background: var(--nx-surf-raised, var(--panel, #fff));
+  border: 1px solid var(--nx-bd-strong, var(--border, #d1d5db));
+  transition: background-color .15s ease, border-color .15s ease,
+              transform .08s ease, opacity .15s ease;
+}
+.nx-btn:hover:not(:disabled) {
+  border-color: var(--nx-muted, var(--muted, #9ca3af));
+  background: color-mix(in srgb, var(--nx-text, #111827) 6%, transparent);
+}
+.nx-btn:active:not(:disabled) { transform: translateY(1px); }
+.nx-btn:disabled { opacity: .45; cursor: not-allowed; }
+.nx-btn--primary {
+  color: #fff;
+  background: var(--nx-teal, #0369a1);
+  border-color: var(--nx-teal, #0369a1);
+}
+.nx-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--nx-teal, #0369a1) 85%, #000);
+  border-color: color-mix(in srgb, var(--nx-teal, #0369a1) 85%, #000);
+}
+.nx-btn--danger {
+  color: #fff;
+  background: var(--nx-critical, #b42318);
+  border-color: var(--nx-critical, #b42318);
+}
+
+/* ── Inline statements ─────────────────────────────────────────── */
+.nx-alert {
+  display: flex; align-items: flex-start; gap: 7px;
+  font-size: 11.5px; line-height: 1.6; border-radius: 4px;
+  padding: 8px 11px; margin: 0 14px;
+  border: 1px solid var(--nx-bd-quiet, var(--border, #e5e7eb));
+  background: color-mix(in srgb, var(--nx-muted, #6b7280) 8%, transparent);
+  color: var(--nx-text-dim, var(--text-dim, #374151));
+}
+.nx-alert--error {
+  border-color: color-mix(in srgb, var(--nx-critical, #E5484D) 55%, transparent);
+  background: color-mix(in srgb, var(--nx-critical, #E5484D) 12%, transparent);
+  color: var(--nx-critical, #b42318);
+}
+.nx-alert--ok {
+  border-color: color-mix(in srgb, var(--nx-ok, #2f9e44) 55%, transparent);
+  background: color-mix(in srgb, var(--nx-ok, #2f9e44) 12%, transparent);
+  color: var(--nx-ok, #2f9e44);
+}
+
+/* A reserved API path or identifier, on its own line — never trailing a
+   sentence where it used to run off the viewport. */
+.nx-code {
+  display: inline-block; max-width: 100%; overflow-wrap: anywhere;
+  font-family: var(--nx-font-mono, var(--mono, monospace));
+  font-size: 10.5px; letter-spacing: .2px;
+  padding: 2px 7px; border-radius: 3px;
+  color: var(--nx-text-dim, var(--text-dim, #374151));
+  background: var(--nx-surf-inset, color-mix(in srgb,
+    var(--nx-muted, #6b7280) 12%, transparent));
+  border: 1px solid var(--nx-bd-quiet, var(--border, #e5e7eb));
+}

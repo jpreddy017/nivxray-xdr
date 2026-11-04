@@ -53,6 +53,18 @@ CATALOG = [
         "expected_events_per_endpoint": "20-800/min",
     },
     {
+        "id":            "cat_endpoint_windows_eventlog",
+        "category":      "ENDPOINT",
+        "display_name":  "Windows Endpoint (native Event Log · NivXForge EDR)",
+        "description":   "NivXForge EDR acquires the endpoint's own channels natively (EvtSubscribe + per-channel bookmark) — Sysmon, Security, PowerShell, Defender.",
+        "protocol":      "windows-eventlog",
+        "default_port":  None,
+        "recommended_parser": "windows-evt-xml",
+        "recommended_normalization_profile": "ecs-windows-eventlog",
+        "example_data_source_kind": "windows_eventlog_native",
+        "expected_events_per_endpoint": "20-800/min",
+    },
+    {
         "id":            "cat_endpoint_edr",
         "category":      "ENDPOINT",
         "display_name":  "EDR Vendor Adapter (CrowdStrike / Defender / SentinelOne)",

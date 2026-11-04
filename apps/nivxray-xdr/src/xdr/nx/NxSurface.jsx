@@ -45,7 +45,8 @@ export function NxKpi({
       ? value.toLocaleString()
       : value;
   return (
-    <div className="nx-kpi" data-testid={testid}>
+    <div className={`nx-kpi${Icon ? "" : " nx-kpi--noicon"}`}
+         data-testid={testid}>
       {Icon && (
         <div className={`nx-kpi-icon nx-kpi-icon-${tone}`} aria-hidden="true">
           <Icon size={16} />

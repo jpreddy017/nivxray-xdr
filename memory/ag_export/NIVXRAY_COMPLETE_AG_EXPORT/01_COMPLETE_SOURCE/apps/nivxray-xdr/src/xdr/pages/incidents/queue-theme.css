@@ -1,0 +1,861 @@
+/**
+ * NivXRay · Layer 2 · Incident Queue — Hybrid theme
+ *
+ * Locked owner directive:
+ *   Defender-inspired LIGHT analyst workspace + DARK investigation
+ *   preview drawer + NivXRay purple accent.
+ *
+ * Everything is scoped under `.xdr-queue-l2` so it never leaks out
+ * of this page — the rest of the XDR console keeps its own theme.
+ */
+
+.xdr-queue-l2 {
+  /* Light workspace tokens */
+  --ql-bg:            #F5F6F8;
+  --ql-surface:       #FFFFFF;
+  --ql-surface-2:     #FAFBFC;
+  --ql-surface-3:     #F1F3F6;
+  --ql-border:        #E2E5EA;
+  --ql-border-hi:     #CBD0D8;
+  --ql-text:          #1B1F26;
+  --ql-text-dim:      #4B5563;
+  --ql-muted:         #6B7280;
+  --ql-faint:         #9CA3AF;
+
+  /* NivXRay purple accent */
+  --ql-purple:        #6D4EE0;
+  --ql-purple-dim:    #EDE7FF;
+  --ql-purple-hover:  #5B3ED1;
+
+  /* Semantic tones (Defender-parity signal colors) */
+  --ql-red:           #DC2626;
+  --ql-red-bg:        #FEF2F2;
+  --ql-orange:        #EA580C;
+  --ql-orange-bg:     #FFF7ED;
+  --ql-amber:         #D97706;
+  --ql-amber-bg:      #FFFBEB;
+  --ql-green:         #059669;
+  --ql-green-bg:      #ECFDF5;
+  --ql-blue:          #2563EB;
+  --ql-blue-bg:       #EFF6FF;
+
+  /* Preview drawer (dark) */
+  --qd-bg:            #0E1017;
+  --qd-panel:         #151823;
+  --qd-panel-2:       #1B1F2D;
+  --qd-border:        #262B3A;
+  --qd-text:          #E7E9EF;
+  --qd-text-dim:      #B4B9C6;
+  --qd-muted:         #78808F;
+  --qd-faint:         #4A5162;
+  --qd-purple:        #A88BFF;
+
+  --qs-mono: 'IBM Plex Mono','SFMono-Regular',Consolas,ui-monospace,monospace;
+  --qs-sans: 'Inter','Segoe UI',system-ui,sans-serif;
+
+  background: var(--ql-bg);
+  color: var(--ql-text);
+  font-family: var(--qs-sans);
+  min-height: 100%;
+  margin: -18px -22px -32px;        /* escape XdrShell padding */
+  padding: 20px 24px 40px;
+}
+
+/* ── Page header ───────────────────────────────────────────────── */
+.xdr-queue-l2 .ql-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.xdr-queue-l2 .ql-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ql-text);
+  margin: 0 0 3px;
+}
+.xdr-queue-l2 .ql-sub {
+  font-size: 12px;
+  color: var(--ql-muted);
+  line-height: 1.5;
+}
+.xdr-queue-l2 .ql-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Priority strip (KPI tiles) ────────────────────────────────── */
+.xdr-queue-l2 .ql-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1280px) {
+  .xdr-queue-l2 .ql-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .xdr-queue-l2 .ql-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.xdr-queue-l2 .ql-tile {
+  background: var(--ql-surface);
+  border: 1px solid var(--ql-border);
+  border-left: 3px solid var(--ql-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, border-color 120ms ease,
+                transform 100ms ease;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.xdr-queue-l2 .ql-tile:hover {
+  box-shadow: 0 2px 8px rgba(15,20,30,0.08);
+  border-color: var(--ql-border-hi);
+}
+.xdr-queue-l2 .ql-tile.active {
+  border-left-color: var(--ql-purple);
+  box-shadow: 0 0 0 1px var(--ql-purple);
+}
+.xdr-queue-l2 .ql-tile-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ql-muted);
+}
+.xdr-queue-l2 .ql-tile-count {
+  font-family: var(--qs-mono);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ql-text);
+  line-height: 1.1;
+}
+.xdr-queue-l2 .ql-tile.crit    { border-left-color: var(--ql-red); }
+.xdr-queue-l2 .ql-tile.crit  .ql-tile-count { color: var(--ql-red); }
+.xdr-queue-l2 .ql-tile.high    { border-left-color: var(--ql-orange); }
+.xdr-queue-l2 .ql-tile.high  .ql-tile-count { color: var(--ql-orange); }
+.xdr-queue-l2 .ql-tile.amber   { border-left-color: var(--ql-amber); }
+.xdr-queue-l2 .ql-tile.amber .ql-tile-count { color: var(--ql-amber); }
+.xdr-queue-l2 .ql-tile.blue    { border-left-color: var(--ql-blue); }
+.xdr-queue-l2 .ql-tile.blue  .ql-tile-count { color: var(--ql-blue); }
+.xdr-queue-l2 .ql-tile.purple  { border-left-color: var(--ql-purple); }
+.xdr-queue-l2 .ql-tile.purple .ql-tile-count { color: var(--ql-purple); }
+.xdr-queue-l2 .ql-tile.green   { border-left-color: var(--ql-green); }
+.xdr-queue-l2 .ql-tile.green .ql-tile-count { color: var(--ql-green); }
+.xdr-queue-l2 .ql-tile.na .ql-tile-count { color: var(--ql-faint); }
+
+/* ── Toolbar ───────────────────────────────────────────────────── */
+.xdr-queue-l2 .ql-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--ql-surface);
+  border: 1px solid var(--ql-border);
+  border-radius: 6px 6px 0 0;
+  border-bottom: none;
+}
+.xdr-queue-l2 .ql-search {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 9px;
+  background: var(--ql-surface-2);
+  border: 1px solid var(--ql-border);
+  border-radius: 5px;
+  min-width: 260px;
+  flex: 1 1 260px;
+  max-width: 420px;
+  color: var(--ql-muted);
+}
+.xdr-queue-l2 .ql-search input {
+  border: none; background: none; outline: none;
+  width: 100%;
+  color: var(--ql-text);
+  font-family: var(--qs-sans);
+  font-size: 12.5px;
+}
+.xdr-queue-l2 .ql-search:focus-within {
+  border-color: var(--ql-purple);
+  box-shadow: 0 0 0 3px var(--ql-purple-dim);
+}
+.xdr-queue-l2 .ql-tb-right {
+  display: flex; align-items: center; gap: 6px; margin-left: auto;
+  flex-wrap: wrap;
+}
+.xdr-queue-l2 .ql-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px;
+  background: var(--ql-surface);
+  border: 1px solid var(--ql-border);
+  border-radius: 5px;
+  color: var(--ql-text-dim);
+  font-family: var(--qs-sans);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+.xdr-queue-l2 .ql-btn:hover {
+  background: var(--ql-surface-3);
+  color: var(--ql-text);
+  border-color: var(--ql-border-hi);
+}
+.xdr-queue-l2 .ql-btn.primary {
+  background: var(--ql-purple);
+  border-color: var(--ql-purple);
+  color: #fff;
+}
+.xdr-queue-l2 .ql-btn.primary:hover {
+  background: var(--ql-purple-hover);
+  border-color: var(--ql-purple-hover);
+}
+.xdr-queue-l2 .ql-btn.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.xdr-queue-l2 .ql-btn.ghost:hover {
+  background: var(--ql-surface-3);
+  border-color: var(--ql-border);
+}
+.xdr-queue-l2 .ql-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.xdr-queue-l2 .ql-select {
+  padding: 5px 8px;
+  background: var(--ql-surface);
+  border: 1px solid var(--ql-border);
+  border-radius: 5px;
+  color: var(--ql-text);
+  font-family: var(--qs-sans);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.xdr-queue-l2 .ql-select:hover { border-color: var(--ql-border-hi); }
+.xdr-queue-l2 .ql-select:focus { border-color: var(--ql-purple); }
+
+/* ── Dropdown menus (Customize · Saved Views · Filters) ────────── */
+.xdr-queue-l2 .ql-menu-wrap { position: relative; }
+.xdr-queue-l2 .ql-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 260px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--ql-surface);
+  border: 1px solid var(--ql-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(15,20,30,0.12);
+  z-index: 40;
+  padding: 6px 0;
+}
+.xdr-queue-l2 .ql-menu-title {
+  padding: 8px 12px 4px;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ql-muted);
+}
+.xdr-queue-l2 .ql-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: var(--ql-text);
+  font-family: var(--qs-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+.xdr-queue-l2 .ql-menu-item:hover { background: var(--ql-surface-3); }
+.xdr-queue-l2 .ql-menu-item.danger { color: var(--ql-red); }
+.xdr-queue-l2 .ql-menu-drag {
+  cursor: grab;
+  color: var(--ql-faint);
+  display: inline-flex; align-items: center;
+}
+.xdr-queue-l2 .ql-menu-drag:active { cursor: grabbing; }
+.xdr-queue-l2 .ql-menu-sep {
+  height: 1px;
+  background: var(--ql-border);
+  margin: 4px 0;
+}
+
+/* ── Filter chip row + active chips ────────────────────────────── */
+.xdr-queue-l2 .ql-chips {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--ql-surface);
+  border-left: 1px solid var(--ql-border);
+  border-right: 1px solid var(--ql-border);
+  border-bottom: 1px solid var(--ql-border);
+  min-height: 32px;
+}
+.xdr-queue-l2 .ql-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 4px 2px 8px;
+  background: var(--ql-purple-dim);
+  border: 1px solid #C7B8F2;
+  border-radius: 4px;
+  color: var(--ql-text);
+  font-family: var(--qs-mono);
+  font-size: 10.5px;
+}
+.xdr-queue-l2 .ql-chip b {
+  color: var(--ql-purple);
+  font-weight: 700;
+}
+.xdr-queue-l2 .ql-chip-x {
+  background: transparent;
+  border: none;
+  padding: 0 2px;
+  color: var(--ql-purple);
+  cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+.xdr-queue-l2 .ql-chip-x:hover { color: var(--ql-purple-hover); }
+.xdr-queue-l2 .ql-empty-chip {
+  font-family: var(--qs-mono);
+  font-size: 11px;
+  color: var(--ql-muted);
+}
+
+/* ── State tabs ────────────────────────────────────────────────── */
+.xdr-queue-l2 .ql-tabs {
+  display: flex; align-items: center; gap: 0;
+  background: var(--ql-surface);
+  border-left: 1px solid var(--ql-border);
+  border-right: 1px solid var(--ql-border);
+  border-bottom: 1px solid var(--ql-border);
+  padding: 0 6px;
+  overflow-x: auto;
+}
+.xdr-queue-l2 .ql-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 14px;
+  background: transparent; border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ql-muted);
+  font-family: var(--qs-sans);
+  font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.xdr-queue-l2 .ql-tab:hover { color: var(--ql-text-dim); }
+.xdr-queue-l2 .ql-tab.active {
+  color: var(--ql-purple);
+  border-bottom-color: var(--ql-purple);
+}
+.xdr-queue-l2 .ql-tab-count {
+  padding: 0px 6px;
+  border-radius: 999px;
+  background: var(--ql-surface-3);
+  font-family: var(--qs-mono);
+  font-size: 10px;
+  color: var(--ql-muted);
+}
+.xdr-queue-l2 .ql-tab.active .ql-tab-count {
+  background: var(--ql-purple-dim);
+  color: var(--ql-purple);
+}
+
+/* ── Bulk action bar ───────────────────────────────────────────── */
+.xdr-queue-l2 .ql-bulk {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(0deg, var(--ql-purple-dim), var(--ql-purple-dim));
+  border-left: 1px solid var(--ql-border);
+  border-right: 1px solid var(--ql-border);
+  border-bottom: 1px solid #C7B8F2;
+  border-top: 2px solid var(--ql-purple);
+  font-family: var(--qs-sans);
+  font-size: 12px;
+}
+.xdr-queue-l2 .ql-bulk .ql-bulk-count {
+  font-family: var(--qs-mono);
+  font-weight: 700;
+  color: var(--ql-purple);
+}
+.xdr-queue-l2 .ql-bulk .ql-btn { padding: 4px 10px; font-size: 11.5px; }
+
+/* ── Dense table ───────────────────────────────────────────────── */
+.xdr-queue-l2 .ql-table-wrap {
+  background: var(--ql-surface);
+  border-left: 1px solid var(--ql-border);
+  border-right: 1px solid var(--ql-border);
+  border-bottom: 1px solid var(--ql-border);
+  border-radius: 0 0 6px 6px;
+  overflow-x: auto;
+  max-height: 68vh;
+  overflow-y: auto;
+}
+.xdr-queue-l2 .ql-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--qs-sans);
+  font-size: 12.5px;
+  min-width: 1400px;
+}
+.xdr-queue-l2 .ql-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--ql-surface-2);
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ql-muted);
+  border-bottom: 1px solid var(--ql-border);
+  white-space: nowrap;
+  user-select: none;
+}
+.xdr-queue-l2 .ql-table thead th.sortable { cursor: pointer; }
+.xdr-queue-l2 .ql-table thead th.sortable:hover { color: var(--ql-text); }
+.xdr-queue-l2 .ql-table thead th.sorted { color: var(--ql-purple); }
+.xdr-queue-l2 .ql-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ql-border);
+  color: var(--ql-text);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.xdr-queue-l2 .ql-table tbody tr {
+  background: var(--ql-surface);
+  transition: background 100ms ease;
+  cursor: pointer;
+}
+.xdr-queue-l2 .ql-table tbody tr:hover {
+  background: var(--ql-surface-3);
+}
+.xdr-queue-l2 .ql-table tbody tr.selected {
+  background: var(--ql-purple-dim);
+}
+.xdr-queue-l2 .ql-table tbody tr.previewed {
+  background: var(--ql-purple-dim);
+  box-shadow: inset 3px 0 0 var(--ql-purple);
+}
+.xdr-queue-l2 .ql-td-checkbox { width: 32px; }
+.xdr-queue-l2 .ql-td-name {
+  color: var(--ql-purple);
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xdr-queue-l2 .ql-td-name:hover { text-decoration: underline; }
+.xdr-queue-l2 .ql-td-mono {
+  font-family: var(--qs-mono);
+  font-size: 11.5px;
+  color: var(--ql-text-dim);
+}
+.xdr-queue-l2 .ql-td-dim { color: var(--ql-muted); }
+.xdr-queue-l2 .ql-td-dash { color: var(--ql-faint); font-family: var(--qs-mono); }
+
+/* ── Loading / empty states ────────────────────────────────────── */
+.xdr-queue-l2 .ql-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--ql-muted);
+  font-size: 13px;
+  background: var(--ql-surface);
+  border-left: 1px solid var(--ql-border);
+  border-right: 1px solid var(--ql-border);
+  border-bottom: 1px solid var(--ql-border);
+  border-radius: 0 0 6px 6px;
+}
+.xdr-queue-l2 .ql-empty .kbd {
+  font-family: var(--qs-mono);
+  font-size: 11px;
+  color: var(--ql-faint);
+  display: block;
+  margin-top: 6px;
+}
+.xdr-queue-l2 .ql-error {
+  padding: 12px 14px;
+  color: var(--ql-red);
+  background: var(--ql-red-bg);
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  margin: 12px 0;
+  font-family: var(--qs-mono);
+  font-size: 11.5px;
+}
+.xdr-queue-l2 .ql-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--ql-muted);
+  font-family: var(--qs-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+.xdr-queue-l2 .ql-invariant {
+  margin-top: 14px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px dashed var(--ql-border-hi);
+  border-radius: 4px;
+  color: var(--ql-muted);
+  font-family: var(--qs-mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+  letter-spacing: 0.2px;
+}
+
+/* ── Right-side preview drawer (dark) ──────────────────────────── */
+.xdr-queue-l2 .ql-drawer-scrim {
+  position: fixed; inset: 0;
+  background: rgba(15, 18, 25, 0.35);
+  z-index: 80;
+  animation: qlFade 140ms ease;
+}
+.xdr-queue-l2 .ql-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(520px, 95vw);
+  background: var(--qd-bg);
+  color: var(--qd-text);
+  border-left: 1px solid var(--qd-border);
+  box-shadow: -12px 0 32px rgba(0,0,0,0.35);
+  z-index: 90;
+  display: flex; flex-direction: column;
+  animation: qlSlide 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  font-family: var(--qs-sans);
+}
+@keyframes qlFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qlSlide {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.xdr-queue-l2 .ql-drawer-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  background: var(--qd-panel);
+  border-bottom: 1px solid var(--qd-border);
+}
+.xdr-queue-l2 .ql-drawer-head .ql-inc-id {
+  font-family: var(--qs-mono);
+  font-size: 11px;
+  color: var(--qd-muted);
+}
+.xdr-queue-l2 .ql-drawer-head-actions {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 4px;
+}
+.xdr-queue-l2 .ql-drawer-icon-btn {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--qd-border);
+  border-radius: 4px;
+  color: var(--qd-text-dim);
+  cursor: pointer;
+}
+.xdr-queue-l2 .ql-drawer-icon-btn:hover {
+  background: var(--qd-panel-2);
+  color: var(--qd-text);
+}
+.xdr-queue-l2 .ql-drawer-icon-btn:disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
+.xdr-queue-l2 .ql-drawer-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.xdr-queue-l2 .ql-drawer h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--qd-text);
+  line-height: 1.35;
+}
+.xdr-queue-l2 .ql-drawer-badges {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.xdr-queue-l2 .ql-drawer-section {
+  background: var(--qd-panel);
+  border: 1px solid var(--qd-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.xdr-queue-l2 .ql-drawer-section-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--qd-muted);
+  margin-bottom: 6px;
+}
+.xdr-queue-l2 .ql-drawer-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 130px) 1fr;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.xdr-queue-l2 .ql-drawer-kv .k {
+  color: var(--qd-muted);
+  font-family: var(--qs-mono);
+  font-size: 10.5px;
+  padding-top: 2px;
+}
+.xdr-queue-l2 .ql-drawer-kv .v {
+  color: var(--qd-text);
+  word-break: break-word;
+}
+.xdr-queue-l2 .ql-drawer-kv .v.mono {
+  font-family: var(--qs-mono);
+  font-size: 11.5px;
+  color: var(--qd-text-dim);
+}
+.xdr-queue-l2 .ql-drawer-kv .v.dash { color: var(--qd-faint); font-family: var(--qs-mono); }
+.xdr-queue-l2 .ql-drawer-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.xdr-queue-l2 .ql-drawer-metric {
+  background: var(--qd-panel-2);
+  border: 1px solid var(--qd-border);
+  border-radius: 5px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.xdr-queue-l2 .ql-drawer-metric .m-k {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--qd-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.xdr-queue-l2 .ql-drawer-metric .m-v {
+  font-family: var(--qs-mono);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--qd-text);
+  margin-top: 3px;
+}
+.xdr-queue-l2 .ql-drawer-metric .m-v.dim { color: var(--qd-faint); font-size: 12px; }
+.xdr-queue-l2 .ql-drawer-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--qd-border);
+  background: var(--qd-panel);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.xdr-queue-l2 .ql-drawer-open {
+  padding: 8px 14px;
+  background: var(--qd-purple);
+  border: none;
+  border-radius: 5px;
+  color: #0E1017;
+  font-family: var(--qs-sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.xdr-queue-l2 .ql-drawer-open:hover { filter: brightness(1.05); }
+
+/* ── Sub-utilities ─────────────────────────────────────────────── */
+.xdr-queue-l2 .ql-inline-spinner {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border: 2px solid var(--ql-border-hi);
+  border-top-color: var(--ql-purple);
+  border-radius: 50%;
+  animation: qlSpin 0.7s linear infinite;
+}
+@keyframes qlSpin { to { transform: rotate(360deg); } }
+
+/* NxDensity binding · queue table respects Comfort/Compact */
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-table thead th,
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-table tbody td {
+  padding: 5px 8px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-table {
+  font-size: 12px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-tile {
+  padding: 8px 10px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-tile-count {
+  font-size: 18px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-toolbar,
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-chips {
+  padding: 5px 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase B.1 · Queue refinement (grammar §15 · A.1)
+   Precision, not decoration.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* R2 · KPI tile density — tighter, count is primary read */
+.xdr-queue-l2 .ql-tile {
+  padding: 8px 10px 7px;
+  gap: 2px;
+}
+.xdr-queue-l2 .ql-tile-label {
+  font-size: 9.5px;
+  color: var(--nx-muted);
+  letter-spacing: 0.5px;
+}
+.xdr-queue-l2 .ql-tile-count {
+  font: 800 22px/1.05 var(--qs-mono);
+  letter-spacing: -0.4px;
+}
+.xdr-queue-l2 .ql-tile .nx-prov {
+  font-size: 9.5px;
+  color: var(--nx-faint);
+  margin-top: 1px;
+}
+
+/* R5 · table row instrument-grade states */
+.xdr-queue-l2 .ql-table tbody tr {
+  transition: background 90ms ease;
+  position: relative;
+}
+.xdr-queue-l2 .ql-table tbody tr:hover {
+  background: #F9FAFB;
+}
+.xdr-queue-l2 .ql-table tbody tr.selected {
+  background: var(--nx-purple-dim);
+  box-shadow: inset 3px 0 0 var(--nx-purple);
+}
+.xdr-queue-l2 .ql-table tbody tr.previewed {
+  background: var(--nx-purple-dim);
+  box-shadow: inset 3px 0 0 var(--nx-purple);
+}
+.xdr-queue-l2 .ql-table tbody tr.previewed::after {
+  content: "→";
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--nx-purple);
+  font-family: var(--qs-mono);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.xdr-queue-l2 .ql-table thead th.sortable::after {
+  content: "";
+}
+.xdr-queue-l2 .ql-table thead th.sorted {
+  color: var(--nx-purple);
+  border-bottom: 2px solid var(--nx-purple);
+}
+
+/* R3 · incident-name typography carries hierarchy */
+.xdr-queue-l2 .ql-td-name {
+  font: 600 12.5px/1.4 var(--qs-sans);
+  letter-spacing: -0.1px;
+  color: var(--nx-text);
+}
+.xdr-queue-l2 .ql-td-name:hover {
+  color: var(--nx-purple);
+  text-decoration: underline;
+}
+
+/* R6 · purple only for interactive intelligence */
+.xdr-queue-l2 .ql-btn:focus-visible,
+.xdr-queue-l2 .ql-select:focus-visible,
+.xdr-queue-l2 .ql-table tbody tr:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+
+/* R9 · restrained transitions on interactive elements */
+.xdr-queue-l2 .ql-btn { transition: background 120ms ease, border-color 120ms ease, color 120ms ease; }
+.xdr-queue-l2 .ql-tab { transition: color 120ms ease, border-color 120ms ease; }
+
+/* Sort marker chip near the state tabs — surface active sort */
+.xdr-queue-l2 .ql-sort-marker {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; margin-left: 10px;
+  background: var(--nx-workspace-alt);
+  border: 1px solid var(--nx-divider);
+  border-radius: 3px;
+  font: 800 10px/1.4 var(--qs-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--nx-muted);
+}
+.xdr-queue-l2 .ql-sort-marker b {
+  color: var(--nx-text-dim);
+  font-weight: 800;
+}
+
+/* R2 · state-tabs row density */
+.xdr-queue-l2 .ql-tabs {
+  padding: 0 10px;
+}
+.xdr-queue-l2 .ql-tab {
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Visual Maturity · Queue composition
+   The incident table is the focal point (§16.5, §16.2).
+   ═══════════════════════════════════════════════════════════════ */
+
+.xdr-queue-l2 { background: var(--nx-surf-canvas) !important; padding-top: 0 !important; }
+.xdr-queue-l2 .ql-header { display: none; }            /* replaced by NxHeroHeader */
+.xdr-queue-l2 .ql-strip {
+  background: transparent;
+  padding: 12px 0 14px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  gap: 22px;
+}
+.xdr-queue-l2 .ql-tile {
+  background: transparent !important;
+  border: none !important;
+  border-left: 2px solid var(--ql-border) !important;
+  border-radius: 0 !important;
+  padding: 2px 12px !important;
+  box-shadow: none !important;
+  gap: 3px;
+}
+.xdr-queue-l2 .ql-tile:hover { background: transparent !important; box-shadow: none !important; border-left-color: var(--nx-purple) !important; }
+.xdr-queue-l2 .ql-tile.active { box-shadow: none !important; }
+.xdr-queue-l2 .ql-tile.crit    { border-left-color: var(--nx-critical) !important; }
+.xdr-queue-l2 .ql-tile.high    { border-left-color: var(--nx-high) !important; }
+.xdr-queue-l2 .ql-tile.amber   { border-left-color: var(--nx-medium) !important; }
+.xdr-queue-l2 .ql-tile.blue    { border-left-color: var(--nx-low) !important; }
+.xdr-queue-l2 .ql-tile.purple  { border-left-color: var(--nx-purple) !important; }
+.xdr-queue-l2 .ql-tile.green   { border-left-color: var(--nx-benign) !important; }
+.xdr-queue-l2 .ql-tile-count { font-size: 20px !important; }
+.xdr-queue-l2 .ql-tile-label { font-size: 9.5px !important; letter-spacing: 0.5px; }
+.xdr-queue-l2 .ql-tile .nx-prov { display: none; }
+
+/* Toolbar → inset control surface (subordinate) */
+.xdr-queue-l2 .ql-toolbar {
+  background: var(--nx-surf-inset) !important;
+  border-color: var(--nx-bd-quiet) !important;
+  padding: 6px 10px !important;
+}
+.xdr-queue-l2 .ql-chips  { background: var(--nx-surf-inset) !important; }
+.xdr-queue-l2 .ql-tabs   { background: var(--nx-surf-inset) !important; }
+
+/* Table → PRIMARY surface (focal point) */
+.xdr-queue-l2 .ql-table-wrap {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-strong);
+  box-shadow: var(--nx-shadow-1);
+  border-radius: 0 0 var(--nx-r-card) var(--nx-r-card);
+}
+.xdr-queue-l2 .ql-table thead th {
+  background: var(--nx-surf-inset);
+  border-bottom: 1px solid var(--nx-bd-strong);
+}
+
+/* §16.4 · Kill mono-everywhere — incident name uses human voice */
+.xdr-queue-l2 .ql-td-name { font-family: var(--nx-sans, var(--qs-sans)) !important; }
+
+/* Metadata is quiet */
+.xdr-queue-l2 .ql-td-mono { color: var(--nx-faint); }

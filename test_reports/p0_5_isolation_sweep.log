@@ -1,0 +1,60 @@
+[1/60] PRE_EXISTING_UNRELATED  tests/test_training_corpus.py  {'passed': 2, 'error': 270}  2.4s
+[2/60] PRE_EXISTING_UNRELATED  tests/test_real_world_battery.py  {'failed': 29, 'passed': 92}  295.5s
+[3/60]   ATTRIBUTION_REQUIRED  tests/test_xdr_data_sources_collectors.py  {'error': 20}  9.9s
+[4/60]   ATTRIBUTION_REQUIRED  tests/test_xdr_correlation.py  {'error': 17}  9.3s
+[5/60]            ENVIRONMENT  tests/test_p0_dedupe_hardening.py  {'passed': 19}  151.3s
+[6/60] PRE_EXISTING_UNRELATED  tests/test_fixture_regression_matrix.py  {'passed': 8, 'error': 11}  2.0s
+[7/60]            ENVIRONMENT  tests/test_p0_ingest_idempotency.py  {'passed': 13}  142.9s
+[8/60]            ENVIRONMENT  tests/canonical/api/test_p11_upload_bridge.py  {'passed': 11}  170.0s
+[9/60]            ENVIRONMENT  tests/test_xdr_secrets.py  {'passed': 11}  25.0s
+[10/60]            ENVIRONMENT  tests/test_xdr_api_keys.py  {'passed': 9}  16.2s
+[11/60]            ENVIRONMENT  tests/test_xdr_webhooks.py  {'passed': 9}  16.3s
+[12/60]   ATTRIBUTION_REQUIRED  tests/test_xdr_content_pipeline.py  {'failed': 8, 'passed': 15}  7.4s
+[13/60] PRE_EXISTING_UNRELATED  tests/edr/test_p1_10_live_contract.py  {'failed': 6}  135.9s
+[14/60] PRE_EXISTING_UNRELATED  tests/test_adr0014_endpoints.py  {'failed': 3, 'passed': 6}  148.9s
+[15/60] PRE_EXISTING_UNRELATED  tests/test_e2e_decode_smart_http_contract.py  {'failed': 5, 'passed': 5}  142.9s
+[16/60]   ATTRIBUTION_REQUIRED  tests/test_edr_context_p0_f13_3.py  {'failed': 5, 'passed': 1}  2.4s
+[17/60]            ENVIRONMENT  tests/test_xdr_audit_log.py  {'passed': 5}  16.7s
+[18/60] PRE_EXISTING_UNRELATED  tests/edr/test_p0_a2_adversarial_live.py  {'failed': 4, 'passed': 5}  4.1s
+[19/60] PRE_EXISTING_UNRELATED  tests/test_confusion_matrix.py  {'passed': 2, 'error': 7}  1.9s
+[20/60] PRE_EXISTING_UNRELATED  tests/test_playbook_feedback.py  {'error': 10}  1.4s
+[21/60] PRE_EXISTING_UNRELATED  tests/test_rc42_smart_decode_flows.py  {'failed': 4, 'passed': 8}  12.2s
+[22/60] PRE_EXISTING_UNRELATED  tests/test_rc4_verification.py  {'failed': 4, 'passed': 5, 'skipped': 1}  5.8s
+[23/60] PRE_EXISTING_UNRELATED  tests/test_shellcode_pipeline.py  {'passed': 19, 'error': 3}  1.8s
+[24/60]            ENVIRONMENT  tests/live/test_phase2_final_gate_live.py  {'passed': 9, 'skipped': 1}  12.2s
+[25/60] PRE_EXISTING_UNRELATED  tests/test_batch_and_rss_feb2026.py  {'passed': 4, 'error': 13}  2.3s
+[26/60]   ATTRIBUTION_REQUIRED  tests/test_collector_api_key_adversarial_regression.py  {'failed': 5, 'passed': 9, 'error': 4}  4.0s
+[27/60] PRE_EXISTING_UNRELATED  tests/test_iter27_rc45.py  {'failed': 3, 'passed': 3}  5.4s
+[28/60]   ATTRIBUTION_REQUIRED  tests/test_p1_machine_credential_hardening.py  {'failed': 3, 'passed': 8}  1.9s
+[29/60] PRE_EXISTING_UNRELATED  tests/test_ps_ascii_xor_iex.py  {'passed': 4, 'error': 3}  1.5s
+[30/60] PRE_EXISTING_UNRELATED  tests/test_rc45_iteration26.py  {'failed': 3, 'passed': 9}  12.0s
+[31/60] PRE_EXISTING_UNRELATED  tests/test_restore_equivalence_live.py  {'failed': 3, 'passed': 1}  2.4s
+[32/60] PRE_EXISTING_UNRELATED  tests/test_ssot_persistence_live.py  {'failed': 3, 'passed': 4}  5.3s
+[33/60] PRE_EXISTING_UNRELATED  tests/test_timeline_ti_finetune.py  {'error': 13}  1.8s
+[34/60] PRE_EXISTING_UNRELATED  tests/test_narrative_enrichment.py  {'error': 3}  16.0s
+[35/60] PRE_EXISTING_UNRELATED  tests/test_analyst_v2_api.py  {'failed': 2, 'passed': 7}  150.2s
+[36/60] PRE_EXISTING_UNRELATED  tests/test_compression_benchmark.py  {'error': 14}  1.5s
+[37/60] PRE_EXISTING_UNRELATED  tests/test_csv_edr_investigation.py  {'failed': 1, 'passed': 1, 'skipped': 1, 'error': 1}  5.1s
+[38/60] PRE_EXISTING_UNRELATED  tests/test_p01_p02_verdict_card.py  {'failed': 2, 'passed': 2}  7.6s
+[39/60]            ENVIRONMENT  tests/test_p0sec_rbac_fail_closed.py  {'passed': 22}  282.5s
+[40/60] PRE_EXISTING_UNRELATED  tests/test_p1_02b_verdict_engine.py  {'failed': 2, 'passed': 4}  28.1s
+[41/60] PRE_EXISTING_UNRELATED  tests/test_training_notes_sync.py  {'passed': 2, 'error': 3}  1.7s
+[42/60] PRE_EXISTING_UNRELATED  tests/canonical/ssot/test_ssot_isolation.py  {'failed': 1, 'passed': 2}  1.4s
+[43/60]   ATTRIBUTION_REQUIRED  tests/edr/test_cross_tenant.py  {'failed': 1, 'passed': 11}  6.8s
+[44/60]            ENVIRONMENT  tests/test_a05_tenant_scope_contract.py  {'passed': 72}  144.1s
+[45/60] PRE_EXISTING_UNRELATED  tests/test_analyst_corrections.py  {'error': 11}  2.4s
+[46/60] PRE_EXISTING_UNRELATED  tests/test_corpus_v1_parity_sweep.py  {'error': 20}  3.7s
+[47/60] PRE_EXISTING_UNRELATED  tests/test_evidence_backed_behavior.py  {'failed': 1, 'passed': 8}  6.7s
+[48/60] PRE_EXISTING_UNRELATED  tests/test_iter43_decode_api_contract.py  {'failed': 1, 'passed': 1}  12.5s
+[49/60] PRE_EXISTING_UNRELATED  tests/test_iteration_81_review.py  {'failed': 1, 'passed': 9, 'skipped': 2}  4.5s
+[50/60] PRE_EXISTING_UNRELATED  tests/test_multi_fragment_split.py  {'error': 3}  1.6s
+[51/60] PRE_EXISTING_UNRELATED  tests/test_multiline_decode.py  {'failed': 1, 'passed': 2, 'error': 24}  2.3s
+[52/60] PRE_EXISTING_UNRELATED  tests/test_phase94_api_contract.py  {'failed': 1, 'passed': 4}  6.8s
+[53/60]            ENVIRONMENT  tests/test_rc42_semantic_mini.py  {'skipped': 6}  1.4s
+[54/60] PRE_EXISTING_UNRELATED  tests/test_rc4_1_360_confidence.py  {'passed': 1, 'error': 5}  1.3s
+[55/60]            ENVIRONMENT  tests/test_smart_reverse_chain.py  {'passed': 3, 'skipped': 1}  1.4s
+[56/60] PRE_EXISTING_UNRELATED  tests/test_v13x_e2e.py  {'error': 11}  1.6s
+[57/60] PRE_EXISTING_UNRELATED  tests/test_iter62_correlations_e2e.py  {'error': 2}  1.3s
+[58/60] PRE_EXISTING_UNRELATED  tests/test_osint_live_endpoints.py  {'error': 2}  1.4s
+[59/60] PRE_EXISTING_UNRELATED  tests/test_pr212_api_parity.py  {'error': 2}  1.3s
+[60/60] PRE_EXISTING_UNRELATED  tests/test_pr21_canonical_artifact_api.py  {'error': 2}  1.4s

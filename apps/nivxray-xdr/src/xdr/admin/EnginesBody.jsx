@@ -14,15 +14,16 @@ import { Cpu, Search, Filter, CheckCircle2, Circle,
                 Package, ExternalLink, BookOpen } from "lucide-react";
 
 import registry from "../../../docs/NIVXRAY_CAPABILITY_REGISTRY.json";
+import { refusalText } from "@/lib/refusal";
 
 
 const STATUS_META = {
   CONNECTED:          { color: "var(--mint)",  glyph: CheckCircle2 },
-  ADOPTED:            { color: "#38bdf8",      glyph: CheckCircle2 },
-  IMPLEMENTED:        { color: "#a3e635",      glyph: Package      },
+  ADOPTED:            { color: "var(--nx-teal)",      glyph: CheckCircle2 },
+  IMPLEMENTED:        { color: "var(--nx-benign)",      glyph: Package      },
   SCAFFOLD:           { color: "var(--amber)", glyph: Circle       },
-  EXTERNAL_AVAILABLE: { color: "#c084fc",      glyph: ExternalLink },
-  BLOCKED:            { color: "#f87171",      glyph: Circle       },
+  EXTERNAL_AVAILABLE: { color: "var(--nx-purple)",      glyph: ExternalLink },
+  BLOCKED:            { color: "var(--nx-critical)",      glyph: Circle       },
   NOT_YET_INTEGRATED: { color: "var(--faint)", glyph: Circle       },
 };
 
@@ -338,7 +339,7 @@ function BackendEngineRegistryBanner() {
         const { data } = await api.get("/admin/content-supply-chain/engines/report");
         setReport(data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+        setErr(refusalText(e, "unavailable"));
       }
     })();
   }, []);

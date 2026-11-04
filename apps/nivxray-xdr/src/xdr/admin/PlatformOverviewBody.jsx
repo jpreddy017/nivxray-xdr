@@ -26,6 +26,7 @@ import {
 import { NxHeroHeader, NxDonut, NxAreaSpark, NxHBar } from "@/xdr/nx";
 import api from "@/lib/api";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
+import GoldenPipelineTrace from "@/xdr/admin/GoldenPipelineTrace";
 import "./platformOverview.css";
 
 
@@ -158,12 +159,15 @@ export default function PlatformOverviewBody() {
       {/* Ingestion pipeline · authoritative counts per stage */}
       <PipelineStrip testid="overview-pipeline" />
 
+      {/* Round 11 · Golden E2E replay — Snort → IUE → ICE → VEEE → Incident */}
+      <GoldenPipelineTrace testid="overview-golden-trace" />
+
       {/* Main analytical row */}
       <div className="po-row po-row-main">
         <SectionCard
           title="IOC Composition"
           subtitle="Breakdown by indicator type"
-          footer={<LinkOut to="/xdr/intelligence/ioc" label="View IOC Intelligence" />}
+          footer={<LinkOut to="/xdr/intelligence/iocs" label="View IOC Intelligence" />}
         >
           <IocCompositionBlock loading={loading} data={ioc} />
         </SectionCard>
@@ -195,7 +199,7 @@ export default function PlatformOverviewBody() {
         <SectionCard
           title="Data Sources Health"
           subtitle="Status of configured data inputs"
-          footer={<LinkOut to="/xdr/admin/data-sources-native"
+          footer={<LinkOut to="/xdr/data-sources"
                              label="Manage Data Sources" />}
           span={2}
         >
@@ -205,7 +209,7 @@ export default function PlatformOverviewBody() {
         <SectionCard
           title="Detection Content Summary"
           subtitle="Overview of detection content by category"
-          footer={<LinkOut to="/xdr/admin/detection-content"
+          footer={<LinkOut to="/xdr/admin/detection-registry"
                              label="Manage Detection Registry" />}
           span={2}
         >

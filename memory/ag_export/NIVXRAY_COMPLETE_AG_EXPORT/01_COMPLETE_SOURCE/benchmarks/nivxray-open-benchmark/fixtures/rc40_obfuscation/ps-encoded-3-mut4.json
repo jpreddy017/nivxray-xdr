@@ -1,0 +1,11 @@
+{
+  "id": "ps-encoded-3-mut4",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand cABvAHcAZQByAHMAaABlAGwAbAAgAC0AdwAgAGgAaQBkAGQAZQBuACAALQBuAG8AcAAgAEEAZABkAC0ATQBwAFAAcgBlAGYAZQByAGUAbgBjAGUAIAAtAEUAeABjAGwAdQBzAGkAbwBuAFAAYQB0AGgAIABDADoAXAA=",
+  "expected_keywords": [
+    "add-mppreference",
+    "mppreference"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

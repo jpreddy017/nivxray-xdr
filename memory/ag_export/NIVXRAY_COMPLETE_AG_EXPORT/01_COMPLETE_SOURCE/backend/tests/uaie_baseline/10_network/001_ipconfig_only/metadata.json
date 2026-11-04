@@ -1,0 +1,7 @@
+{
+  "artifact_type": "network",
+  "origin": "synthetic",
+  "description": "Pure network reconnaissance chain.",
+  "introduced_in": "R26",
+  "owner": "baseline"
+}

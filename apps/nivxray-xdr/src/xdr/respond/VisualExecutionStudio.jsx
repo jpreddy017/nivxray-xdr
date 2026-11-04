@@ -318,9 +318,9 @@ export default function VisualExecutionStudio({
         {error && (
           <div data-testid="xdr-studio-error"
                   style={{ marginBottom: 10, padding: 8,
-                              border: "1px solid #ff5b5b", borderRadius: 4,
+                              border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                               background: "rgba(255,91,91,.08)",
-                              color: "#ff9494", fontSize: 11 }}>
+                              color: "var(--nx-critical)", fontSize: 11 }}>
             <AlertTriangle size={11} /> {error}
           </div>
         )}
@@ -459,8 +459,8 @@ function NodeChip({ node, state, isCurrent, hasBreakpoint, forcedBranch,
                      data-testid={`xdr-studio-bp-${node.id}`}
                      style={{ padding: 2, background: "transparent",
                                  border: "none", cursor: "pointer",
-                                 color: hasBreakpoint ? "#ff5b5b" : "var(--faint)" }}>
-            <Circle size={9} fill={hasBreakpoint ? "#ff5b5b" : "none"} />
+                                 color: hasBreakpoint ? "var(--nx-text-dim)" : "var(--faint)" }}>
+            <Circle size={9} fill={hasBreakpoint ? "var(--nx-surf-inset)" : "none"} />
           </button>
           <span style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 800,
                             textTransform: "uppercase", letterSpacing: ".3px",
@@ -493,7 +493,7 @@ function NodeChip({ node, state, isCurrent, hasBreakpoint, forcedBranch,
                       style={{ padding: "1px 8px",
                                   background: forcedBranch === "no"
                                                   ? "rgba(255,91,91,.2)" : "transparent",
-                                  color: "#ff9494" }}>
+                                  color: "var(--nx-critical)" }}>
               Force NO
             </button>
           </div>

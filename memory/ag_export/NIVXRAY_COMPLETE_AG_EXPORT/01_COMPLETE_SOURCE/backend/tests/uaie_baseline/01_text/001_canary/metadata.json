@@ -1,0 +1,7 @@
+{
+  "artifact_type": "text",
+  "origin": "synthetic",
+  "description": "Canary \u2014 trivial command, baseline for latency floor.",
+  "introduced_in": "R26",
+  "owner": "baseline"
+}

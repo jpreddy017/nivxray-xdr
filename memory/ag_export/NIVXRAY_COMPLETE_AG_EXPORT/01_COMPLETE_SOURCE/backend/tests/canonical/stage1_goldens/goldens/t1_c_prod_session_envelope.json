@@ -1,0 +1,147 @@
+{
+  "acquired_document": {
+    "duration_ms": "<VOLATILE:duration_ms>",
+    "engine": "trafilatura",
+    "fallback_chain": [
+      "trafilatura"
+    ],
+    "fetched_bytes": 42000,
+    "final_url": "https://test.example.gov/advisory/t1c",
+    "ok": true,
+    "source_kind": "Static article",
+    "title": "Test Advisory",
+    "url": "https://test.example.gov/advisory/t1c",
+    "vendor": "Test Vendor"
+  },
+  "document_profile": {
+    "title": "Test Advisory",
+    "vendor": "Test Vendor"
+  },
+  "incident": {
+    "confidence": 60,
+    "id": "incident:root",
+    "objective": "Encoded PowerShell",
+    "readiness": {
+      "overall_percent": 70
+    },
+    "severity": "medium",
+    "title": "Test Advisory"
+  },
+  "investigation_inputs": [
+    {
+      "id": "inp_6e83d8a0cfe7",
+      "index": 1,
+      "investigation": null,
+      "preview": "",
+      "purpose": "",
+      "section": "Attack Chain",
+      "source": null,
+      "status": "referenced",
+      "type": "command",
+      "type_label": "Command Line",
+      "value": ""
+    },
+    {
+      "id": "inp_40709e41d548",
+      "index": 2,
+      "investigation": null,
+      "preview": "198.51.100.20",
+      "section": "IOCs",
+      "source": null,
+      "status": "correlated",
+      "type": "ip",
+      "type_label": "IP Address",
+      "value": "198.51.100.20"
+    },
+    {
+      "detail": {
+        "id": "T1059.001",
+        "name": "PowerShell",
+        "tactic": "execution"
+      },
+      "id": "inp_1be9c806145c",
+      "index": 3,
+      "investigation": null,
+      "preview": "T1059.001",
+      "section": "MITRE ATT&CK",
+      "source": null,
+      "status": "referenced",
+      "type": "mitre",
+      "type_label": "MITRE ATT&CK",
+      "value": "T1059.001"
+    },
+    {
+      "detail": {
+        "name": "TestActor"
+      },
+      "id": "inp_074e55ab2e8f",
+      "index": 4,
+      "investigation": null,
+      "preview": "TestActor",
+      "section": "Threat Actor",
+      "source": null,
+      "status": "referenced",
+      "type": "actor",
+      "type_label": "Threat Actor",
+      "value": "TestActor"
+    },
+    {
+      "detail": {
+        "name": "TestFamily"
+      },
+      "id": "inp_79c7a0641916",
+      "index": 5,
+      "investigation": null,
+      "preview": "TestFamily",
+      "section": "Malware",
+      "source": null,
+      "status": "referenced",
+      "type": "malware",
+      "type_label": "Malware Family",
+      "value": "TestFamily"
+    }
+  ],
+  "original_input": {
+    "confidence": 0.9,
+    "kind": "threat_report_url",
+    "label": "Threat Report URL",
+    "raw": "https://test.example.gov/advisory/t1c"
+  },
+  "readiness": {
+    "overall_percent": 70
+  },
+  "schema": "session-v1",
+  "summary": {
+    "actor": null,
+    "checks": [
+      {
+        "detail": "Test Vendor",
+        "label": "HTML Acquired",
+        "state": "ok"
+      },
+      {
+        "detail": "0/1 full DIE",
+        "label": "1 Command Investigated",
+        "state": "ok"
+      },
+      {
+        "label": "1 IPs Correlated",
+        "state": "ok"
+      }
+    ],
+    "counts": {
+      "actor": 1,
+      "command": 1,
+      "ip": 1,
+      "malware": 1,
+      "mitre": 1,
+      "total": 5
+    },
+    "input_count": 5,
+    "investigated": 0,
+    "objective": null,
+    "severity": null,
+    "title": "Test Advisory",
+    "vendor": "Test Vendor"
+  }
+}

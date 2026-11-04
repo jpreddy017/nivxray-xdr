@@ -1,0 +1,76 @@
+{
+  "summary": "Frontend-only verification of X1 (global XDR context bar + capability-honest IA), X2 (unified global search), X3 (XDR<->EDR pivots + Linked XDR Incidents + detection-handoff regression) and tenant isolation across the new surfaces. X2 and X3 are green end-to-end. X1 has TWO critical defects that fail multiple acceptance criteria: (a) the customer chip on [data-testid=xdr-context-bar] reads '◇ NOT RESOLVED' for BOTH admin (should be 'ALL CUSTOMERS') and analyst (should be 'nivx-live') because XdrContextBar.jsx does not unwrap the standard {ok,data} envelope of /api/xdr/rbac/session-context; (b) all four capability-honest IA pages (/xdr/assets/identity, /network, /attack-paths, /critical) crash to a Vite compile error because XdrNotImplementedPage.jsx uses Python-style adjacent-string concatenation (invalid JavaScript). Everything else specified in the request (breadcrumbs, endpoint/incident/evidence/plane chips, search classification, RESULTS/NO_MATCH/NOT_SEARCHABLE_NO_INDEX honesty, linked incidents count=4 with 4 numbers listed and navigation, cross-tenant search closure, detection->trajectory handoff preserving the explicit raw id with rule+verdict) passes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "XdrContextBar.jsx",
+        "issue": "The api client returns {ok:true, data:{principal, tenant_scope, customers, active_customer, ...}} but the component sets sess to the OUTER object (setSess(data) where data is the axios body). Therefore sess.active_customer is undefined for every user and the chip falls through to '◇ NOT RESOLVED'. Same bug also empties data-customer on the bar. Correct: setSess(data?.data || data) OR read sess.data.active_customer (edrApi.js#getSessionContext already unwraps correctly and is the intended pattern).",
+        "selector": "[data-testid=xdr-ctx-customer]",
+        "priority": "HIGH",
+        "evidence": "Network response body confirmed: {\"ok\":true,\"data\":{\"principal\":{\"email\":\"admin@nivxray.com\",\"role\":\"admin\"},...,\"active_customer\":{\"value\":null,\"basis\":\"CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER\"}}}. Chip renders 'Customer ◇ NOT RESOLVED' on /xdr/incidents, /xdr/search, /xdr/endpoints and /xdr/edr/device-trajectory for admin, and same for analyst@nivx-live.com."
+      },
+      {
+        "component": "XdrNotImplementedPage.jsx",
+        "issue": "JS SYNTAX ERROR: file uses Python's implicit adjacent-string concatenation (e.g. why: (\"No identity provider ... telemetry is \"\\n      \"ingested by this platform ...\")). This is not valid JavaScript. Vite's babel plugin fails at line 22:10 with 'Unexpected token, expected \",\"'. As a result, EVERY IA page (/xdr/assets/identity, /xdr/assets/network, /xdr/assets/attack-paths, /xdr/assets/critical) renders the Vite red-screen error overlay instead of the NOT_IMPLEMENTED capability card. Fix: replace every adjacent-string tuple with real '+' concatenation (or template literals). Lines 21-22, 32-34, 44-47, 55-57, 67-69 and any similar pattern.",
+        "selector": "[data-testid^=xdr-not-implemented-]",
+        "priority": "CRITICAL",
+        "evidence": "Direct visit to /xdr/assets/identity shows red Vite overlay: '[plugin:vite:react-babel] /app/apps/nivxray-xdr/src/xdr/pages/XdrNotImplementedPage.jsx: Unexpected token, expected \",\" (22:10)'. Same for the other three routes."
+      },
+      {
+        "component": "EdrDeviceTrajectoryPage cross-tenant path",
+        "issue": "For analyst@nivx-live.com hitting /xdr/edr/device-trajectory?device=dev_42e8c6dc74b9 (a device owned by tenant 'default') the page correctly shows honest empty content and Linked XDR Incidents opens a 'No XDR incident references this endpoint...' honest empty menu (no leak), but [data-testid=amp-handoff-state] is not rendered — the request contract expects a data-state='ENDPOINT_NOT_RESOLVED' testable state on this cross-tenant view. Tenant isolation itself is preserved; only the machine-readable state marker is missing.",
+        "selector": "[data-testid=amp-handoff-state]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": [
+    {"test": "X1 · context bar on /xdr/incidents", "status": "PARTIAL", "detail": "bar present, breadcrumbs start with 'NivXRay XDR', plane=NIVXRAY_XDR, but xdr-ctx-customer='Customer ◇ NOT RESOLVED' (expected 'ALL CUSTOMERS'). See BUG XdrContextBar unwrap."},
+    {"test": "X1 · context bar on /xdr/search?q=bash", "status": "PARTIAL", "detail": "same customer-chip bug; breadcrumb 'NivXRay XDR › Search' correct, plane=NIVXRAY_XDR"},
+    {"test": "X1 · context bar on /xdr/endpoints", "status": "PARTIAL", "detail": "same customer-chip bug; breadcrumb 'NivXRay XDR › Assets › Endpoints' correct, plane=NIVXRAY_XDR"},
+    {"test": "X1 · context bar on /xdr/edr/device-trajectory (admin)", "status": "PARTIAL", "detail": "same customer-chip bug; breadcrumb 'NivXRay XDR › NivXForge EDR › Device Trajectory' correct, plane=NIVXFORGE_EDR"},
+    {"test": "X1 · pivot chips endpoint/incident/evidence/plane + data-device/data-incident", "status": "PASS", "detail": "device=dev_42e8c6dc74b9 incident=inc_2305c71cd8f54dc38e55 chips all present, plane chip present"},
+    {"test": "X1 · click incident chip navigates", "status": "PASS", "detail": "→ /xdr/incidents/inc_2305c71cd8f54dc38e55"},
+    {"test": "X1 · IA assets-identity NOT_IMPLEMENTED", "status": "FAIL", "detail": "Vite red-screen syntax error in XdrNotImplementedPage.jsx; page never renders"},
+    {"test": "X1 · IA assets-network NOT_IMPLEMENTED", "status": "FAIL", "detail": "same syntax error blocks route"},
+    {"test": "X1 · IA attack-paths NOT_IMPLEMENTED", "status": "FAIL", "detail": "same syntax error blocks route"},
+    {"test": "X1 · IA critical-assets NOT_IMPLEMENTED", "status": "FAIL", "detail": "same syntax error blocks route"},
+    {"test": "X2 · top-bar search EDR-LNX-002 → /xdr/search", "status": "PASS", "detail": "url=/xdr/search?q=EDR-LNX-002, data-state=RESULTS, data-total=14, classification=RULE_ID, groups INCIDENT + DETECTION present"},
+    {"test": "X2 · DETECTION result opens trajectory with handoff", "status": "PASS", "detail": "amp-handoff-resolved shows raw_852ccd4c1b35ce5163812618 → evt_f13948eb459b3dc7#9e1fe1dd29 · rule EDR-LNX-002 · verdict LIKELY_BENIGN"},
+    {"test": "X2 · search 'agent-env-630704a1' → ENDPOINT group", "status": "PASS", "detail": "ENDPOINT group present, href=/xdr/edr/device-trajectory?device=dev_42e8c6dc74b9"},
+    {"test": "X2 · search 'INC000000293' → 1 INCIDENT result → correct incident", "status": "PASS", "detail": "data-total=1, href=/xdr/incidents/inc_2305c71cd8f54dc38e55"},
+    {"test": "X2 · NO_MATCH honesty wording", "status": "PASS", "detail": "state=NO_MATCH; text: '...an absence of a record, not proof the entity is unknown to the world.'"},
+    {"test": "X2 · NOT_SEARCHABLE_NO_INDEX lists 7 entity types", "status": "PASS", "detail": "count of 'NOT_SEARCHABLE_NO_INDEX' occurrences=7"},
+    {"test": "X2 · ordinary result set does not show empty categories inline", "status": "PASS", "detail": "search 'bash' → data-state=RESULTS; unsupported categories not rendered inline"},
+    {"test": "X3 · edr-linked-xdr-toggle count=4 state=LINKED", "status": "PASS", "detail": "data-count=4 data-state=LINKED on /xdr/edr/device-trajectory?device=dev_42e8c6dc74b9"},
+    {"test": "X3 · menu lists INC000000293/232/231/230 with rule + customer", "status": "PASS", "detail": "'INC000000293 ... EDR-LNX-002 · customer default' etc. All 4 numbers present."},
+    {"test": "X3 · clicking a linked incident navigates + trajectory intact on back", "status": "PASS", "detail": "→ /xdr/incidents/inc_2305c71cd8f54dc38e55; back button restores amp-workspace"},
+    {"test": "X3 · regression /edr/detections handoff explicit id + rule/verdict + amp-detection-record", "status": "PASS", "detail": "raw_fac9185acde4f8ccebef7a3b preserved end-to-end; amp-handoff-resolved contains 'rule EDR-LNX-002 · verdict SUSPICIOUS · customer default · exact identifier match, no timestamp inference'; amp-detection-record present"},
+    {"test": "Tenant iso · analyst search 'agent-env-630704a1' has no ep/det/ev groups and no hostname leak", "status": "PASS", "detail": "ep=False det=False ev=False; hostname not present anywhere in DOM"},
+    {"test": "Tenant iso · analyst trajectory shows honest empty state, no linked-incident content", "status": "PARTIAL", "detail": "Menu correctly says 'No XDR incident references this endpoint. That is an absence of a correlated incident, not a verdict of clean.' and INC000000293 is absent — isolation IS preserved. BUT [data-testid=amp-handoff-state] is not rendered so the machine-readable ENDPOINT_NOT_RESOLVED state marker asked for by the acceptance criterion is missing."},
+    {"test": "Tenant iso · ctx-customer chip reads 'nivx-live'", "status": "FAIL", "detail": "chip reads 'Customer ◇ NOT RESOLVED' — same XdrContextBar unwrap bug. Topbar user pill correctly shows 'nivx-live analyst@nivx-live.com'."},
+    {"test": "No console errors on enabled XDR nav routes", "status": "N/A", "detail": "Not exhaustively traversed; the Vite compile error for XdrNotImplementedPage does cause a console-visible plugin error on all 4 asset routes."}
+  ],
+  "test_report_links": ["/app/tests/frontend_x1_x2_x3.py"],
+  "action_items": [
+    "FIX XdrContextBar.jsx line 74-77: the axios response body is {ok, data:{...}}. Either use setSess(res.data?.data) or import getSessionContext from /nivxforge/edrApi.js (already unwraps). This single fix restores the customer chip for both admin (ALL CUSTOMERS) and analyst (nivx-live).",
+    "FIX XdrNotImplementedPage.jsx: convert every adjacent-string tuple ((\"... \" \"...\")) into real JS concatenation ('... ' + '...') or a template literal. Suspected lines: 21-22, 32-34, 44-47, 55-57, 67-69 and any others sharing the same pattern. Until this compiles, the four IA nodes (/xdr/assets/identity, /network, /attack-paths, /critical) render Vite's red overlay instead of the NOT_IMPLEMENTED card.",
+    "OPTIONAL: on cross-tenant trajectory (analyst hitting a device outside her tenant) render [data-testid=amp-handoff-state] with data-state='ENDPOINT_NOT_RESOLVED' so the honest empty state is machine-verifiable, matching the acceptance criterion."
+  ],
+  "critical_code_review_comments": [
+    "XdrContextBar.jsx destructures the axios response body directly and uses it as the RBAC session. All other call-sites (edrApi.getSessionContext, XdrShell) correctly go through .data.data. Extracting a single getSessionContext() helper and using it everywhere would prevent this class of bug recurring.",
+    "XdrNotImplementedPage.jsx: shipping Python-style implicit adjacent-string concatenation in JSX is a hard build break. Add a lint rule or a smoke test that mounts every route in App.jsx to catch this class of regression before it lands.",
+    "X2 search UX is solid: classification, group ordering, NO_MATCH wording and the NOT_SEARCHABLE_NO_INDEX collapse are all consistent with the honesty contract described in the request."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "17/25 strict PASS (~68%); 4/25 PARTIAL (isolation & context-bar work correctly for the sensitive/isolation parts, only the customer-chip label and one testid marker fail); 4/25 hard FAIL (all four IA NOT_IMPLEMENTED pages blocked by the syntax error)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK ; analyst@nivx-live.com / NivxLive!Analyst2026",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "X2 (global search) and X3 (linked-XDR-incidents inside EDR + detection-handoff regression + XDR pivots) are fully verified against the preview URL and require no re-verification unless XdrContextBar or the RBAC session-context endpoint changes. After main agent fixes (1) XdrContextBar unwrap and (2) XdrNotImplementedPage.jsx JS syntax, re-run: (a) all 4 pages of the X1 context-bar customer-chip check for admin, (b) analyst customer-chip check, (c) navigation to /xdr/assets/{identity,network,attack-paths,critical} to confirm [data-testid^=xdr-not-implemented-] renders with data-capability-state=NOT_IMPLEMENTED and the four side-effects listed in the request. All other tests should stay green.",
+  "rca of the issue": "1) XdrContextBar customer chip: /api/xdr/rbac/session-context returns {ok:true, data:{...active_customer,...}}. XdrContextBar does `api.get(...).then(({data}) => setSess(data))` which stores the OUTER body (with active_customer nested one level deeper). The fallback path in the label expression is hit and prints '◇ NOT RESOLVED'. Reproduction: log in as admin, visit /xdr/incidents, inspect [data-testid=xdr-ctx-customer].text=='Customer◇ NOT RESOLVED'. Manual fetch of the endpoint confirms admin gets basis='CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER' → chip should read 'ALL CUSTOMERS'. Fix: use edrApi.getSessionContext() (already unwraps) or `setSess(data?.data || data)`. 2) XdrNotImplementedPage IA pages: the source file authors multi-line strings as Python-style adjacent literals which is a JS SyntaxError; vite:react-babel refuses the module and mounts a red overlay on /xdr/assets/identity, /network, /attack-paths, /critical. Fix: real string concatenation with '+' or template literals. Reproduction: navigate directly to any of the four URLs — the Vite error overlay is the entire page."
+}

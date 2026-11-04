@@ -1,0 +1,424 @@
+{
+  "$defs": {
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Directive \u00a75 \u2014 every layer is additive and versioned.",
+      "properties": {
+        "analysis_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Version"
+        },
+        "detection_content_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Content Version"
+        },
+        "normalizer_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalizer Version"
+        },
+        "parser_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Name"
+        },
+        "parser_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Version"
+        },
+        "raw_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "raw_id in edr_raw_events. The immutable original.",
+          "title": "Raw Ref"
+        },
+        "replay_generation": {
+          "default": 0,
+          "description": "0 = original ingest. Incremented per replay so a re-reasoned event never masquerades as a new one.",
+          "title": "Replay Generation",
+          "type": "integer"
+        },
+        "sensor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sensor Version"
+        },
+        "source": {
+          "description": "collector / sensor / adapter identity",
+          "title": "Source",
+          "type": "string"
+        },
+        "verdict_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Version"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/process_identity.schema.json",
+  "additionalProperties": false,
+  "description": "Contract 3.\n\n`process_iid` binds (endpoint, pid, start_time) because a PID alone is\nreused by the OS within minutes. Without start_time in the identity,\ntwo unrelated processes collapse into one lifeline \u2014 which is how a\nfabricated process tree gets built by accident.",
+  "properties": {
+    "command_line": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Command Line"
+    },
+    "endpoint_id": {
+      "title": "Endpoint Id",
+      "type": "string"
+    },
+    "exit_time": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Exit Time"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "image": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "basename, e.g. cmd.exe",
+      "nivxforge_evidence": true,
+      "title": "Image"
+    },
+    "image_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Image Path"
+    },
+    "integrity": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Integrity"
+    },
+    "lineage_state": {
+      "default": "PARENT_NOT_OBSERVED",
+      "description": "PARENT_OBSERVED | PARENT_NOT_OBSERVED | PARENT_LINEAGE_INCOMPLETE_PARSER_FAILED",
+      "title": "Lineage State",
+      "type": "string"
+    },
+    "md5": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Md5"
+    },
+    "parent_iid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Parent Iid"
+    },
+    "pid": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Pid"
+    },
+    "ppid": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Ppid"
+    },
+    "process_iid": {
+      "title": "Process Iid",
+      "type": "string"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Session Id"
+    },
+    "sha1": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sha1"
+    },
+    "sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sha256"
+    },
+    "signature_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Signature Status"
+    },
+    "signer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Signer"
+    },
+    "start_time": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Start Time"
+    },
+    "user": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "User"
+    }
+  },
+  "required": [
+    "process_iid",
+    "endpoint_id"
+  ],
+  "title": "ProcessIdentity",
+  "type": "object",
+  "x-nivxforge-contract": "process_identity",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "pid",
+    "ppid",
+    "image",
+    "image_path",
+    "sha256",
+    "sha1",
+    "md5",
+    "command_line",
+    "user",
+    "integrity",
+    "signer",
+    "signature_status",
+    "start_time",
+    "exit_time",
+    "session_id",
+    "parent_iid"
+  ]
+}

@@ -1,0 +1,7 @@
+   PRE_EXISTING  tests/test_xdr_data_sources_collectors.py  pre={'error': 20} head={'error': 20}
+   PRE_EXISTING  tests/test_xdr_correlation.py  pre={'error': 17} head={'error': 17}
+   PRE_EXISTING  tests/test_xdr_content_pipeline.py  pre={'failed': 8, 'passed': 15} head={'failed': 8, 'passed': 15}
+   PRE_EXISTING  tests/test_edr_context_p0_f13_3.py  pre={'failed': 5, 'passed': 1} head={'failed': 5, 'passed': 1}
+   PRE_EXISTING  tests/test_collector_api_key_adversarial_regression.py  pre={'failed': 5, 'passed': 9, 'error': 4} head={'failed': 5, 'passed': 9, 'error': 4}
+   PRE_EXISTING  tests/test_p1_machine_credential_hardening.py  pre={'failed': 3, 'passed': 8} head={'failed': 3, 'passed': 8}
+   PRE_EXISTING  tests/edr/test_cross_tenant.py  pre={'failed': 1, 'passed': 11} head={'failed': 1, 'passed': 11}

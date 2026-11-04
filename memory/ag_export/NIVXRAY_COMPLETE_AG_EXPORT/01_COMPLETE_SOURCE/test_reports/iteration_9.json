@@ -1,0 +1,46 @@
+{
+  "summary": "Full end-to-end frontend validation of NivX Forge on preview URL. All 9 requested flows PASS: login (no non-hydration console errors), single-stage PS_ASCII_XOR_IEX decode (archetype 100%), multi-stage chain (verdict panel with Cobalt Strike family/URLs/IPs/domains/MITRE), history drawer with CHAIN badge + CHAINS ONLY filter, chain replay view with all 6 required buttons visible+clickable, Save-as-KB (▸ KB TEMPLATE REFRESHED — slug generic-unknown-0f0ec6ad77b9 · cluster size 57, OPEN IN KB link present), STIX 2.1 export (filename nivxforge_stix_6a573aa1_1784101705977.json, 21 objects TLP:AMBER), Restore-to-Workspace (chain-replay-view unmounts, ChainStageEditor mounts with both stages exactly matching), and anti-hallucination FAKE-PE (no SHELLCODE / no PE-MZ label).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "WorkspacePage (pre-existing, from iteration_8)", "issues": ["React hydration warning: <span> as child of <option> from AI persona/provider <select> (WorkspacePage ~line 725/749). Non-blocking, still present."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "OPTIONAL: fix pre-existing hydration warning by rendering plain text in <option> instead of <span> (WorkspacePage.jsx lines 725, 749).",
+    "OPTIONAL: KB save endpoint /api/kb/save-from-investigation takes ~17s (LLM synth). Consider adding an inline SAVING… state on btn-chain-replay-save-kb (button already disables via savingKb but no visible progress banner until success) so analysts don't second-guess whether the click registered."
+  ],
+  "critical_code_review_comments": [
+    "ChainReplayView.jsx correctly disables buttons during export/save (savingKb, exportingStix) and renders status banners with proper testids (chain-replay-kb-status/-ok/-error and chain-replay-stix-status/-ok/-error). STIX blob download works client-side without proxy attachment issues.",
+    "restoreChainToWorkspace in WorkspacePage.jsx correctly guards against unsaved input via window.confirm and rehydrates ChainStageEditor with initialStages — verified: both stage inputs matched original values byte-for-byte after restore.",
+    "Anti-hallucination guard in shellcode_analyzer.py (_is_valid_pe, _is_repetitive) correctly rejects repetitive MZFT... payload — no SHELLCODE or PE header labels shown.",
+    "HistoryDrawer chk-history-chains filter properly filters kind=chain rows (77 chains out of 134 items after filter)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only task)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026!",
+  "seed_data_creation": "Created 1 new chain investigation (2 stages: aGVsbG8gd29ybGQ= + http://malicious.example.com/beacon.php?ip=1.2.3.4). Also 1 PS_ASCII_XOR_IEX single decode and 1 repetitive-MZFT fake-PE decode. All safe test data — TEST_ / example.com only.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All chain-replay flows (Save KB / STIX / Restore / Close) working end-to-end. Note: KB save takes ~17s due to LLM synth — polling window must be >=20s. The correct testids on the WorkspacePage are `input-textarea` and `btn-nivxray-decode` (NOT the nvx-input-textarea / btn-decode names hinted in the review request). History RESTORE buttons use `btn-restore-{item.id}` pattern. Chain stage inputs use `chain-input-{idx}`. STIX filename pattern nivxforge_stix_<8hex>_<epoch_ms>.json is stable.",
+  "verification_evidence": {
+    "login": "url after login = /",
+    "single_decode_status": "NIVXRAY DECODE COMPLETE · archetype:PS_ASCII_XOR_IEX · 100%",
+    "chain_verdict_panel": {"family": "Cobalt Strike", "verdict": "Low Risk · 34/100", "iocs": "1 url / 1 ip / 2 domains", "mitre_lolbas": "0T · 0L · 1Y"},
+    "history_chain_badge": "▪ CHAIN · 2 STAGES",
+    "chains_only_filter": "77 chain rows visible",
+    "chain_replay_buttons": {"btn-chain-replay-save-kb": "visible", "btn-chain-replay-export-stix": "visible", "btn-chain-replay-restore": "visible", "btn-chain-replay-close": "visible", "btn-chain-replay-restore-bottom": "visible", "btn-chain-replay-close-bottom": "visible"},
+    "kb_save_status_text": "▸ KB TEMPLATE REFRESHED — slug generic-unknown-0f0ec6ad77b9 · cluster size 57  (took ~17s)",
+    "kb_open_link_present": true,
+    "stix_download_filename": "nivxforge_stix_6a573aa1_1784101705977.json",
+    "stix_filename_regex_match": true,
+    "stix_ok_banner": "STIX 2.1 bundle downloaded · 21 objects · TLP:AMBER",
+    "restore_rehydration": {"stage0_matches_original": true, "stage1_matches_original": true, "chain_replay_unmounted": true},
+    "fake_pe_shellcode_label_absent": true,
+    "fake_pe_mz_header_label_absent": true,
+    "non_hydration_console_errors": 0
+  }
+}

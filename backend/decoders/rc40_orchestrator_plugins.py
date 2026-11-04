@@ -192,13 +192,14 @@ class BatchEnvvarSubstituteDecoder(BaseDecoder):
     schema_version = "1.0"
 
     def detect(self, payload: str, fp: Fingerprint, ctx: AnalysisContext) -> DetectResult:
-        if _BATCH_SET_SIG.search(payload) and _BATCH_ENVVAR_SUB_SIG.search(payload):
+        if _BATCH_SET_SIG.search(payload) and (_BATCH_ENVVAR_SUB_SIG.search(payload) or re.search(r"%\w+%", payload)):
             return DetectResult(confidence=0.98,
-                                why="SET var + %VAR:from=to% substitution")
+                                why="SET var + %VAR:from=to% or %VAR% substitution")
         return DetectResult(confidence=0.0, why="No batch-envvar substitution signature")
 
     def decode(self, payload: str, args: Dict[str, Any], ctx: AnalysisContext) -> PluginResult:
-        out = _run_op("batch-envvar-substitute", payload)
+        from decoders.batch_envvar_substitute import op_batch_envvar_substitute
+        out = op_batch_envvar_substitute(payload)
         if not out or out.startswith("(batch-envvar-substitute"):
             return PluginResult(output=payload, notes=[out or "no-op"])
         return PluginResult(

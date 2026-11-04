@@ -1,0 +1,24 @@
+{
+  "id": "chacha20-ps-1",
+  "algorithm": "ChaCha20-Poly1305",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "base64-decode-key",
+    "base64-decode-nonce",
+    "base64-decode-ciphertext"
+  ],
+  "runtime_stages": [
+    "chacha20-poly1305-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

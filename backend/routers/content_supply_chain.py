@@ -38,7 +38,43 @@ from detection_content.engine_control_plane import (
 from detection_content.collector_runtime import (
     MANAGER as COLLECTOR_MANAGER,
     bootstrap_snort_collector,
-    run_golden_e2e,
+)
+from detection_content.xdr_pipeline import (
+    process_event_through_pipeline, DSM_REGISTRY,
+    CANONICAL_COLLECTION,
+)
+from detection_content.xdr_investigation import project_investigation
+from detection_content.xdr_response_fabric import orchestrate as response_orchestrate
+from detection_content.xdr_closed_loop   import recompute as closed_loop_recompute
+from detection_content.xdr_framework_mapping import (
+    resolve_mappings as framework_resolve, framework_registry,
+)
+from detection_content.xdr_threat_family import classify as classify_threat_family
+from detection_content.xdr_recommendation_synthesis import (
+    filter_playbooks,
+)
+from detection_content.xdr_action_registry import list_actions, registry_summary
+from detection_content.xdr_executive_summary import compose as compose_exec_summary
+from detection_content.xdr_mitigation_intelligence import (
+    is_exclusion as _is_exclusion,
+)
+from detection_content import xdr_analyst_annotations as _ann
+from detection_content.xdr_response_strategy import (
+    all_strategies as _all_strategies,
+    registry_summary as _strategy_summary,
+    strategies_for as _strategies_for,
+)
+from detection_content.xdr_closure_classification import (
+    classify as _closure_classify,
+)
+from detection_content.xdr_osint_cache import (
+    summary as _osint_cache_summary,
+)
+from detection_content.xdr_attack_chain_graph import (
+    compose as _compose_attack_graph,
+)
+from detection_content.xdr_evidence_traversal import (
+    resolve as _resolve_evidence,
 )
 
 
@@ -484,4 +520,397 @@ async def e2e_snort_golden(user=Depends(require_admin)):
     halts at the first stage that is not yet executable; never
     manufactures downstream success.  Provenance-preserving.
     """
-    return await run_golden_e2e(db)
+    from detection_content.collector_runtime import (
+        GOLDEN_SNORT_EVENT, MANAGER, CollectorState, bootstrap_snort_collector,
+    )
+    from datetime import datetime, timezone
+    import uuid as _uuid
+
+    trace_id = str(_uuid.uuid4())
+    bootstrap_snort_collector()
+    coll = "collector-snort-ref"
+    if MANAGER._collectors[coll]["state"] != CollectorState.RUNNING.value:
+        await MANAGER.start(coll)
+    stages: list[dict] = [
+        {"stage": "integration", "status": "EXECUTED",
+          "adapter": "snort-suricata-eve"},
+        {"stage": "collector",   "status": "EXECUTED",
+          "collector_id": coll},
+    ]
+    # Also record ingest through the manager for real event counters.
+    await MANAGER.ingest_one(coll, dict(GOLDEN_SNORT_EVENT))
+
+    pipeline = await process_event_through_pipeline(
+        db, dict(GOLDEN_SNORT_EVENT), trace_id,
+        integration_id="integration-snort-ref",
+        collector_id=coll)
+    stages.extend(pipeline["stages"])
+
+    executed = sum(1 for s in stages if s["status"] == "EXECUTED")
+    return {
+        "trace_id":  trace_id,
+        "stages":    stages,
+        "executed":  executed,
+        "total":     len(stages),
+        "blocker":   pipeline.get("blocker"),
+        "verdict":   "PARTIAL" if pipeline.get("blocker") else "COMPLETE",
+        "canonical_event_id": (pipeline.get("canonical") or {}).get("event_id"),
+        "detection": pipeline.get("detection"),
+        "iue":       pipeline.get("iue"),
+        "ice":       pipeline.get("ice"),
+        "veee":      pipeline.get("verdict"),
+        "incident":  pipeline.get("incident"),
+        "investigation": pipeline.get("investigation"),
+        "response":      pipeline.get("response"),
+        "closed_loop":   pipeline.get("closed_loop"),
+        "framework":     pipeline.get("framework"),
+        "honesty_note": (
+            "Every EXECUTED stage ran real code; every BLOCKED / NOT_CREATED "
+            "stage records the exact reason.  No stage is fabricated."
+        ),
+    }
+
+
+@router.get("/investigation/{incident_id}")
+async def investigation_fabric(incident_id: str,
+                                    user=Depends(require_admin)):
+    """
+    P0.6 · Investigation Fabric projection for one incident.
+
+    Reads `workspace_cases` + linked canonical_evidence + linked
+    correlation matches and emits the six lanes required by the
+    Investigation UI.  Pure projection · no second engine ·
+    empty lanes carry the exact reason.
+    """
+    return await project_investigation(db, incident_id)
+
+
+@router.get("/response/actions")
+async def response_actions(user=Depends(require_admin)):
+    """P0.7 · Authoritative Action Registry — every executable
+    action + honest capability_available flag."""
+    return {"summary": registry_summary(), "actions": list_actions()}
+
+
+@router.get("/response/{incident_id}")
+async def response_fabric(incident_id: str,
+                              user=Depends(require_admin)):
+    """P0.7 · Response Fabric run for one incident.
+
+    Context → Recommendation → Decision → Approval → Executor →
+    Audit → Timeline.  Honest state end-to-end: capability probes
+    are runtime, no fabricated SUCCESS.
+    """
+    return await response_orchestrate(db, incident_id)
+
+
+@router.post("/response/{incident_id}/recompute")
+async def response_recompute(incident_id: str,
+                                    user=Depends(require_admin)):
+    """P0.7.1 · Closed-Loop Recompute.
+
+    Turns every SUCCEEDED action result into a provenance-bearing
+    intelligence observation, then recomputes Investigation Fabric
+    and Recommendations idempotently.  Deterministic — running
+    twice on the same evidence state returns changed=False.
+    """
+    return await closed_loop_recompute(db, incident_id)
+
+
+@router.get("/frameworks")
+async def frameworks_registry(user=Depends(require_admin)):
+    """P0.7.2 · Framework Mapping Fabric registry.  Lists supported
+    frameworks with honest AVAILABLE / PARTIAL / NOT_LOADED state."""
+    return {"frameworks": framework_registry(),
+                "honesty_note":
+                    "Frameworks are contextual knowledge only.  "
+                    "They never independently create evidence, "
+                    "detections or actions.  Mappings must be "
+                    "evidence-derived per incident."}
+
+
+@router.get("/incidents/{incident_id}/framework-mappings")
+async def framework_mappings(incident_id: str,
+                                    user=Depends(require_admin)):
+    """P0.7.2 · Read-only framework mappings for one incident.
+    Idempotent — repeated resolve() calls produce no duplicates."""
+    return await framework_resolve(db, incident_id)
+
+
+@router.post("/incidents/{incident_id}/framework-mappings/resolve")
+async def framework_mappings_resolve(incident_id: str,
+                                              user=Depends(require_admin)):
+    return await framework_resolve(db, incident_id)
+
+
+@router.get("/incidents/{incident_id}/threat-family")
+async def threat_family(incident_id: str,
+                              user=Depends(require_admin)):
+    """P0.7.3 · Threat Family classification for one incident."""
+    return await classify_threat_family(db, incident_id)
+
+
+@router.get("/incidents/{incident_id}/playbooks")
+async def incident_playbooks(incident_id: str,
+                                    user=Depends(require_admin)):
+    """P0.7.3 · Playbook applicability for one incident (§10)."""
+    tf = await classify_threat_family(db, incident_id)
+    return {"incident_id": incident_id,
+                "threat_family": tf.get("family"),
+                "playbooks": filter_playbooks(tf.get("family"))}
+
+
+@router.post("/recommendations/{recommendation_id}/decision")
+async def recommendation_decision(recommendation_id: str,
+                                          payload: dict,
+                                          user=Depends(require_admin)):
+    """Round 17.5 + Round 18.5 · Analyst decision persistence.
+
+    Accepts:
+      decision                  = ACCEPTED / REJECTED / SUPERSEDED  (required)
+      reason                    = free-text audit note              (optional)
+      risk_analysis_snapshot    = the exact risk_analysis block the
+                                  analyst saw when they decided.
+                                  Snapshotted verbatim into the audit
+                                  trail so it is provable, later, that
+                                  the analyst saw the visibility/
+                                  security trade-off.               (optional)
+      safer_alternative_chosen  = 'ORIGINAL_ACTION' or 'SAFER_ALT'.
+                                  Only meaningful for exclusion recos;
+                                  the frontend must present the choice
+                                  before accepting a HIGH/CRITICAL
+                                  exclusion.                        (optional)
+      suggested_action          = the action the reco targeted (used
+                                  purely to classify exclusions in the
+                                  audit record).                    (optional)
+
+    Never silently deletes; every state change appends a full
+    decision_history entry."""
+    decision = (payload or {}).get("decision")
+    if decision not in ("ACCEPTED", "REJECTED", "SUPERSEDED"):
+        return {"ok": False,
+                    "reason": f"decision must be one of ACCEPTED/REJECTED/"
+                                f"SUPERSEDED · got {decision}"}
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    doc = await db["xdr_recommendations"].find_one(
+        {"recommendation_id": recommendation_id}, {"_id": 0})
+    if not doc:
+        # Analyst decision on a synthesizer-fresh id is still auditable.
+        doc = {"recommendation_id": recommendation_id, "state": "ACTIVE"}
+    prev_state = doc.get("state") or "ACTIVE"
+
+    # ── Round 18.5 · risk snapshot ─────────────────────────────
+    snapshot = (payload or {}).get("risk_analysis_snapshot")
+    action_id = (payload or {}).get("suggested_action") or \
+                     doc.get("suggested_action")
+    exclusion = bool(action_id and _is_exclusion(action_id))
+    safer_choice = (payload or {}).get("safer_alternative_chosen")
+
+    audit_entry = {
+        "from":                     prev_state,
+        "to":                       decision,
+        "at":                       now,
+        "by":                       (user or {}).get("email") or "analyst",
+        "reason":                   (payload or {}).get("reason"),
+        "was_exclusion":            exclusion,
+        "risk_analysis_snapshot":   snapshot,
+        "safer_alternative_chosen": safer_choice,
+    }
+
+    await db["xdr_recommendations"].update_one(
+        {"recommendation_id": recommendation_id},
+        {"$set":  {"state":                     decision,
+                       "decided_at":                now,
+                       "decided_by":                (user or {}).get("email")
+                                                          or "analyst",
+                       "decision_reason":           (payload or {}).get("reason"),
+                       "was_exclusion":             exclusion,
+                       "last_risk_snapshot":        snapshot,
+                       "safer_alternative_chosen":  safer_choice},
+          "$push": {"decision_history": audit_entry}},
+        upsert=True)
+    return {"ok":              True,
+                "recommendation_id": recommendation_id,
+                "state":            decision,
+                "previous_state":   prev_state,
+                "was_exclusion":    exclusion,
+                "risk_analysis_snapshotted": bool(snapshot),
+                "safer_alternative_chosen":  safer_choice,
+                "audit_entry":      audit_entry}
+
+
+@router.get("/response-strategies")
+async def response_strategies_summary(user=Depends(require_admin)):
+    """Round 19 · Threat-Family → Response Strategy knowledge layer
+    introspection.  Read-only.  Returns the full strategy registry."""
+    return {
+        "summary":    _strategy_summary(),
+        "strategies": _all_strategies(),
+    }
+
+
+@router.get("/response-strategies/{family}")
+async def response_strategies_for_family(family: str,
+                                                  user=Depends(require_admin)):
+    """Round 19 · Return every strategy activated by a given family."""
+    return {
+        "family":     family,
+        "strategies": _strategies_for(family),
+    }
+
+
+@router.get("/incidents/{incident_id}/closure-classification")
+async def incident_closure_classification(incident_id: str,
+                                                    user=Depends(require_admin)):
+    """Round 20 · Furthest-confirmed-activity closure classification.
+
+    Deterministic: same evidence → same phase.  Never advances beyond
+    what the evidence supports.  When only the initial alert is known,
+    closure == initial_alert_phase and
+    `phase_advanced_by_investigation` is False."""
+    return await _closure_classify(db, incident_id)
+
+
+@router.get("/osint-cache/summary")
+async def osint_cache_summary(user=Depends(require_admin)):
+    """Round 20 · Read-only OSINT cache introspection: total + stale
+    per provider + configured TTLs."""
+    return await _osint_cache_summary(db)
+
+
+@router.get("/incidents/{incident_id}/attack-chain-graph")
+async def incident_attack_chain_graph(incident_id: str,
+                                                user=Depends(require_admin)):
+    """Round 21 · Evidence-First Attack-Chain Graph."""
+    return await _compose_attack_graph(db, incident_id)
+
+
+@router.get("/evidence/{evidence_ref:path}")
+async def evidence_traversal(evidence_ref: str,
+                                          user=Depends(require_admin)):
+    """Round 22 · Evidence Traversability.
+
+    Resolve any evidence reference (canonical event id, IUE id,
+    correlation match id, framework mapping id, intelligence
+    observation id, response execution id, recommendation id,
+    incident id, annotation id) to the RAW stored document + the
+    reverse-provenance chain + an honest list of telemetry fields
+    that were not present in the source event.
+
+    Prefixed references such as `canonical:<id>`, `mapping:<id>`,
+    `incident:<id>` are accepted for disambiguation."""
+    return await _resolve_evidence(db, evidence_ref)
+
+
+@router.get("/incidents/{incident_id}/executive-summary")
+async def incident_executive_summary(incident_id: str,
+                                             user=Depends(require_admin)):
+    """Round 18.5 · Deterministic Executive Summary composer.
+
+    Reads exclusively from persisted evidence (canonical event, IUE,
+    VEEE, framework mappings, threat family, OSINT observations).
+    Produces conclusion-led prose + a technical block + a supporting
+    evidence list + explicit confirmed vs insufficient separation.
+
+    Round 18.6 additive: composer output now also carries any active
+    analyst_annotations grouped by section (executive/technical/
+    supporting_evidence/recommendations).  Annotations are an OVERLAY
+    (origin=ANALYST); they never rewrite deterministic prose.
+
+    No LLM. No templates keyed on 'incident type' alone. Same inputs
+    → byte-identical output (annotations aside)."""
+    return await compose_exec_summary(db, incident_id)
+
+
+# ── Round 18.6 · Analyst Annotations CRUD ──────────────────────
+# Every section rendered by the incident detail page can carry
+# analyst-authored notes / findings / overrides / custom recos.  The
+# deterministic composer is NEVER edited — annotations sit alongside.
+
+@router.get("/incidents/{incident_id}/annotations")
+async def incident_annotations_list(incident_id: str,
+                                              include_retired: bool = False,
+                                              user=Depends(require_admin)):
+    """Return every analyst annotation for one incident."""
+    return {
+        "incident_id": incident_id,
+        "annotations": await _ann.list_for_incident(
+            db, incident_id, include_retired=include_retired),
+        "honesty_note":
+            "Analyst annotations are an OVERLAY. They never rewrite "
+            "the deterministic composer output or the evidence-derived "
+            "recommendation synthesizer output.",
+    }
+
+
+class _AnnotationCreate(BaseModel):
+    section:  str
+    kind:     str
+    payload:  dict = {}
+    target_id: str | None = None
+
+
+@router.post("/incidents/{incident_id}/annotations")
+async def incident_annotations_create(incident_id: str,
+                                                body: _AnnotationCreate,
+                                                user=Depends(require_admin)):
+    try:
+        doc = await _ann.create(
+            db, incident_id=incident_id,
+            section=body.section, kind=body.kind,
+            payload=body.payload or {},
+            author=(user or {}).get("email") or "analyst",
+            target_id=body.target_id)
+    except ValueError as e:
+        return {"ok": False, "reason": str(e)}
+    return {"ok": True, "annotation": doc}
+
+
+class _AnnotationUpdate(BaseModel):
+    payload: dict
+
+
+@router.patch("/incidents/{incident_id}/annotations/{ann_id}")
+async def incident_annotations_update(incident_id: str, ann_id: str,
+                                                body: _AnnotationUpdate,
+                                                user=Depends(require_admin)):
+    doc = await _ann.update(
+        db, incident_id=incident_id, ann_id=ann_id,
+        payload=body.payload or {},
+        author=(user or {}).get("email") or "analyst")
+    if doc is None:
+        return {"ok": False,
+                    "reason": "annotation not found, retired, or superseded"}
+    return {"ok": True, "annotation": doc}
+
+
+class _AnnotationRetire(BaseModel):
+    reason: str | None = None
+
+
+@router.delete("/incidents/{incident_id}/annotations/{ann_id}")
+async def incident_annotations_retire(incident_id: str, ann_id: str,
+                                                body: _AnnotationRetire | None = None,
+                                                user=Depends(require_admin)):
+    doc = await _ann.retire(
+        db, incident_id=incident_id, ann_id=ann_id,
+        author=(user or {}).get("email") or "analyst",
+        reason=(body.reason if body else None))
+    if doc is None:
+        return {"ok": False, "reason": "annotation not found / already retired"}
+    return {"ok": True, "annotation": doc}
+
+
+@router.get("/dsm/registry")
+async def dsm_registry_list(user=Depends(require_admin)):
+    # P0-2: `dsms` shape is unchanged.  `load_failures` / `resolve_failures`
+    # are additive so an operator can tell "DSM never loaded" apart from
+    # "no DSM supports this event" — previously indistinguishable.
+    return {"dsms": DSM_REGISTRY.list(), **DSM_REGISTRY.health()}
+
+
+@router.get("/canonical-evidence/count")
+async def canonical_evidence_count(user=Depends(require_admin)):
+    return {"collection": CANONICAL_COLLECTION,
+                "count": await db[CANONICAL_COLLECTION].count_documents({})}

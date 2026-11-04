@@ -1,0 +1,824 @@
+{
+  "base": "https://greeting-app-5782.preview.emergentagent.com",
+  "probes": [
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2880
+    },
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents/inc_2305c71cd8f54dc38e55",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 7169
+    },
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents/inc_2305c71cd8f54dc38e55/attack-story",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 3414
+    },
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents/inc_2305c71cd8f54dc38e55/attack-graph",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 24233
+    },
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents/inc_2305c71cd8f54dc38e55/threat-model",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 4808
+    },
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents/inc_2305c71cd8f54dc38e55/investigation",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 36050
+    },
+    {
+      "group": "xdr.incidents",
+      "path": "/api/incidents/inc_2305c71cd8f54dc38e55/summary",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1833
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/kpis",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2183
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/soc-queue",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 3767
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/detection-overview",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 420
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/analyst-workload",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 386
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/customer-operations",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 3121
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/auto-investigation",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 997
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/recent-activity",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2931
+    },
+    {
+      "group": "xdr.mss",
+      "path": "/api/xdr/mss/state-distribution",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 232
+    },
+    {
+      "group": "xdr.dashboard",
+      "path": "/api/xdr/dashboard/tiles",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2384
+    },
+    {
+      "group": "xdr.search",
+      "path": "/api/xdr/search?q=dev_42e8c6dc74b9",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 852
+    },
+    {
+      "group": "xdr.search",
+      "path": "/api/xdr/search/capabilities",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1394
+    },
+    {
+      "group": "xdr.correlation",
+      "path": "/api/xdr/correlation/status",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 506
+    },
+    {
+      "group": "xdr.correlation",
+      "path": "/api/xdr/correlation/rules",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 9961
+    },
+    {
+      "group": "xdr.correlation",
+      "path": "/api/xdr/correlation/matches",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 16085
+    },
+    {
+      "group": "xdr.correlations",
+      "path": "/api/correlations?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1243
+    },
+    {
+      "group": "xdr.scenarios",
+      "path": "/api/xdr/scenarios",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 288305
+    },
+    {
+      "group": "xdr.saved_views",
+      "path": "/api/xdr/saved-views",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 50
+    },
+    {
+      "group": "xdr.detection",
+      "path": "/api/xdr/detection/status",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2516
+    },
+    {
+      "group": "xdr.detection",
+      "path": "/api/xdr/detection/inventory",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 975
+    },
+    {
+      "group": "xdr.detection",
+      "path": "/api/xdr/detection/rules?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 7840
+    },
+    {
+      "group": "xdr.detection",
+      "path": "/api/xdr/detection/versions",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 28976
+    },
+    {
+      "group": "xdr.detection",
+      "path": "/api/xdr/detection/policy",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 420
+    },
+    {
+      "group": "xdr.rule_studio",
+      "path": "/api/xdr/rule-studio/status",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1109
+    },
+    {
+      "group": "xdr.rule_studio",
+      "path": "/api/xdr/rule-studio/lanes",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1437
+    },
+    {
+      "group": "xdr.rule_studio",
+      "path": "/api/xdr/rule-studio/rules",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 242140
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/landing",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 217
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/connectors",
+      "verdict": "REACHABLE_200_EMPTY",
+      "status": 200,
+      "bytes": 39
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/collectors",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 290
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/data-sources",
+      "verdict": "REACHABLE_200_EMPTY",
+      "status": 200,
+      "bytes": 41
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/source-types",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1681
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/outbox",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 26
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/outbox/health",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 583
+    },
+    {
+      "group": "xdr.collector_landed",
+      "path": "/api/xdr/collector/telemetry-health",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 910
+    },
+    {
+      "group": "xdr.collectors_admin",
+      "path": "/api/xdr/collectors",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2137
+    },
+    {
+      "group": "xdr.collectors_admin",
+      "path": "/api/xdr/collectors/catalog",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 14553
+    },
+    {
+      "group": "xdr.collectors_admin",
+      "path": "/api/xdr/collectors/protocols/catalog",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2174
+    },
+    {
+      "group": "xdr.data_sources",
+      "path": "/api/xdr/data-sources",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 306
+    },
+    {
+      "group": "xdr.data_sources",
+      "path": "/api/xdr/data-sources/kinds/catalog",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1141
+    },
+    {
+      "group": "xdr.response",
+      "path": "/api/xdr/incidents/inc_2305c71cd8f54dc38e55/response-executions",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 85
+    },
+    {
+      "group": "xdr.response",
+      "path": "/api/response/actions",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 7718
+    },
+    {
+      "group": "xdr.response_orphan",
+      "path": "/api/playbooks",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.response_orphan",
+      "path": "/api/automation-rules",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.response_orphan",
+      "path": "/api/respond/execute",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.response_orphan",
+      "path": "/api/xdr/extensions",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.response_orphan",
+      "path": "/api/xdr/health/outbox",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.rbac",
+      "path": "/api/xdr/rbac/session-context",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 3077
+    },
+    {
+      "group": "xdr.rbac",
+      "path": "/api/xdr/rbac/roles",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 5657
+    },
+    {
+      "group": "xdr.rbac",
+      "path": "/api/xdr/rbac/users",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 41
+    },
+    {
+      "group": "xdr.rbac",
+      "path": "/api/xdr/rbac/permissions",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 13711
+    },
+    {
+      "group": "xdr.api_keys",
+      "path": "/api/xdr/api-keys",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 44
+    },
+    {
+      "group": "xdr.webhooks",
+      "path": "/api/xdr/webhooks",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 44
+    },
+    {
+      "group": "xdr.secrets",
+      "path": "/api/xdr/secrets",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 43
+    },
+    {
+      "group": "xdr.audit_log",
+      "path": "/api/xdr/audit-log?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2768
+    },
+    {
+      "group": "xdr.audit_log",
+      "path": "/api/xdr/audit-log/verify/chain",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 279
+    },
+    {
+      "group": "xdr.spread",
+      "path": "/api/xdr/spread",
+      "verdict": "HTTP_400",
+      "status": 400,
+      "bytes": 43
+    },
+    {
+      "group": "xdr.spread",
+      "path": "/api/xdr/spread/policy",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2016
+    },
+    {
+      "group": "xdr.spread",
+      "path": "/api/xdr/spread/signals",
+      "verdict": "HTTP_400",
+      "status": 400,
+      "bytes": 43
+    },
+    {
+      "group": "xdr.cve",
+      "path": "/api/xdr/cve/status",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1964
+    },
+    {
+      "group": "xdr.cve",
+      "path": "/api/xdr/cve/exposures",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 45
+    },
+    {
+      "group": "xdr.cve",
+      "path": "/api/xdr/cve/list?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 3622
+    },
+    {
+      "group": "xdr.lolbas",
+      "path": "/api/xdr/lolbas/status",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1783
+    },
+    {
+      "group": "xdr.lolbas",
+      "path": "/api/xdr/lolbas/coverage",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 1077
+    },
+    {
+      "group": "xdr.lolbas",
+      "path": "/api/xdr/lolbas/entries?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 7319
+    },
+    {
+      "group": "xdr.vendor",
+      "path": "/api/xdr/vendor/_catalog",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2725
+    },
+    {
+      "group": "xdr.vendor",
+      "path": "/api/xdr/vendor/cortex/connections",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 13869
+    },
+    {
+      "group": "xdr.vendor",
+      "path": "/api/xdr/vendor/cortex/actions",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 24
+    },
+    {
+      "group": "xdr.platform",
+      "path": "/api/platform/metrics",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2214
+    },
+    {
+      "group": "xdr.mitre",
+      "path": "/api/mitre/catalogue/coverage",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 272460
+    },
+    {
+      "group": "xdr.intel",
+      "path": "/api/threat-intel/status",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.intel",
+      "path": "/api/ioc/lookup?value=1.1.1.1",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "xdr.kb",
+      "path": "/api/kb/stats",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 607
+    },
+    {
+      "group": "xdr.docs",
+      "path": "/api/docs/stats",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 83
+    },
+    {
+      "group": "edr.inventory",
+      "path": "/api/edr/endpoints",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 27176
+    },
+    {
+      "group": "edr.context",
+      "path": "/api/edr/context?incident_id=inc_2305c71cd8f54dc38e55",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 4343
+    },
+    {
+      "group": "edr.trajectory",
+      "path": "/api/edr/device-trajectory?device=dev_42e8c6dc74b9",
+      "verdict": "REACHABLE_200_EMPTY",
+      "status": 200,
+      "bytes": 990709
+    },
+    {
+      "group": "edr.trajectory",
+      "path": "/api/edr/endpoints/dev_42e8c6dc74b9/trajectory",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 88676
+    },
+    {
+      "group": "edr.trajectory",
+      "path": "/api/edr/endpoints/dev_42e8c6dc74b9/trajectory/focus",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 225
+    },
+    {
+      "group": "edr.linked_incidents",
+      "path": "/api/edr/endpoints/dev_42e8c6dc74b9/linked-incidents",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2565
+    },
+    {
+      "group": "edr.detections",
+      "path": "/api/edr/detections",
+      "verdict": "ROUTED_NEEDS_PARAMS_422",
+      "status": 422,
+      "bytes": 97
+    },
+    {
+      "group": "edr.detections",
+      "path": "/api/edr/endpoint-detections",
+      "verdict": "ROUTED_NEEDS_PARAMS_422",
+      "status": 422,
+      "bytes": 97
+    },
+    {
+      "group": "edr.process_tree",
+      "path": "/api/edr/process-tree?endpoint_id=dev_42e8c6dc74b9",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 541
+    },
+    {
+      "group": "edr.campaign_story",
+      "path": "/api/edr/campaign-story?incident_id=inc_2305c71cd8f54dc38e55",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 30430
+    },
+    {
+      "group": "edr.file_traj",
+      "path": "/api/edr/file-trajectory?device=dev_42e8c6dc74b9",
+      "verdict": "ROUTED_NEEDS_PARAMS_422",
+      "status": 422,
+      "bytes": 89
+    },
+    {
+      "group": "edr.fleet_spread",
+      "path": "/api/edr/fleet-spread-index",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 6441
+    },
+    {
+      "group": "edr.narrative",
+      "path": "/api/edr/observation-narrative",
+      "verdict": "ROUTED_NEEDS_PARAMS_422",
+      "status": 422,
+      "bytes": 175
+    },
+    {
+      "group": "edr.response",
+      "path": "/api/edr/response/actions",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 41200
+    },
+    {
+      "group": "edr.response",
+      "path": "/api/edr/response/isolation-policy",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 931
+    },
+    {
+      "group": "edr.enrollment",
+      "path": "/api/edr/enrollment/endpoints",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 95763
+    },
+    {
+      "group": "edr.enrollment",
+      "path": "/api/edr/enrollment/tokens",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 106
+    },
+    {
+      "group": "edr.enrollment",
+      "path": "/api/edr/enrollment/rejections",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 85521
+    },
+    {
+      "group": "edr.wave0",
+      "path": "/api/edr/wave0/capabilities/summary",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 600
+    },
+    {
+      "group": "edr.wave0",
+      "path": "/api/edr/wave0/sensors",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 967
+    },
+    {
+      "group": "edr.wave0",
+      "path": "/api/edr/wave0/contracts",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 2294
+    },
+    {
+      "group": "edr.wave0",
+      "path": "/api/edr/wave0/detection-rule-bindings",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 38694
+    },
+    {
+      "group": "edr.wave0",
+      "path": "/api/edr/wave0/raw-events/stats",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 342
+    },
+    {
+      "group": "edr.wave0",
+      "path": "/api/edr/wave0/filter-taxonomy",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 871
+    },
+    {
+      "group": "shared.v2_cases",
+      "path": "/api/v2/cases?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 728
+    },
+    {
+      "group": "shared.cases",
+      "path": "/api/cases?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 359
+    },
+    {
+      "group": "shared.investigation",
+      "path": "/api/investigations?limit=3",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 753
+    },
+    {
+      "group": "shared.activity",
+      "path": "/api/activity/inventory",
+      "verdict": "ROUTED_METHOD_MISMATCH_405",
+      "status": 405,
+      "bytes": 31
+    },
+    {
+      "group": "shared.observation",
+      "path": "/api/observation/inventory",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "shared.truth",
+      "path": "/api/admin/truth-inventory",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "shared.health",
+      "path": "/api/health",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 39
+    },
+    {
+      "group": "legacy.lab",
+      "path": "/api/lab/status",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "legacy.rc5",
+      "path": "/api/rc5/diag/status",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "legacy.die",
+      "path": "/api/die/",
+      "verdict": "NOT_ROUTED_404",
+      "status": 404,
+      "bytes": 22
+    },
+    {
+      "group": "legacy.iedde",
+      "path": "/api/iedde/analyze",
+      "verdict": "ROUTED_METHOD_MISMATCH_405",
+      "status": 405,
+      "bytes": 31
+    },
+    {
+      "group": "legacy.corpus",
+      "path": "/api/corpus/validate/example",
+      "verdict": "REACHABLE_200_NON_JSON",
+      "status": 200,
+      "bytes": 408
+    },
+    {
+      "group": "legacy.nivxforge_pkg",
+      "path": "/api/nivxforge/health",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 75
+    },
+    {
+      "group": "legacy.nivxforge_pkg",
+      "path": "/api/nivxforge/preview/framework-status",
+      "verdict": "REACHABLE_200_DATA",
+      "status": 200,
+      "bytes": 147
+    }
+  ]
+}

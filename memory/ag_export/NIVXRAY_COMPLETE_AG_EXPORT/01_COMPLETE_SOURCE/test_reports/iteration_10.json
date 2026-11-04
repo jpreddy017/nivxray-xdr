@@ -1,0 +1,50 @@
+{
+  "summary": "Feb-2026 multi-command chain routing bug fix VERIFIED end-to-end on preview URL. Backend regression + frontend E2E both pass. All three entry points (AUTO INVESTIGATE, DECODE/NIVXRAY DECODE, Smart Decode) correctly split multi-line pastes and route through /api/decode/chain, syncing top-level state and auto-opening ChainStageEditor. Single-line inputs remain unaffected (backward-compat preserved).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_chain_routing_i10.py",
+    "/app/test_reports/pytest/i10_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "splitCommandLines heuristic in /app/frontend/src/lib/commandSplitter.js correctly collapses the 11 raw lines of the requested 6-stage payload into 6 logical stages by treating `$var=...` and `IEX $var` as script continuations that glue to the preceding command line. Shared between ChainStageEditor and WorkspacePage — single source of truth. Good.",
+    "All three entry points (nivxrayDecode line 427, autoDecode line 504, autoInvestigate line ~685) call splitCommandLines(input) early and return via runChainAnalysis(parts) when >=2 stages detected. Consistent implementation.",
+    "runChainAnalysis (line 325) fully syncs top-level state: output, steps (recipe), chain, decodeTrace, decodeWinnerEngine (`chain (N stages)`), decodeConfidence (mean), analysis.{iocs, mitre, lolbins, lolbas, yara, risk, family, ai_verdict, chain_result}, plus auto-opens ChainStageEditor via setPendingChainStages/setChainEditorKey/setChainOpen. Complete fix.",
+    "Minor: nivxrayDecode's post-chain status (`CHAIN COMPLETE · 6 stages · Malicious …`) is briefly overwritten by ChainStageEditor's auto-run which resets to `ANALYSIS COMPLETE · Malicious`. Cosmetic only — chain aggregate panels, IOCs, MITRE all render correctly. Not a blocker."
+  ],
+  "updated_files": ["/app/backend/tests/test_chain_routing_i10.py"],
+  "success_rate": {"backend": "100% (2/2)", "frontend": "100% (all 4 scenarios)"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026!",
+  "seed_data_creation": "Created 4 investigations via UI (1 single-line PS -Enc, 2 six-stage chain via AUTO INVESTIGATE + NIVXRAY DECODE, 1 blank-line 2-stage). All test payloads use example.com / evil.com / malicious-domain.com — no live IOCs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The `btn-auto-investigate` testid is on TWO buttons (top toolbar + input-panel inline). Use `.first` or prefer `btn-auto-investigate-inline` to avoid strict-mode collisions. `btn-nivxray-decode` is unique. Chain stage inputs use `chain-input-{idx}`. Status transitions: `MULTI-COMMAND CHAIN DETECTED · analysing N stages…` → `CHAIN COMPLETE · N stages · <verdict> · <family> · avg NN%`. When paste-hint appears, dismiss via `btn-dismiss-paste-hint` before clicking action buttons (paste-hint banner is inside INPUT panel and doesn't overlap top toolbar, but dismissing yields more deterministic runs). Chain aggregate response for the exact 6-stage payload: family='Generic PowerShell Downloader', verdict='Malicious', avg confidence ~72%, contains T1140/T1105/T1059.003.",
+  "verification_evidence": {
+    "backend_chain_stage_count": 6,
+    "backend_family": "Generic PowerShell Downloader",
+    "backend_verdict": "Malicious",
+    "backend_urls_contains_malicious_domain": true,
+    "backend_mitre_T1140_T1105": true,
+    "backend_smart_singleline_no_stage_count_key": true,
+    "frontend_single_line_uses_chain_engine": false,
+    "frontend_single_line_url_192_present": true,
+    "frontend_6stage_auto_investigate_status": "CHAIN COMPLETE · 6 stages · Malicious · Generic PowerShell Downloader · avg 72%",
+    "frontend_6stage_chain_editor_stages": 6,
+    "frontend_6stage_recipe_stage_rows": 6,
+    "frontend_6stage_iocs_malicious_domain": true,
+    "frontend_6stage_mitre_T1140_T1105_T1059_003": true,
+    "frontend_6stage_verdict_Malicious_text": true,
+    "frontend_6stage_family_Downloader_text": true,
+    "frontend_decode_button_routes_through_chain": "confirmed — after click on btn-nivxray-decode, ChainStageEditor auto-opens with 6 stages; status transiently reads CHAIN COMPLETE before ChainStageEditor re-run rewrites to ANALYSIS COMPLETE · Malicious (cosmetic)",
+    "frontend_blank_line_2stage_status": "CHAIN COMPLETE · 2 stages · Low Risk · avg 78%",
+    "frontend_blank_line_chain_editor_stages": 2,
+    "frontend_blank_line_recipe_rows": 2,
+    "frontend_blank_line_evil_com_present": true,
+    "frontend_blank_line_top_output_shows_STAGE_1_engine_and_STAGE_2_engine": true
+  }
+}

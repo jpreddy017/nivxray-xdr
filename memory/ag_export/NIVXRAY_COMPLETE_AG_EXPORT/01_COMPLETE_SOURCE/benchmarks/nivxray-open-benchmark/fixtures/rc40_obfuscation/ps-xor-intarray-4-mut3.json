@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-intarray-4-mut3",
+  "category": "ps-xor-inline",
+  "command_line": "$key=(65,75,69,89); $b=[byte[]](34,46,55,45,52,63,44,53,97,102,33,60,34,36,33,60,97,42,107,59,119,127,101,56,111,46,61,60); $out = for($i=0;$i -lt $b.Length;$i++){ [char]($b[$i] -bxor $key[$i%$key.Length]) }\n# comment-3",
+  "expected_keywords": [
+    "certutil"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

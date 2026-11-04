@@ -1,0 +1,61 @@
+{
+  "summary": "TASK 2 Incidents migration DOM verification. Queue page, table structure, empty-state contract, real-fragment search, state tabs, time-window, mine-toggle, legacy redirect (/xdr/incidents/_table -> /xdr/incidents), rebuilt domain pages (identity, endpoints incl. trajectory btn), detail route, analyst tenant scoping and smoke routes ALL pass. CRITICAL: clicking any incident row crashes the contextual pane (IncidentContextPane -> NxInvTable -> NxInvValue: `JSON.stringify(value)` on a React element with circular Fiber refs). NxErrorBoundary catches it so the flyout DOM (`incident-flyout`, `incident-flyout-body`, all `flyout-*` sections, `incident-flyout-open-investigation`, `incident-pivot-*`) never mounts. This single defect blocks the entire analyst pane / pivot workflow described in features 5, 6, 7, 8 and the dark-theme pane portion of feature 9.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "apps/nivxray-xdr/src/xdr/nx/NxInv.jsx (NxInvValue, line ~37)",
+        "issue": "`typeof value === 'object' ? JSON.stringify(value) : String(value)` — when a caller passes a React element (JSX) as `value`, JSON.stringify throws 'Converting circular structure to JSON' on the Fiber/HTMLDivElement backref. Reproduces every time an incident row is clicked on /xdr/incidents. NxErrorBoundary swallows the render so the flyout never appears (verified: after row click flyout=None, flyout_body=None, pageerror repeats 8x). Reproduced in light theme; same code path breaks dark theme flyout too. Caller is IncidentContextPane.jsx (verdict/facts NxKeyFact chain forwards a node to NxInvValue).",
+        "selector": "[data-testid=\"incident-flyout\"] (never mounts)",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "XdrShell theme toggle",
+        "issue": "Clicking [data-testid=\"xdr-theme-toggle\"] did NOT flip the document root theme attribute in this session (documentElement.dataset.theme and className both empty before AND after click; screenshot label still shows 'LIGHT'). Could not verify dark-theme rendering of table headers / rows / flyout / state chips. Needs a second look — either the toggle no-ops in this build, or the theme flag is stored on a different node (e.g., <body> or a context ref). Because the flyout also crashes, dark-theme pane contrast is unverifiable in this iteration.",
+        "selector": "[data-testid=\"xdr-theme-toggle\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Row click -> contextual pane -> pivot / open investigation",
+        "issue": "Blocked by the NxInvValue crash above. Because the pane is caught by NxErrorBoundary before mount, none of `incident-flyout-open-investigation`, `incident-pivot-timeline`, `incident-pivot-entities`, `incident-pivot-detections` are reachable, so the 'incident identity preserved through pivot' feature is unverifiable in the UI. (Domain routes /xdr/incidents/<id>/domain/identity|endpoints DO render correctly when navigated directly.)",
+        "affected_selectors": ["[data-testid=\"incident-flyout\"]","[data-testid=\"incident-flyout-body\"]","[data-testid^=\"flyout-\"]","[data-testid=\"incident-flyout-open-investigation\"]","[data-testid=\"incident-pivot-timeline\"]","[data-testid=\"incident-pivot-entities\"]","[data-testid=\"incident-pivot-detections\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "verified_pass": [
+    "/xdr/incidents loads with xdr-incidents-page, incidents-state-tabs, incidents-table present (25 rows, admin tenant)",
+    "Zero-row search preserves toolbar + 12 column headers; honest empty message: 'No incident matches this view / Nothing was returned by /api/incidents for this tenant, state and time window. This is an authorized empty set, not a failure.'",
+    "Search with real fragment 'INC000001458' filters to 1 row; clearing restores 25",
+    "State tabs update URL (?state=new) without error; 6 tabs enumerated",
+    "incidents-time-window select and incidents-mine-toggle present and clickable without runtime error",
+    "Legacy /xdr/incidents/_table redirects to /xdr/incidents and lands on the nx page (xdr-incidents-page present, no duplicate queue)",
+    "Domain pages render correctly for a real id (inc_8ddc1dee7a4c46aa93c9): identity has xdr-incident-domain-page + xdr-incident-domain-context + xdr-incident-domain-body-identity; endpoints has same plus xdr-domain-endpoints-open-trajectory",
+    "Detail route /xdr/incidents/<id> loads (no error overlay, body content > 100 chars)",
+    "Analyst tenant scoping honest: header shows 'customer nivx-live', row set is scoped (All open=1, New=1 per tab counts), admin tenant's incidents NOT visible; bulk buttons not rendered for this role (acceptable — no silent-success path)",
+    "Smoke routes mount for admin: /xdr/control-center, /xdr/detections, /xdr/investigations, /xdr/hunting, /xdr/events, /xdr/data-sources (shell text present, no React error overlay)",
+    "Flyout body overflow probe returned no horizontal overflow when the pane fell through to the error boundary (moot until pane is fixed)"
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "FIX NxInv.jsx `NxInvValue`: never JSON.stringify an object without first rejecting React elements. Minimal patch: `if (React.isValidElement(value)) return <span>{value}</span>; if (typeof value === 'object') return <span>{String(value?.label ?? value?.name ?? 'value')}</span>;` — or safer, require callers to pass primitives and coerce to `String()` unconditionally. The current path throws for any element/DOM/fiber-holding value.",
+    "Audit IncidentContextPane callers (NxKeyFact 'Derivation', 'Confidence', evidence NxMetric/NxRowFact etc.) to ensure they pass strings/numbers, not JSX fragments, into value=...",
+    "Re-verify /xdr/incidents row-click -> flyout mount, all `flyout-*` sections, `incident-flyout-open-investigation`, `incident-pivot-*` id preservation, truthful absence phrases, and dark-theme pane after fix.",
+    "Investigate why [data-testid=\"xdr-theme-toggle\"] click did not toggle a persisted theme attribute (state may live on <body>, in localStorage, or in a React context not reflected on documentElement). Confirm both themes actually swap CSS variables when clicked."
+  ],
+  "critical_code_review_comments": [
+    "NxInvValue's JSON.stringify branch is a landmine: any value with a React/DOM cycle blows up the whole section. Guard with React.isValidElement first (or just never stringify — pass strings only).",
+    "NxErrorBoundary hides this crash silently in production: the incident pane simply never appears. Consider surfacing a visible 'Section unavailable' fallback DOM so testing agents and analysts can tell a section died vs. never rendered.",
+    "IncidentContextPane funnels many heterogeneous shapes (verdict summary, canonical_evidence_ids counts, provenance sentences) into NxKeyFact/NxRowFact `value=`. Add PropTypes or a small runtime typecheck to reject non-primitives early."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "~62% (10/16 groups pass; flyout+pivot group blocked by 1 critical bug; theme-toggle group inconclusive)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (used); analyst@nivx-live.com / NivxLive!Analyst2026 (used)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After the NxInvValue fix, re-run: (a) row-click on /xdr/incidents opens [data-testid=incident-flyout] with all 8 flyout-* sections, (b) eyebrow shows the clicked incident's INC number, (c) [data-testid=incident-flyout-open-investigation] navigates to /xdr/incidents/<same id>, (d) pivots /timeline /entities /detections navigate to /xdr/incidents/<same id>?tab=<tab>, (e) truthful-absence phrases in mitre/detections/entities sections, (f) toggle [data-testid=xdr-theme-toggle] and confirm CSS actually switches (documentElement or body attr / class / data-theme) then repeat queue + pane checks. Domain pages already verified in light theme. Preview host: https://greeting-app-5782.preview.emergentagent.com. NO Cloudflare challenge encountered.",
+  "rca of the issue": "REPRO: Log in as admin, GET /xdr/incidents, click the first row [data-testid^='incidents-table-row-']. STACK: TypeError: Converting circular structure to JSON — starting at object with constructor 'FiberNode', property 'stateNode' -> HTMLDivElement, property '__reactFiber$...' closes the circle. Thrown at JSON.stringify (NxInv.jsx:46:41 in the served bundle = line 37 in source `typeof value === 'object' ? JSON.stringify(value) : String(value)`). Path: XdrIncidentsPage -> NxFlyout -> IncidentContextPane -> NxSection (`flyout-verdict-section`) -> NxFacts -> NxKeyFact -> NxInvTable -> NxInvValue. Caught by NxErrorBoundary so no visible flyout DOM. MITIGATION: guard `NxInvValue` to reject React elements (React.isValidElement) and coerce all remaining objects via a safe stringifier (or restrict the API to primitives). Sanitize IncidentContextPane callers passing JSX into `value`."
+}

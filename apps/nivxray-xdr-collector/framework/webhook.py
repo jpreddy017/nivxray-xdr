@@ -35,6 +35,7 @@ from typing import Any, Dict, List, Optional
 
 from framework.base    import Connector, Envelope, Health, Capability
 from framework.parsers import get_path, utcnow_iso
+from framework.identity import collector_id
 
 
 REPLAY_WINDOW_SECONDS = 300      # 5 minutes
@@ -129,7 +130,7 @@ class WebhookConnector(Connector):
                 source               = self.label,
                 source_event_id      = str(eid) if eid is not None else None,
                 connector_id         = self.identity,
-                collector_id         = "collector-local",
+                collector_id         = collector_id(),
                 collection_method    = "webhook",
                 parser_version       = "phaseB.webhook.1",
                 source_timestamp     = str(ts) if ts else None,

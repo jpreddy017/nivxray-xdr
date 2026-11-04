@@ -1,0 +1,272 @@
+{
+  "$defs": {
+    "EnforcementAction": {
+      "enum": [
+        "NONE",
+        "ALERT",
+        "BLOCK",
+        "TERMINATE",
+        "QUARANTINE",
+        "ISOLATE"
+      ],
+      "title": "EnforcementAction",
+      "type": "string"
+    },
+    "EnforcementResult": {
+      "enum": [
+        "NOT_ATTEMPTED",
+        "DISPATCHED",
+        "ACKED",
+        "EXECUTED",
+        "FAILED",
+        "VERIFIED",
+        "UNVERIFIED"
+      ],
+      "title": "EnforcementResult",
+      "type": "string"
+    },
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "ResponseAction": {
+      "description": "Directive \u00a710 + \u00a711. Every action the endpoint control plane may be\nasked to perform.",
+      "enum": [
+        "ISOLATE",
+        "RELEASE_ISOLATION",
+        "KILL_PROCESS",
+        "KILL_PROCESS_TREE",
+        "QUARANTINE_FILE",
+        "DELETE_FILE",
+        "RESTORE_FILE",
+        "SCAN",
+        "FETCH_FILE",
+        "REMOVE_PERSISTENCE",
+        "REMEDIATE",
+        "APPLICATION_CONTROL",
+        "NETWORK_BLOCK",
+        "FORENSIC_SNAPSHOT",
+        "LIVE_QUERY",
+        "RESTART_AGENT",
+        "REFRESH_POLICY",
+        "MOVE_GROUP",
+        "DIAGNOSE",
+        "REMOTE_UNINSTALL"
+      ],
+      "title": "ResponseAction",
+      "type": "string"
+    },
+    "ResponseLifecycle": {
+      "description": "The \u00a710 loop as explicit states. There is deliberately no\n`SUCCEEDED`: an action that executed but was not confirmed by endpoint\ntelemetry sits at `UNVERIFIED`, which is the honest answer.",
+      "enum": [
+        "REQUESTED",
+        "AUTHORIZATION_PENDING",
+        "AUTHORIZATION_DENIED",
+        "POLICY_EVALUATION",
+        "POLICY_BLOCKED",
+        "APPROVAL_PENDING",
+        "APPROVAL_DENIED",
+        "DISPATCHED",
+        "ENDPOINT_ACKED",
+        "EXECUTING",
+        "EXECUTED_UNVERIFIED",
+        "VERIFIED",
+        "FAILED",
+        "EXPIRED",
+        "DRIVER_NOT_REGISTERED",
+        "CAPABILITY_UNAVAILABLE"
+      ],
+      "title": "ResponseLifecycle",
+      "type": "string"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/response_result.schema.json",
+  "additionalProperties": false,
+  "description": "Contract 9. The OUTCOME, with the \u00a710 loop enforced.\n\n`verification_evidence_ref` is the endpoint telemetry that proves the\naction took effect. Without it there is no VERIFIED state, and\ntherefore no success claim.",
+  "properties": {
+    "acked_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Acked At"
+    },
+    "action": {
+      "$ref": "#/$defs/ResponseAction"
+    },
+    "command_id": {
+      "title": "Command Id",
+      "type": "string"
+    },
+    "dispatched_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Dispatched At"
+    },
+    "driver_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The registered response driver that executed this. Absent means no driver exists \u2014 the honest reason the console shows \u2298 RESPONSE DRIVER NOT REGISTERED.",
+      "nivxforge_evidence": true,
+      "title": "Driver Id"
+    },
+    "endpoint_id": {
+      "title": "Endpoint Id",
+      "type": "string"
+    },
+    "enforcement_action": {
+      "$ref": "#/$defs/EnforcementAction",
+      "default": "NONE"
+    },
+    "enforcement_result": {
+      "$ref": "#/$defs/EnforcementResult",
+      "default": "NOT_ATTEMPTED"
+    },
+    "executed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Executed At"
+    },
+    "failure_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Failure Reason"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "result_id": {
+      "title": "Result Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ResponseLifecycle",
+      "default": "REQUESTED"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "transitions": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Transitions",
+      "type": "array"
+    },
+    "verification_evidence_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "event_id of the endpoint telemetry that PROVES the action took effect. Mandatory for VERIFIED.",
+      "nivxforge_evidence": true,
+      "title": "Verification Evidence Ref"
+    },
+    "verified_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Verified At"
+    }
+  },
+  "required": [
+    "result_id",
+    "command_id",
+    "tenant_id",
+    "endpoint_id",
+    "action"
+  ],
+  "title": "ResponseResult",
+  "type": "object",
+  "x-nivxforge-contract": "response_result",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "driver_id",
+    "dispatched_at",
+    "acked_at",
+    "executed_at",
+    "verified_at",
+    "verification_evidence_ref",
+    "failure_reason"
+  ]
+}

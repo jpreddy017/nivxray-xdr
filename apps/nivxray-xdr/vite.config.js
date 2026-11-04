@@ -31,6 +31,37 @@ export default defineConfig(({ mode }) => {
       "process.env.REACT_APP_BACKEND_URL": JSON.stringify(
         env.REACT_APP_NIVXRAY_API_URL || env.REACT_APP_BACKEND_URL || "",
       ),
+      // Origin of the SEPARATELY deployed NivXMachines Workspace
+      // frontend (AutoInvestigate / Decoder / Analyze / Lab). It is a
+      // different origin by owner decision, so this app can only open
+      // it in a new tab — never route to it. Empty means "not
+      // configured", and the console then renders the launcher disabled
+      // instead of linking nowhere.
+      // Origins of the SEPARATELY deployed sibling products. Empty means
+      // "this deployment serves it at the same origin" (preview, and any
+      // combined deployment), so cross-product pivots stay in-app. Both
+      // REACT_APP_* and VITE_* spellings are accepted so a deployment can
+      // use either convention. PUBLIC configuration only — a build
+      // variable is readable in the browser bundle and must never hold a
+      // credential.
+      "process.env.REACT_APP_XDR_URL": JSON.stringify(
+        env.REACT_APP_XDR_URL || env.VITE_XDR_URL || "",
+      ),
+      "process.env.REACT_APP_EDR_URL": JSON.stringify(
+        env.REACT_APP_EDR_URL || env.VITE_EDR_URL || "",
+      ),
+      "process.env.REACT_APP_WORKSPACE_URL": JSON.stringify(
+        env.REACT_APP_WORKSPACE_URL || env.VITE_WORKSPACE_URL || "",
+      ),
+      // Which product THIS deployment serves: "xdr" | "edr" | "" .
+      // A PRODUCT-SCOPE variable, not a cross-product origin variable —
+      // it lights up no launcher, so it does not conflict with keeping
+      // the *_URL origins unset until each product is runtime-verified.
+      // Empty means a combined deployment (preview): nothing is foreign
+      // and behaviour is unchanged.
+      "process.env.REACT_APP_PRODUCT_SCOPE": JSON.stringify(
+        env.REACT_APP_PRODUCT_SCOPE || env.VITE_PRODUCT_SCOPE || "",
+      ),
     },
     build: {
       outDir: "dist",
@@ -46,12 +77,15 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3100,
-      strictPort: true,
+      strictPort: false,
+      host: "0.0.0.0",
+      allowedHosts: true,
     },
     preview: {
       port: 3100,
-      strictPort: true,
+      strictPort: false,
       host: "0.0.0.0",
+      allowedHosts: true,
     },
   };
 });

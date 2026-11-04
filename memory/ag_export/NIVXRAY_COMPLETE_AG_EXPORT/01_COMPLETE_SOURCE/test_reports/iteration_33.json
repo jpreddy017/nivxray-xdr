@@ -1,0 +1,20 @@
+{
+  "summary": "Frontend regression for unified NavTabs + Dashboard LatencyTrendChart. All 14 requested checks pass: admin login lands on /, primary nav renders 7 tabs with correct data-testids, wrapped in data-testid=nav-primary (role=tablist), each click navigates to correct route and sets aria-current=page. TOOLS/LEARN/ADMIN dropdowns open with all expected menu items, close on Escape and on outside click; admin dropdown gated on role=admin (visible for admin user). Dashboard: latency-trend-chart present, latency-trend-svg rendered (8 real runs), hovering the chart reveals latency-trend-tooltip; all 5 KPI cells present; 16 category-* cards render. Training Inbox: training-inbox-filter-tabs plus filter-pending/promoted/dismissed/all all present; clicking filter-promoted sets aria-current=page. OutputView: output-view-tabs plus TEXT/HEX/B64/DIFF present; TEXT default active; DIFF aria-disabled=true when HEX active, aria-disabled unset when TEXT active; clicking DIFF while TEXT active activates diff (aria-current=page). Backend smoke via authenticated curl: GET /api/rc5/golden/history?limit=20 -> 200, 8 entries with fields ts/p50_ms/p95_ms/mitre_technique_count (plus run_id/total/passed/failed/pass_rate/regression_count/mean_ms); GET /api/rc5/golden/summary -> 200 with has_data=true, total=88. No console errors observed on any route (only expected 403s were from an unauthenticated in-page fetch during smoke, which is correct auth enforcement).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/test_reports/screenshots/nav_final.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "NavTabs uses inline styles heavily — acceptable for a design-token island, but a future refactor could move TONES/SIZES into CSS custom properties for easier theming.",
+    "NavDropdown 'anyActive' logic uses startsWith(item.to + '/'), matching NavTabs — consistent and correct.",
+    "OutputView correctly encodes state semantics: activeKey resolves to 'diff' only when view==='text' && showDiff, and DIFF is disabled outside TEXT view via aria-disabled — matches spec."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (smoke only, 2/2 endpoints 200)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK — verified working",
+  "seed_data_creation": "None — used existing 8 golden runs already in Mongo.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "NavTabs consolidation is fully wired and stable. Router-mode tabs sit on data-testid=nav-primary; state-mode tabs are used at training-inbox-filter-tabs and output-view-tabs. LatencyTrendChart renders when history is non-empty (currently 8 runs); empty state has data-testid=latency-trend-empty. /api/rc5/golden/history and /api/rc5/golden/summary require Bearer JWT auth (403 without).",
+  "rca of the issue": "n/a"
+}

@@ -1,0 +1,26 @@
+{
+  "summary": "P0-F.6 Response Verification UI + read-surface backend validated end-to-end against the live preview. Backend: 8/8 new pytest cases pass on /api/edr/response/actions and /api/edr/response/actions/{command_id} (auth-required 401, list shape with proof/verified_count/integrity_alarms, honesty invariant that no non-VERIFIED row can carry success_claimed=true, get-by-id, 404 COMMAND_NOT_FOUND with error code, endpoint_id filter both bogus (empty) and real (only that endpoint), and the known VERIFIED cmd_62b6dae6d45f4efeb6f9 carries pid=6351, start_ticks=1171231, verification.probe present, proof=VERIFIED_BY_POST_ACTION_EVIDENCE). Existing P0-F.5 identity suite still 13/13 green (regression). Frontend: /xdr/admin/edr-response renders 11 real records with stats {total 11, verified 5, awaiting 0, refused/failed 2, capability_unavailable 4, integrity_alarms 0}; master toggle expands/collapses all 11; the known VERIFIED cmd_62b6dae6d45f4efeb6f9 shows the full audit chain (Requested by → Approved by (⊘ NO APPROVAL STEP…) → Policy (⊘ NO POLICY BOUND…) → endpoint/pid/start_ticks 1171231/identity_basis 'endpoint_id + pid + start_ticks'/cmdline/user/process iid/raw+canonical evidence → REQUESTED→DISPATCHED→EXECUTED→VERIFIED timeline → sensor claim → verification method post_action_proc_read + finding 'the target process is no longer present in /proc under its observed start identity' → FINAL RESULT badge VERIFIED_BY_POST_ACTION_EVIDENCE with data-ep=evidence_present). HONESTY RULE VERIFIED: no non-VERIFIED row carries data-ep=evidence_present (0 offending rows across all 11); the words 'succeeded'/'completed successfully'/'success!' do not appear anywhere in the panel. Lifecycle dropdown cycled through EXECUTED/DISPATCHED/REQUESTED/FAILED/VERIFICATION_FAILED/CAPABILITY_UNAVAILABLE/REFUSED/VERIFIED — filtered rows always paint capability_unavailable (amber/red) or unknown for non-VERIFIED and evidence_present only for VERIFIED. Endpoint filter: bogus ep_bogus_xxxxxx shows '◇ NO RESPONSE ACTIONS ON RECORD' honest empty state; ep_2d57cbe6f80152062109 returns 11 rows. Regressions: /xdr/admin/edr-enrollment and /xdr/admin/edr-capability-truth both render (capability-truth shows 134 capabilities graded, 1 sensor registered, honest filter-taxonomy banner) with no console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/edr/test_p0_f6_response_ui_backend.py",
+    "/app/test_reports/pytest/p0f6_ui_backend.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "edr_plane/response.py: proof_of() is the single grader and it correctly returns integrity_alarm=true for a VERIFIED record with no probe — the UI reflects this via data-ep=capability_unavailable on the proof badge (never evidence_present). Confirmed by inspection.",
+    "EdrResponseBody.jsx STATE_EP map correctly demotes EXECUTED/DISPATCHED to 'unknown' (amber) and never to 'evidence_present' — this is the guardrail that prevents an EXECUTED command being painted as complete. Verified live: 0 offending rows.",
+    "list_commands limits result to 100 rows without pagination cursor — fine at 11 today, but note if a tenant ever accumulates >100 records the UI will silently truncate; consider exposing a total_count separate from count and adding a paging cursor before that becomes real.",
+    "GET /api/edr/response/actions/{command_id} 404 body returns {detail: {error: COMMAND_NOT_FOUND, reason: ...}} which is correctly consumed by EdrResponseBody's error path (`x.response.data.detail.reason`). Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/edr/test_p0_f6_response_ui_backend.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK from /app/memory/test_credentials.md",
+  "seed_data_creation": "None. Reused the 11 real records produced by scripts/p0_f5_response_proof.py in the prior iteration. No new response commands were requested (ep_2d57cbe6f80152062109 is intentionally REVOKED, per prior-iteration note).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-run backend read-surface: pytest /app/backend/tests/edr/test_p0_f6_response_ui_backend.py -v. To reproduce UI checks, log in as admin, open /xdr/admin/edr-response, expand cmd_62b6dae6d45f4efeb6f9 and confirm the FINAL RESULT badge shows VERIFIED_BY_POST_ACTION_EVIDENCE with data-ep=evidence_present, and cycle the lifecycle filter to EXECUTED/DISPATCHED — those rows must render with data-ep='unknown', never 'evidence_present'. The endpoint ep_2d57cbe6f80152062109 is revoked by design; requesting NEW commands returns ENDPOINT_REVOKED and that is correct.",
+  "rca of the issue": "N/A — no defects found. All six explicit owner rules (evidence-not-indicator surface, full audit chain, no second engine, VERIFIED requires probe, EXECUTED never shown as success, isolation stays honestly unavailable) hold in both the read-API and the console."
+}

@@ -29,8 +29,14 @@ def outbox_health(request: Request):
     outbox_metrics = runtime.outbox.metrics()
     worker_status  = runtime.worker.status()
     depth = outbox_metrics["queue_depth"]
+    gate = worker_status.get("health_gate") or {}
+    gate_state = gate.get("state")
     if not ingest_status["configured"]:
         state = "not_configured"
+    elif gate_state in ("OPEN", "HALF_OPEN"):
+        # G1-R3 · the destination is unavailable and delivery is paused. Say so
+        # plainly rather than reporting "degraded" as if events were flowing.
+        state = "delivery_paused"
     elif ingest_status["last_error"] and depth > 0:
         state = "degraded"
     elif ingest_status["delivered"] > 0 and ingest_status["last_error"] is None:
@@ -38,6 +44,7 @@ def outbox_health(request: Request):
     else:
         state = "idle"
     return {"state":  state,
+              "delivery_health": gate,
               "ingest": ingest_status,
               "outbox": outbox_metrics,
               "worker": worker_status}
@@ -62,6 +69,7 @@ def list_outbox(request: Request,
         "attempts":        r.attempts,
         "next_attempt_at": r.next_attempt_at,
         "last_error":      r.last_error,
+        "failure_detail":  r.failure_detail,
         "created_at":      r.created_at,
         "updated_at":      r.updated_at,
     } for r in rows], "count": len(rows)}
@@ -87,6 +95,7 @@ def get_outbox(rid: str, request: Request):
         "attempts":         row.attempts,
         "next_attempt_at":  row.next_attempt_at,
         "last_error":       row.last_error,
+        "failure_detail":   row.failure_detail,
         "created_at":       row.created_at,
         "updated_at":       row.updated_at,
         "raw":              row.raw,

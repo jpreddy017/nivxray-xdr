@@ -1,0 +1,26 @@
+PASS  queue mounts  rows=25
+PASS  row click opens contextual pane  
+PASS  pane body present  
+PASS  pane section flyout-verdict-section  
+PASS  pane section flyout-entities  
+PASS  pane section flyout-detections  
+PASS  pane section flyout-assets  
+PASS  pane section flyout-mitre  
+PASS  pane section flyout-evidence  
+PASS  pane section flyout-progression  
+PASS  pane section flyout-worklog  
+PASS  pane identity matches clicked row  'INC000001458' in '\tP3 · MEDIUM\t INC000001458 Execution from a world-writable directory — agent-env'
+PASS  absence stated in words  
+PASS  no overflow in pane  []
+PASS  pivot keeps incident identity  /xdr/incidents/inc_8ddc1dee7a4c46aa93c9 → https://greeting-app-5782.preview.emergentagent.com/xdr/incidents/inc_8ddc1dee7a4c46aa93c9?tab=detections
+PASS  table structure survives an empty result  12 columns
+PASS  empty state is truthful  
+PASS  theme switches to dark  dark
+PASS  dark: no text painted on its own colour  []
+PASS  dark: nothing clipped  []
+PASS  theme switches to light  light
+PASS  light: no text painted on its own colour  []
+PASS  light: nothing clipped  []
+PASS  no runtime/console error  []
+
+24 PASS · 0 FAIL

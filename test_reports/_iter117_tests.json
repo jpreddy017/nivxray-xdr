@@ -1,0 +1,107 @@
+{
+  "retired_row": {
+    "final_url": "https://greeting-app-5782.preview.emergentagent.com/xdr/admin/detection-registry",
+    "redirected_to_registry": true,
+    "unknown_admin_present": false,
+    "body_len": 15151,
+    "admin_rail_rows": [
+      "xdr-nav-administration",
+      "xdr-nav-integrations",
+      "xdr-nav-response-policies",
+      "xdr-nav-response-strategies",
+      "xdr-nav-api-webhooks",
+      "xdr-nav-platform-health",
+      "xdr-nav-docs"
+    ],
+    "has_detection_rules_row": false
+  },
+  "admin_footer": {
+    "links": [
+      {
+        "label": "Manage Data Sources",
+        "expected": "/xdr/data-sources",
+        "final": "https://greeting-app-5782.preview.emergentagent.com/xdr/data-sources",
+        "final_path": "/xdr/data-sources",
+        "ok": true,
+        "not_cc": true
+      },
+      {
+        "label": "Manage Detection Registry",
+        "expected": "/xdr/admin/detection-registry",
+        "final": "https://greeting-app-5782.preview.emergentagent.com/xdr/admin/detection-registry",
+        "final_path": "/xdr/admin/detection-registry",
+        "ok": true,
+        "not_cc": true
+      },
+      {
+        "label": "View IOC Intelligence",
+        "error": "Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_text(\"View IOC Intelligence\").first\n"
+      }
+    ]
+  },
+  "findings": {
+    "table_present": false
+  },
+  "overlay": {},
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Warning: Internal React error: Expected static flag was missing. Please notify the React team.%s \n    at AdminBody (https://greeting-app-5782.preview.emergentagent.com/src/xdr/pages/XdrAdminPage.jsx?t=1789761977874:201:3)\n    at main\n    at div\n    at main\n    at div\n    at div\n    at NxDensityProvi",
+    "Warning: Internal React error: Expected static flag was missing. Please notify the React team.%s \n    at AdminBody (https://greeting-app-5782.preview.emergentagent.com/src/xdr/pages/XdrAdminPage.jsx?t=1789761977874:201:3)\n    at main\n    at div\n    at main\n    at div\n    at div\n    at NxDensityProvi",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "The above error occurred in one of your React components:\n\n    at Lazy\n    at Protected (https://greeting-app-5782.preview.emergentagent.com/src/App.jsx?t=1789762043408:151:3)\n    at RenderedRoute (https://greeting-app-5782.preview.emergentagent.com/node_modules/.vite/deps/react-router-dom.js?v=965c",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "The above error occurred in one of your React components:\n\n    at Lazy\n    at Protected (https://greeting-app-5782.preview.emergentagent.com/src/App.jsx?t=1789762043408:151:3)\n    at RenderedRoute (https://greeting-app-5782.preview.emergentagent.com/node_modules/.vite/deps/react-router-dom.js?v=965c",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "The above error occurred in one of your React components:\n\n    at Lazy\n    at Protected (https://greeting-app-5782.preview.emergentagent.com/src/App.jsx?t=1789762043408:151:3)\n    at RenderedRoute (https://greeting-app-5782.preview.emergentagent.com/node_modules/.vite/deps/react-router-dom.js?v=965c",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()",
+    "Failed to load resource: the server responded with a status of 429 ()"
+  ],
+  "destroy_errors": [],
+  "network_overlays": []
+}

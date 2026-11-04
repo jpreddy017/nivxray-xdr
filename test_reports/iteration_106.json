@@ -1,0 +1,32 @@
+{
+  "summary": "P0-2C 'Alias Site Sweep' frontend-only verification. Admin login, XDR Investigation Workspace tab strip (all 8 tabs) and Device Trajectory tab (honest empty state, no crash), EDR alias-invariance (dev_/ep_/hostname all resolve to same endpoint with ENDPOINT COMMANDS 33 of 33), EDR left-rail nav (Overview/Detections/Device Trajectory/Process Tree/Campaign Story) all render without crash, and cross-tenant analyst does not leak hostname or ep_id, all PASS. One observation on the forged-identifier UX: the page renders an honest empty state but does not include an explicit 'ENDPOINT_NOT_RESOLVED' / 'no endpoint ... resolves' string as the task text requires.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "EdrResponsePage / EdrDetectionsPage (forged endpoint)",
+        "issue": "Visiting /edr/response?device=dev_ffffffffffff and /edr/detections?endpoint_id=dev_ffffffffffff renders an honest empty state ('No endpoint command records in scope. This is an absence of commands, not a statement that any endpoint is contained.' and 'NO RULE FIRED - 0 endpoint events were evaluated by the detection fabric and none matched. This is not a statement that the endpoint is clean.') but neither surface displays an explicit 'ENDPOINT_NOT_RESOLVED' / 'no endpoint that identifier resolves to' style message. The forged identifier is instead echoed back as if it were a resolved endpoint ('Endpoint dev_ffffffffffff', 'ENDPOINT DEV_FFFFFFFFFFFF'). This looks visually indistinguishable from a real endpoint that legitimately has zero commands/detections, which is the exact ambiguity P0-2C is meant to remove.",
+        "selector": "[data-testid*='endpoint']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "On /edr/response and /edr/detections, when the backend endpoint resolver returns ENDPOINT_NOT_RESOLVED (or the resolved endpoint object is null while an identifier was supplied), render a dedicated banner containing the literal token 'ENDPOINT_NOT_RESOLVED' and a human-readable line such as 'No endpoint that this identifier resolves to.' instead of the current 'X of Y' / 'NO RULE FIRED' honest-empty layout, so a forged identifier is visually distinguishable from a real but empty endpoint."
+  ],
+  "critical_code_review_comments": [
+    "XdrInvestigationWorkspacePage.jsx line ~150: replacing the caseId-as-device fallback with setTrajectoryData(null) is safe - the Device Trajectory tab now renders 'NO MATCHING TRAJECTORY EVIDENCE' with 0 lane counts and does not crash the page.",
+    "EDR pages consistently accept both ?device= and ?endpoint_id= aliases and the ENDPOINT chip echoes whichever alias was supplied - alias invariance is preserved on all three surfaces tested."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not_tested", "frontend": "6/7 scenarios PASS - forged-identifier UX shows honest empty state but lacks explicit NOT_RESOLVED wording"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK; analyst@nivx-live.com / NivxLive!Analyst2026",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login uses data-testid selectors xdr-login-email/xdr-login-password/xdr-login-submit. EDR left rail uses data-testid nvf-nav-{overview|detections|device-trajectory|process-tree|campaign-story}. Fixture endpoint aliases dev_42e8c6dc74b9 == ep_2d57cbe6f80152062109 == agent-env-630704a1-621f-478b-9b86-a321772d01bf, all show 'ENDPOINT COMMANDS 33 of 33'. Cross-tenant analyst@nivx-live.com correctly gets 0 of 0 with no leak of the other tenant's ep_id or hostname. Only remaining gap: forged endpoint identifiers do not produce an explicit 'ENDPOINT_NOT_RESOLVED' string in the UI - they render as a normal but empty endpoint page.",
+  "rca of the issue": "Frontend EDR pages render whatever identifier is in the query string as-is in the ENDPOINT chip and header, without checking whether the backend actually resolved that identifier to a real endpoint. On dev_ffffffffffff the /api/edr/response/actions call likely returns an empty items array (and possibly a resolution_state=ENDPOINT_NOT_RESOLVED field from the new invariant), but the React page ignores that state signal and always falls through to the 'X of Y commands' + honest-empty text branch. Fix: EdrResponsePage.jsx (~line 63) and EdrDetectionsPage.jsx (~line 149) should inspect the resolution_state / reason field returned by the endpoint-resolver invariant and, when it is ENDPOINT_NOT_RESOLVED, replace the metrics + list with a dedicated banner (e.g., data-testid=\"edr-endpoint-not-resolved\") whose text literally contains 'ENDPOINT_NOT_RESOLVED' and a plain-English 'No endpoint that this identifier resolves to.' line."
+}

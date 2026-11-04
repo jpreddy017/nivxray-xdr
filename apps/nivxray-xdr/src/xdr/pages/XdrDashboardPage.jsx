@@ -23,6 +23,7 @@ import {
 
 import XdrShell           from "@/xdr/XdrShell";
 import { getDashboardTiles } from "@/lib/incidentsApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 // ── Lens → icon mapping (visual only — never affects behaviour) ────
@@ -59,8 +60,7 @@ export default function XdrDashboardPage() {
       const res = await getDashboardTiles();
       setBody(res);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message
-                || "Failed to load dashboard.");
+      setError(apiErrorText(e, "Failed to load dashboard."));
     } finally {
       setL(false);
     }
@@ -115,7 +115,7 @@ export default function XdrDashboardPage() {
       {error && (
         <div className="x-empty"
               data-testid="xdr-operations-dashboard-error"
-              style={{ color: "#ff9494", marginTop: 12 }}>
+              style={{ color: "var(--nx-critical)", marginTop: 12 }}>
           {String(error)}
         </div>
       )}

@@ -1,0 +1,24 @@
+{
+  "id": "des-inline-ps-2",
+  "algorithm": "DES",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "utf8-key",
+    "utf8-iv",
+    "base64-cipher-decode"
+  ],
+  "runtime_stages": [
+    "des-decrypt"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

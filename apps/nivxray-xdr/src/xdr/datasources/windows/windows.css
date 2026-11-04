@@ -1,0 +1,48 @@
+/* windows.css · ONLY the stage rail, which is a Windows-specific
+ * composition. Tokens only — both themes are first-class.
+ * Everything that used to live here (wx-chip, wx-kv, wx-section, wx-fact,
+ * wx-btn, wx-tag, wx-filters…) was a second design system and is gone. */
+
+.wxs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wxs-arrow { color: var(--nx-faint); flex: 0 0 auto; }
+.wxs-stage {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  padding: 5px 9px; cursor: pointer;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 5px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.wxs-stage:hover {
+  background: var(--nx-surf-hover); border-color: var(--nx-bd-strong);
+}
+.wxs-stage:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+.wxs-name {
+  font: 700 9.5px/1.2 var(--sans); text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--nx-muted);
+}
+.wxs-stage[data-reached="true"] { border-left: 3px solid var(--nx-benign); }
+.wxs-stage[data-reached="false"] { border-left: 3px solid var(--nx-bd-strong); }
+
+/* Page rhythm: generous, consistent, never ad-hoc per section. */
+.wx-stack { display: flex; flex-direction: column; gap: 20px; }
+.wx-split {
+  display: grid; gap: 20px;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .wx-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* PAGE LAYOUT ONLY (classified per the owner's CSS convergence rule):
+ * a fact grid and an inline attention line. No colours are invented —
+ * both resolve through nx tokens. */
+.wx-facts { display: grid; gap: 10px 26px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.wx-attn {
+  font: 600 11.5px/1.5 var(--sans);
+  color: var(--nx-medium);
+}

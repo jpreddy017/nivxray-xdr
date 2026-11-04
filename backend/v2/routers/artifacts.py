@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from deps import require_admin, db as _db
+from v2.case_authz import engine_association, engine_case_read
 from v2.flags import get as get_flag
 from v2.artifact_store import (
     create_or_update, get_by_iid, get_by_sha, list_by_case,
@@ -92,12 +93,13 @@ async def list_case_artifacts(
     case_id: str,
     kind: str | None = Query(None),
     limit: int = Query(500, ge=1, le=5000),
-    _: dict = Depends(require_admin),
+    grant: dict = Depends(engine_case_read),
 ) -> dict[str, Any]:
     _guard()
     arts = await list_by_case(_db, case_id, kind=kind, limit=limit)
     return {
         "ok": True, "case_id": case_id, "count": len(arts),
+        "engine_association": await engine_association(_db, case_id, grant),
         "artifacts": [a.model_dump() for a in arts],
     }
 

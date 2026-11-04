@@ -1,0 +1,19 @@
+# NivXForge EDR · Windows runtime dependency contract (G1/S3)
+#
+# The Windows Event Log adapter acquires through the native API
+# (`win32evtlog.EvtSubscribe`), so `pywin32` is a HARD requirement of the
+# Windows runtime — not an optional extra. Without it the adapter cannot
+# bind the API at all, and the runtime now refuses to start the connector
+# rather than reporting a healthy subscription that acquires nothing.
+#
+# PINNED, not ranged: reproducibility is the point. Build 312 is the tested
+# build and is the first that ships wheels for BOTH cp314 and cp315;
+# `pywin32-312-cp314-cp314-win_amd64.whl` is the wheel the supported G1
+# interpreter (CPython 3.14, standard build, x64) resolves to.
+#
+# NOT SUPPORTED: the free-threaded interpreter (cp314t) — pywin32 publishes
+# no wheel for it and the project does not intend to. See WINDOWS_RUNTIME.md.
+
+-r requirements.txt
+
+pywin32==312

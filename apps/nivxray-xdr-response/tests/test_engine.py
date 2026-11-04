@@ -122,9 +122,17 @@ async def test_approval_resumes_same_execution():
                                       "reason": "IR playbook step 3"})
         assert r2.status_code == 200, r2.text
         j = r2.json()
-        assert j["state"] == "SUCCEEDED"
+        # `endpoint.isolate` now dispatches to the REAL NivXForge EDR
+        # product, so with no endpoint product configured in a unit test
+        # the honest terminal state is FAILED_EXECUTION, not SUCCEEDED.
+        # What this test asserts is the APPROVAL lifecycle: the same row
+        # resumed past approval, attributed, and never claimed execution.
+        assert j["state"] in ("SUCCEEDED", "FAILED_EXECUTION"), j["state"]
         assert j["approval"]["approved_by"] == "user:lead@acme.com"
-        assert j["evidence_ref"]
+        lc = j["response_lifecycle"]
+        assert lc["facts"]["approved"] is True
+        assert lc["facts"]["executed"] is False
+        assert lc["facts"]["verified"] is False
 
 
 @pytest.mark.asyncio
@@ -185,8 +193,12 @@ async def test_preapproved_execution_runs_straight_through():
     async with _lc() as c: r = await c.post("/api/respond/execute", json=body)
     assert r.status_code == 200
     j = r.json()
-    assert j["state"] == "SUCCEEDED"
+    # Pre-approved still runs straight through the lifecycle; the
+    # terminal state now depends on the real product being reachable,
+    # which a unit test deliberately does not provide.
+    assert j["state"] in ("SUCCEEDED", "FAILED_EXECUTION"), j["state"]
     assert j["approval"]["approved_by"] == "user:lead@acme.com"
+    assert j["response_lifecycle"]["facts"]["executed"] is False
 
 
 # ── Target / parameter / action validation ──────────────────────────

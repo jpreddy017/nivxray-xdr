@@ -1,0 +1,73 @@
+diff --git a/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx b/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx
+index 8be55eef..e49a2a49 100644
+--- a/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx
++++ b/apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx
+@@ -29,8 +29,8 @@ export default function AdminTenantGate({ label = "this surface", children }) {
+         setScope(d);
+         // Exactly one authorized tenant → the server has already resolved
+         // it; adopt it rather than asking a pointless question.
+-        const authorizedTenants = d?.authorized_tenants || [];
+-        const only = authorizedTenants.length === 1 ? authorizedTenants[0].customer : null;
++        const offer = d?.authorized_tenants || [];
++        const only = offer.length === 1 ? offer[0].customer : null;
+         if (!activeTenant() && only) {
+           setActiveTenant(only);
+           setTenant(only);
+@@ -46,6 +46,10 @@ export default function AdminTenantGate({ label = "this surface", children }) {
+     setTenant(v || "");
+   };
+ 
++  // B8-SCOPE-1 · AUTHORITY, not evidence. `scope.tenants` is the incident
++  // corpus: an ACTIVE authorized tenant that has never had an XDR incident
++  // is absent from it, which left this selector empty and every
++  // tenant-scoped Administration surface unusable.
+   const options = scope?.authorized_tenants || [];
+ 
+   return (
+@@ -76,7 +80,8 @@ export default function AdminTenantGate({ label = "this surface", children }) {
+           <option value="">— select a customer —</option>
+           {options.map((t) => (
+             <option key={t.customer} value={t.customer}>
+-              {t.display_name || t.customer}
++              {t.display_name && t.display_name !== t.customer
++                ? `${t.display_name} · ${t.customer}` : t.customer}
+             </option>
+           ))}
+         </select>
+diff --git a/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx b/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx
+index 0a412f5a..62216e5c 100644
+--- a/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx
++++ b/apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx
+@@ -105,11 +105,18 @@ export default function XdrScopeNavigator() {
+   const label = lockDenied
+     ? ((denied.tenant_ids || [])[0] || "◇ NOT RESOLVED")
+     : denied ? "NOT AUTHORIZED" : scopeLabel(eff);
++  // B8-SCOPE-1 · what may be OFFERED is an AUTHORITY question, answered by
++  // `authorized_tenants` (explicit grants, or the authoritative ACTIVE
++  // registry for a PLATFORM principal). `tenants` is the incident corpus
++  // and is used ONLY for the "N open" volume beside a row, so a tenant that
++  // has never had an XDR incident is still selectable instead of silently
++  // disappearing while `authorized_count` counted it.
+   const tenants = authorized?.authorized_tenants || [];
+-  const volumes = useMemo(
+-    () => new Map((authorized?.tenants || []).map((t) => [t.customer, t])),
+-    [authorized],
+-  );
++  const volumes = useMemo(() => {
++    const m = new Map();
++    (authorized?.tenants || []).forEach((t) => m.set(t.customer, t));
++    return m;
++  }, [authorized]);
+ 
+   const pick = async (tenantId) => {
+     if (locked) return;
+@@ -229,7 +236,8 @@ export default function XdrScopeNavigator() {
+                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap" }}>
+-                  {t.display_name || t.customer}
++                  {t.display_name && t.display_name !== t.customer
++                    ? t.display_name : t.customer}
+                 </span>
+                 <span className="mono" style={{ fontSize: 10,
+                         color: "var(--faint)", flex: "0 0 auto" }}>

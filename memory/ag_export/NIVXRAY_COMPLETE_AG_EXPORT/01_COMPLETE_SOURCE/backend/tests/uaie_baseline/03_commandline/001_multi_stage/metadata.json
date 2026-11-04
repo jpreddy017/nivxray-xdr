@@ -1,0 +1,7 @@
+{
+  "artifact_type": "commandline",
+  "origin": "synthetic",
+  "description": "Multi-stage attack chain \u2014 7+ MITRE tactics.",
+  "introduced_in": "R26",
+  "owner": "baseline"
+}

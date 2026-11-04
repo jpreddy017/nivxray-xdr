@@ -1,0 +1,699 @@
+"""
+P0.3 · DSM + Snort Parser + Snort Normalizer + Canonical Evidence
++ Sigma Detection (Round 10 unblock).
+
+Boundaries preserved (Round 10 §36):
+  DSM        = vendor/product/source semantics + parser selection
+  Parser     = source-format interpretation
+  Normalizer = canonical schema mapping
+  Detection  = existing P0.2e Sigma harness (no new engine)
+"""
+from __future__ import annotations
+import re, uuid
+from datetime import datetime, timezone
+from typing import Any
+
+from .sigma_strict import strict_parse
+from .nivxray_native_sigma import evaluate as nx_evaluate
+from .xdr_iue import understand as iue_understand
+from .xdr_ice import correlate as ice_correlate
+from .xdr_veee import compute_verdict as veee_compute
+from .xdr_spread_watchlist import observe as spread_observe
+from .xdr_incident import materialise_incident
+from .xdr_investigation import project_investigation
+from .xdr_response_fabric import orchestrate as response_orchestrate
+from .xdr_closed_loop import recompute as closed_loop_recompute
+from .xdr_framework_mapping import resolve_mappings as framework_resolve
+from .telemetry.registry import TELEMETRY_DSM_REGISTRY
+from services import provenance_timestamps as pts
+from services import event_time_basis
+from services import ingest_provenance as ingest_prov
+from services import source_routing
+from services import tenant_authority
+
+
+# ── DSM Registry ────────────────────────────────────────────────
+
+class SnortEveDSM:
+    id       = "snort-eve"
+    vendor   = "Snort"
+    product  = "Snort / Suricata EVE"
+    version  = "1"
+    source_type = "NETWORK_IDS"
+
+    def supports(self, ev: dict) -> bool:
+        if not isinstance(ev, dict): return False
+        # Suricata-EVE alerts carry event_type and an alert sub-object.
+        return "event_type" in ev and "src_ip" in ev
+
+    def select_parser(self): return SnortEveParser()
+    def select_normalizer(self): return SnortNormalizer()
+
+    def identity(self) -> dict:
+        return {"id": self.id, "vendor": self.vendor,
+                    "product": self.product, "version": self.version,
+                    "source_type": self.source_type}
+
+
+class DSMRegistry:
+    """DEPRECATED shim (P0-2, 2026-09-05).
+
+    The authoritative registry now lives in
+    `detection_content.telemetry.registry.TELEMETRY_DSM_REGISTRY`.
+    This name is retained only so that `DSMRegistry` remains importable;
+    it returns the single shared registry instance.
+    """
+
+    def __new__(cls):
+        return TELEMETRY_DSM_REGISTRY
+
+
+# ── The ONE authoritative production DSM registry ───────────────────
+# `snort-eve` keeps position 0 (pre-P0-2 production order preserved):
+#   snort-eve, windows-security-evd, linux-auditd, aws-cloudtrail,
+#   microsoft-sysmon
+DSM_REGISTRY = TELEMETRY_DSM_REGISTRY
+DSM_REGISTRY.try_register("snort-eve", SnortEveDSM, first=True)
+# P0-F · NivXForge Linux endpoint sensor. Appended, so the pre-existing
+# resolution order is untouched.
+DSM_REGISTRY.try_register(
+    "nivxforge-linux-sensor",
+    lambda: __import__("detection_content.telemetry.nivxforge_sensor_dsm",
+                       fromlist=["NivXForgeSensorDSM"]).NivXForgeSensorDSM())
+
+
+# ── Parser ──────────────────────────────────────────────────────
+
+_IP_RX = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$")
+
+
+class ParserError(Exception):
+    def __init__(self, code: str, message: str):
+        self.code = code; self.message = message
+        super().__init__(f"{code}: {message}")
+
+
+class SnortEveParser:
+    id = "snort-eve-parser"
+
+    def parse(self, ev: dict) -> dict:
+        if not isinstance(ev, dict):
+            raise ParserError("INVALID_JSON", "event is not a JSON object")
+        for k in ("event_type", "timestamp", "src_ip", "dest_ip"):
+            if k not in ev:
+                raise ParserError("MISSING_REQUIRED_FIELD",
+                                        f"required field '{k}' missing")
+        for k in ("src_ip", "dest_ip"):
+            if not _IP_RX.match(str(ev[k])):
+                raise ParserError("INVALID_IP",
+                                        f"{k}={ev[k]!r} is not a valid IP")
+        try:
+            datetime.fromisoformat(str(ev["timestamp"]).replace("Z", "+00:00"))
+        except Exception:
+            raise ParserError("INVALID_TIMESTAMP", str(ev["timestamp"]))
+        alert = ev.get("alert") or {}
+        if ev["event_type"] == "alert" and "signature_id" not in alert:
+            raise ParserError("INVALID_ALERT",
+                                    "event_type=alert but alert.signature_id missing")
+        return {
+            "parser_id":   self.id,
+            "raw":         ev,
+            "event_type":  ev["event_type"],
+            "timestamp":   ev["timestamp"],
+            "src_ip":      ev["src_ip"],
+            "src_port":    ev.get("src_port"),
+            "dest_ip":     ev["dest_ip"],
+            "dest_port":   ev.get("dest_port"),
+            "proto":       ev.get("proto"),
+            "alert":       alert,
+        }
+
+
+# ── Normalizer ──────────────────────────────────────────────────
+
+class SnortNormalizer:
+    id = "snort-normalizer"
+
+    def normalize(self, parsed: dict, dsm_id: str,
+                        collector_id: str, integration_id: str,
+                        trace_id: str,
+                        tenant_id: str | None = None) -> dict:
+        alert = parsed.get("alert") or {}
+        # ── D15 · Snort joins the D14 tenant contract ──────────────────
+        # The authenticated delivery is the only authority on ownership. A
+        # tenant named inside an EVE record is a claim by whoever sent it:
+        # recorded as evidence, never used — not for ownership, not for
+        # partitioning, not for any tenant-scoped correlation material.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(parsed.get("raw")))
+        # ── D12 · the EVE timestamp IS the packet instant ──────────────
+        # Suricata/Snort EVE records the time of the packet or flow the
+        # alert was raised on, and the parser already REQUIRES and
+        # ISO-validates it, so the format establishes activity occurrence.
+        # There is no second, separate observation instant to report.
+        etb = event_time_basis.resolve(
+            activity=[(parsed["timestamp"],
+                       "snort-eve:timestamp — the packet/flow instant")],
+            clock=pts.now(),
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "unreachable: the EVE parser rejects an event without a "
+                "valid ISO timestamp"),
+            observation_absent_reason=(
+                "EVE carries one packet timestamp; the sensor reports no "
+                "separate instant at which it observed the packet"))
+        out = {
+            "event_id":   str(uuid.uuid4()),
+            "tenant_id":  resolved_tenant,
+            "event_type": "network_alert",
+            "timestamp":  parsed["timestamp"],
+            "source": {
+                "vendor":  "Snort",
+                "product": "Snort / Suricata",
+            },
+            "network": {
+                "src": {"ip": parsed["src_ip"], "port": parsed.get("src_port")},
+                "dst": {"ip": parsed["dest_ip"], "port": parsed.get("dest_port")},
+                "protocol": parsed.get("proto"),
+            },
+            "security": {
+                "signature": {
+                    "id":   alert.get("signature_id"),
+                    "name": alert.get("signature"),
+                },
+                "category": alert.get("category"),
+                "severity": alert.get("severity"),
+            },
+            "raw_ref": parsed["raw"],
+            "provenance": {
+                "trace_id":         trace_id,
+                "integration_id":   integration_id,
+                "collector_id":     collector_id,
+                "dsm_id":           dsm_id,
+                "parser_id":        SnortEveParser.id,
+                "normalizer_id":    SnortNormalizer.id,
+            },
+        }
+        event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
+        return out
+
+
+# ── Detection via P0.2e harness ──────────────────────────────────
+
+# One deterministic Sigma rule that matches the golden signature.
+_GOLDEN_RULE = """
+title: Snort golden alert
+id: 00000000-0000-0000-0000-9999abcdef99
+logsource: {product: snort, category: network_alert}
+detection:
+    selection:
+        security_signature_id: 2027865
+    condition: selection
+"""
+
+def evaluate_detection(canonical: dict) -> dict:
+    """
+    Run detection evaluation against canonical evidence using both the
+    authoritative Sigma evaluator and the expanded Enterprise Detection Library.
+    Preserves exact golden-rule contract and surfaces all matching detections.
+    """
+    from .library import REGISTRY as DETECTION_REGISTRY
+
+    # 1. Golden rule check (maintains strict regression contract)
+    golden_matched = False
+    parsed = strict_parse(_GOLDEN_RULE)
+    if parsed.status == "PARSED":
+        sec = (canonical.get("security") or {}).get("signature") or {}
+        ev_flat = {"security_signature_id": sec.get("id")}
+        try:
+            golden_matched = bool(nx_evaluate(parsed.rule, ev_flat))
+        except Exception:
+            golden_matched = False
+
+    # 2. Enterprise Detection Library evaluation
+    library_matches = DETECTION_REGISTRY.evaluate_event(canonical)
+
+    # 3. P0-F.3 · the AUTHORED rule store, bound to this SAME evaluator.
+    # Same evaluator, same match shape, two content origins — a rule that
+    # an analyst authored is not second-class to one compiled in.
+    try:
+        from .rule_store_binding import evaluate_store_rules
+        store_matches = evaluate_store_rules(canonical)
+    except Exception:                                          # noqa: BLE001
+        store_matches = []
+    seen = {m.get("rule_id") for m in library_matches}
+    library_matches = library_matches + [m for m in store_matches
+                                         if m.get("rule_id") not in seen]
+
+    matched = golden_matched or bool(library_matches)
+    if golden_matched:
+        primary_rule_id = "00000000-0000-0000-0000-9999abcdef99"
+    elif library_matches:
+        primary_rule_id = library_matches[0]["rule_id"]
+    else:
+        primary_rule_id = "00000000-0000-0000-0000-9999abcdef99"
+
+    return {
+        "status":       "RULE_MATCH" if matched else "RULE_NO_MATCH",
+        "rule_id":      primary_rule_id,
+        "engine_id":    "nivxray::detection_content::nivxray_native_sigma",
+        "matched":      matched,
+        "execution_id": str(uuid.uuid4()),
+        "detections":   library_matches,
+    }
+
+
+# ── Persistence + full pipeline runner ──────────────────────────
+
+CANONICAL_COLLECTION = "xdr_canonical_evidence"
+#: D8 · one row per (canonical event × matched rule), carrying the declared
+#: conditions, the observed values and the evidence reference.
+DETECTION_MATCH_COLLECTION = "xdr_detection_matches"
+
+
+async def process_event_through_pipeline(db, raw_event: dict,
+                                                       trace_id: str,
+                                                       integration_id: str,
+                                                       collector_id: str,
+                                                       tenant_id: str = "default",
+                                                       ingest_provenance: dict | None = None,
+                                                       routing: dict | None = None) -> dict:
+    """
+    Drive one raw event through DSM → Parser → Normalizer →
+    Canonical Evidence → Sigma Detection.  Halts honestly at first
+    failure with the exact reason recorded.
+
+    D15 · when `routing` is supplied (the authenticated ingest path always
+    supplies it) the DSM is taken FROM the routing decision — the declared,
+    authorized source. Content never selects there. Internal callers that
+    supply no routing decision still resolve by content, and that is
+    recorded as exactly what it is.
+    """
+    stages: list[dict] = []
+    def _s(name, status, **detail):
+        stages.append({"stage": name, "status": status, **detail})
+
+    if routing is not None:
+        _dsm_id = routing.get("selected_dsm_id")
+        dsm = DSM_REGISTRY.get(_dsm_id) if _dsm_id else None
+        if not dsm:
+            # An accepted routing decision whose DSM cannot be produced is a
+            # code failure. Nothing is re-resolved by content.
+            _s("dsm", "BLOCKED",
+               reason=("the DSM named by the routing decision is not "
+                       "loaded; content is NOT used to select a "
+                       "substitute"),
+               declared_source=routing.get("declared_source"),
+               selected_dsm_id=_dsm_id,
+               routing_authority=routing.get("routing_authority"),
+               mismatch_reason=source_routing.SOURCE_DSM_UNAVAILABLE)
+            return {"stages": stages, "blocker": "dsm", "routing": routing}
+        _routing = routing
+    else:
+        dsm = DSM_REGISTRY.resolve(raw_event)
+        _routing = source_routing.internal_caller(
+            getattr(dsm, "id", None),
+            reason=("no authenticated collector and no declaration exist on "
+                    "this call path, so the DSM was resolved by content; "
+                    "this is NOT the authenticated ingest boundary"))
+        if not dsm:
+            _s("dsm", "BLOCKED", reason="no DSM in registry supports this event")
+            return {"stages": stages, "blocker": "dsm", "routing": _routing}
+    _s("dsm", "EXECUTED", dsm_id=dsm.id, vendor=dsm.vendor,
+                product=dsm.product,
+                routing_authority=_routing.get("routing_authority"),
+                declared_source=_routing.get("declared_source"),
+                routing_result=_routing.get("routing_result"))
+
+    parser = dsm.select_parser()
+    try:
+        parsed = parser.parse(raw_event)
+    except Exception as pe:                                       # noqa: BLE001
+        # D15 · every DSM raises its OWN parser error type. Declared routing
+        # hands the payload to the DECLARED parser, so a parser refusal must
+        # be a recorded failure here — not an exception that escapes and
+        # certainly not a reason to try a different DSM.
+        _s("parser", "FAILED",
+                    code=getattr(pe, "code", type(pe).__name__),
+                    error=getattr(pe, "message", str(pe))[:300],
+                    parser_id=parser.id)
+        return {"stages": stages, "blocker": "parser", "routing": _routing}
+    # D1 · stamped at the REAL parse boundary — the instant the parser
+    # returned, not a nearby convenient value.
+    t_parsed = pts.now()
+    _s("parser", "EXECUTED", parser_id=parser.id,
+                fields=len(parsed))
+
+    normalizer = dsm.select_normalizer()
+    # Every normalizer takes the authenticated tenant explicitly; the older
+    # positional-only signatures are handled for internal callers only.
+    import inspect as _inspect
+    if "tenant_id" in _inspect.signature(normalizer.normalize).parameters:
+        canonical = normalizer.normalize(
+            parsed, dsm.id, collector_id, integration_id, trace_id,
+            tenant_id=tenant_id)
+    else:
+        canonical = normalizer.normalize(
+            parsed, dsm.id, collector_id, integration_id, trace_id)
+    # D1 · the two boundaries are stamped separately and only after the
+    # work they describe has actually completed.
+    pts.put(canonical, "parsed_at",
+            pts.stamp(t_parsed, source=f"pipeline:parser:{parser.id}"))
+    pts.put(canonical, "normalized_at",
+            pts.stamp(pts.now(),
+                      source=f"pipeline:normalizer:{normalizer.id}"))
+    # D1 · the NivX receipt boundary. The value is only ever taken from the
+    # producer that genuinely observed it — the authenticated ingest handler
+    # that wrote the raw row. If no producer supplied it, it stays MISSING.
+    _recv = (raw_event.get("_authenticated_ingest") or {}).get(
+        "nivx_received_at") or raw_event.get("nivx_received_at")
+    if _recv:
+        pts.put(canonical, "nivx_received_at",
+                pts.stamp(_recv, source="ingest:raw row ingest_time"))
+    # D11 · the collector-delivered transport boundaries. Supplied by the
+    # ingest handler that owns the real HTTP receipt instant, and passed
+    # alongside the raw event rather than inside it, so the stored raw
+    # evidence stays exactly what the collector sent. Absent boundaries stay
+    # NOT_OBSERVED rather than borrowing a nearby stage.
+    _ip = ingest_provenance
+    if isinstance(_ip, dict):
+        ingest_prov.apply(canonical, _ip.get("timestamps") or {})
+        _ident = dict(_ip.get("identity") or {})
+        # D13 · the DSM that actually claimed this event, recorded beside
+        # the format the collector declared. A disagreement is evidence,
+        # not something to reconcile silently.
+        _ident["selected_dsm_id"] = dsm.id
+        canonical.setdefault("provenance", {})["ingest"] = _ident
+    # D15 · the routing decision travels with the evidence it produced:
+    # what was declared, what the collector was authorized for, who chose
+    # the DSM, and how content validation answered.
+    canonical.setdefault("provenance", {})["routing"] = dict(_routing)
+    _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
+
+    await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
+    _s("canonical_evidence", "EXECUTED",
+                event_id=canonical["event_id"],
+                collection=CANONICAL_COLLECTION)
+    _s("ssot", "EXECUTED", note="canonical evidence persisted")
+
+    # ── Detection first (needed by IUE for capability_tags) ──────
+    detection = evaluate_detection(canonical)
+    # D1 · stamped when rule evaluation actually finished.
+    t_rule = pts.now()
+    if detection.get("status") == "EXECUTION_FAILED":
+        _s("detection", "FAILED", detection_error=detection.get("error"))
+        return {"stages": stages, "blocker": "detection",
+                    "canonical": canonical}
+    _s("detection", "EXECUTED", detection_status=detection.get("status"),
+            matched=detection.get("matched"),
+            engine_id=detection.get("engine_id"),
+            rule_id=detection.get("rule_id"))
+
+    # ── D8 · persist the citation for every match ───────────────────
+    # One row per (canonical event × matched rule). `observed_value` comes
+    # from the canonical evidence the rule actually read, and
+    # `evidence_ref` points back to it. Nothing is reconstructed later.
+    _cit_rows = []
+    for _m in (detection.get("detections") or []):
+        _c = _m.get("citation") or {}
+        _cit_rows.append({
+            "tenant_id":          canonical.get("tenant_id") or tenant_id,
+            "canonical_event_id": canonical.get("event_id"),
+            "evidence_ref":       f"{CANONICAL_COLLECTION}/"
+                                  f"{canonical.get('event_id')}",
+            "trace_id":           trace_id,
+            "raw_ref":            canonical.get("raw_ref")
+                                  or (canonical.get("provenance")
+                                      or {}).get("trace_id"),
+            "rule_id":            _m.get("rule_id"),
+            "rule_version":       _m.get("rule_version"),
+            "rule_name":          _m.get("name"),
+            "engine_id":          detection.get("engine_id"),
+            "rule_result":        "MATCH",
+            "declaration_state":  _c.get("declaration_state"),
+            "citation_completeness": _c.get("citation_completeness"),
+            "evaluated_conditions":  _c.get("evaluated_conditions") or [],
+            "matched_conditions":    _c.get("matched_conditions") or [],
+            "unmatched_conditions":  _c.get("unmatched_conditions") or [],
+            "severity":           _m.get("severity"),
+            "confidence":         _m.get("confidence"),
+            "mitre_attack":       _m.get("mitre_attack") or [],
+            "telemetry_requirements": _m.get("telemetry_requirements") or [],
+            "source":             (canonical.get("provenance")
+                                   or {}).get("source_kind"),
+            "trust_state":        (canonical.get("provenance")
+                                   or {}).get("trust_state"),
+            "evaluated_at":       t_rule,
+        })
+    if _cit_rows:
+        await db[DETECTION_MATCH_COLLECTION].insert_many(_cit_rows)
+    _s("detection_citations",
+            "EXECUTED" if _cit_rows else "NOT_CREATED",
+            rows=len(_cit_rows),
+            collection=DETECTION_MATCH_COLLECTION,
+            undeclared=[r["rule_id"] for r in _cit_rows
+                        if r["declaration_state"] == "NOT_DECLARED"],
+            unexplained=[r["rule_id"] for r in _cit_rows
+                         if r["citation_completeness"]
+                         == "NO_DECLARED_CONDITION_MATCHED_DESPITE_RULE_MATCH"])
+
+    # ── Round 11 · IUE (understanding) ──────────────────────────
+    iue = iue_understand(canonical, detection)
+    _s("iue", "EXECUTED",
+            iue_id=iue["iue_id"],
+            entities=len(iue["entities"]),
+            capability_tags=iue["capability_tags"],
+            severity_hint=iue["severity_hint"],
+            confidence=iue["confidence"],
+            engine_id=iue["engine_id"])
+
+    # ── Round 11 · ICE (correlation) ────────────────────────────
+    ice = await ice_correlate(db, canonical, iue, trace_id)
+    _s("correlation", "EXECUTED",
+            state=ice["state"],
+            rules_evaluated=ice["rules_evaluated"],
+            matches=len(ice.get("matches") or []),
+            engine_id=ice["engine_id"])
+
+    # ── Round 11 · VEEE (verdict) ───────────────────────────────
+    verdict = veee_compute(canonical, detection, iue, ice)
+    _s("verdict", "EXECUTED",
+            label=verdict["label"],
+            score=verdict["score"],
+            engine_id=verdict["engine_id"],
+            reason=verdict["reason"])
+
+    # ── P1.10a · Spread Watchlist (evidence / watch plane) ──────
+    # NOT an engine.  It records sightings and, when the same tracked
+    # indicator appears on a NEW distinct REAL endpoint, emits
+    # correlation EVIDENCE.  That evidence is appended to the ICE
+    # result and the EXISTING VEEE re-evaluates once, so the existing
+    # incident gate stays the sole authority on promotion.
+    # The verdict above is provisional and used only to gate
+    # enrollment; the verdict below is authoritative.
+    spread = await spread_observe(
+        db, canonical, iue=iue, detection=detection, verdict=verdict,
+        trace_id=trace_id, tenant_id=canonical.get("tenant_id") or tenant_id)
+    verdict_provisional = None
+    if spread.get("correlation_matches"):
+        verdict_provisional = {"label": verdict["label"],
+                                    "score": verdict["score"]}
+        ice = {**ice,
+                    "state": "MATCHED",
+                    "matches": list(ice.get("matches") or [])
+                                    + list(spread["correlation_matches"])}
+        verdict = veee_compute(canonical, detection, iue, ice)
+        _s("verdict_reevaluated", "EXECUTED",
+                label=verdict["label"], score=verdict["score"],
+                provisional_label=verdict_provisional["label"],
+                provisional_score=verdict_provisional["score"],
+                spread_evidence=len(spread["correlation_matches"]),
+                engine_id=verdict["engine_id"],
+                reason=verdict["reason"],
+                note="spread evidence re-scored by the EXISTING VEEE; "
+                        "no separate spread score exists")
+    _s("spread_watchlist", "EXECUTED",
+            state=spread["state"],
+            admitted=spread["admitted"],
+            admission_reason=spread["admission_reason"],
+            endpoint_identity_state=spread["endpoint_identity_state"],
+            counts_toward_spread=spread["counts_toward_spread"],
+            indicators=spread["indicators_extracted"],
+            sightings_recorded=spread["sightings_recorded"],
+            duplicates_ignored=spread["duplicate_sightings_ignored"],
+            spread_thresholds=[s["status"] for s in spread["spread"]],
+            plane_id=spread["plane_id"])
+
+    # ── Round 11 · Incident (gated materialisation) ─────────────
+    # D1 · the detection and verdict boundaries. The canonical row was
+    # persisted earlier on purpose, so evidence survives a detection fault;
+    # these two stamps are therefore APPENDED to it. Only the provenance
+    # block is written — no evidence field is ever rewritten. `verdict_at`
+    # is taken after the spread re-evaluation above, so it marks the
+    # AUTHORITATIVE verdict and not a superseded provisional one.
+    pts.put(canonical, "rule_evaluated_at",
+            pts.stamp(t_rule,
+                      source=f"pipeline:detection:{detection.get('engine_id')}"))
+    pts.put(canonical, "verdict_at",
+            pts.stamp(pts.now(),
+                      source=f"pipeline:verdict:{verdict.get('engine_id')}"))
+    _tsb = canonical["provenance"]["timestamps"]
+    await db[CANONICAL_COLLECTION].update_one(
+        {"event_id": canonical["event_id"]},
+        {"$set": {
+            "provenance.timestamps.rule_evaluated_at":
+                _tsb["rule_evaluated_at"],
+            "provenance.timestamps.verdict_at": _tsb["verdict_at"]}})
+
+    incident = await materialise_incident(
+        db, canonical, iue, ice, detection, verdict, trace_id,
+        tenant_id=canonical.get("tenant_id") or tenant_id)
+    if incident.get("created"):
+        _s("incident", "EXECUTED",
+                incident_id=incident["incident_id"],
+                priority=incident["priority"],
+                state=incident["state"],
+                engine_id=incident["engine_id"])
+    else:
+        _s("incident", "NOT_CREATED",
+                reason=incident.get("reason"),
+                engine_id=incident.get("engine_id"))
+
+    # Investigation Fabric — Round 12 · P0.6 · projection over
+    # existing evidence + provenance (§37: no second engine).
+    investigation = None
+    response = None
+    loop = None
+    framework = None
+    if incident.get("created"):
+        try:
+            investigation = await project_investigation(
+                db, incident["incident_id"])
+            _s("investigation", "EXECUTED",
+                    incident_id=incident["incident_id"],
+                    lanes_ready=investigation["lanes_ready"],
+                    lanes_total=investigation["lanes_total"],
+                    engine_id=investigation["engine_id"])
+        except Exception as ex:                                  # noqa: BLE001
+            investigation = None
+            _s("investigation", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::investigation_fabric")
+
+        # Response Fabric — Round 13 · P0.7 · Context → Recommendation
+        # → Decision → Approval → Executor (with real OSINT adapter).
+        # A fabric fault must not erase the fact that the incident WAS
+        # materialised — record it as a FAILED stage and continue.
+        try:
+            response = await response_orchestrate(db, incident["incident_id"])
+            decision  = (response.get("decision") or {})
+            execution = (response.get("execution") or {})
+            _s("response", "EXECUTED",
+                    decision=decision.get("decision"),
+                    required_action=decision.get("required_action"),
+                    execution_state=(execution or {}).get("state"),
+                    engine_id=response.get("engine_id"),
+                    recommendations=len(response.get("recommendations") or []))
+        except Exception as ex:                                  # noqa: BLE001
+            response = None
+            _s("response", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::response_fabric")
+
+        # Closed-Loop Recompute — Round 14 · P0.7.1 · Action result
+        # becomes provenance-bearing observation, Investigation and
+        # Recommendations recompute idempotently.
+        try:
+            loop = await closed_loop_recompute(db, incident["incident_id"])
+            _s("closed_loop", "EXECUTED",
+                    engine_id=loop.get("engine_id"),
+                    changed=loop.get("changed"),
+                    new_observations=loop.get("new_observations"),
+                    created_recos=len((loop.get("recommendations") or {}).get("created") or []),
+                    superseded_recos=len((loop.get("recommendations") or {}).get("superseded") or []),
+                    decision=loop.get("decision"))
+        except Exception as ex:                                  # noqa: BLE001
+            loop = None
+            _s("closed_loop", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::closed_loop")
+
+        # Framework Mapping Fabric — Round 15 · P0.7.2 · knowledge
+        # mapping above the engines.  Pure Fabric composer.
+        try:
+            framework = await framework_resolve(db, incident["incident_id"])
+            _s("framework_mapping", "EXECUTED",
+                    engine_id=framework.get("engine_id"),
+                    frameworks_active=[fw for fw, c in (framework.get("counts") or {}).items() if c > 0],
+                    counts=framework.get("counts") or {})
+        except Exception as ex:                                  # noqa: BLE001
+            framework = None
+            _s("framework_mapping", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::framework_mapping")
+
+        # Round 16 · Threat Family classification — deterministic
+        # projection over IUE / ICE / observations / VEEE.
+        try:
+            from detection_content.xdr_threat_family import classify as _cf
+            family = await _cf(db, incident["incident_id"])
+            _s("threat_family", "EXECUTED",
+                    family=family.get("family"),
+                    confidence=family.get("confidence"),
+                    score=family.get("score"),
+                    engine_id=family.get("engine_id"))
+        except Exception as ex:                                  # noqa: BLE001
+            _s("threat_family", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::threat_family")
+
+        # Round 31 · Autonomous Investigator — kicks the deterministic
+        # investigation loop automatically.  No UI, no button.
+        try:
+            from services.investigator import InvestigatorService
+            inv_state = await InvestigatorService.tick(
+                db, incident["incident_id"])
+            _s("autonomous_investigation", "EXECUTED",
+                    incident_id=incident["incident_id"],
+                    investigation_id=inv_state.investigation_id,
+                    state=inv_state.state,
+                    planned=inv_state.pivots_planned,
+                    executed=inv_state.pivots_executed,
+                    skipped=inv_state.pivots_skipped,
+                    findings=inv_state.findings_count,
+                    engine_id="nivxray::investigator::v0")
+        except Exception as ex:
+            _s("autonomous_investigation", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::investigator::v0")
+    else:
+        _s("investigation", "NOT_CREATED",
+                reason="upstream incident not created — no synthetic "
+                        "investigation is fabricated (§37/§42)")
+        _s("response", "NOT_CREATED",
+                reason="upstream incident not created — response fabric "
+                        "requires a materialised incident (§37)")
+        _s("closed_loop", "NOT_CREATED",
+                reason="upstream incident not created — closed-loop "
+                        "recompute requires materialised evidence")
+        _s("framework_mapping", "NOT_CREATED",
+                reason="upstream incident not created — framework "
+                        "mapping requires incident context")
+
+    blocker = None if incident.get("created") else "incident_gate"
+    return {"stages":         stages,
+            "blocker":        blocker,
+            "routing":        _routing,
+            "canonical":      canonical,
+            "detection":      detection,
+            "iue":            iue,
+            "ice":            ice,
+            "spread":         spread,
+            "verdict_provisional": verdict_provisional,
+            "verdict":        verdict,
+            "incident":       incident,
+            "investigation":  investigation,
+            "response":       response,
+            "closed_loop":    loop if incident.get("created") else None,
+            "framework":      framework if incident.get("created") else None}

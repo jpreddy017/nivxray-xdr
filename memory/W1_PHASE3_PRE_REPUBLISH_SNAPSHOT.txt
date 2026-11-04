@@ -1,0 +1,29 @@
+PRE-REPUBLISH PRODUCTION SNAPSHOT — https://nivxray.nivxforge.com
+Captured 2026-09-16T20:2xZ (UTC), read-only, no credential used.
+
+Deployment candidate: HEAD df0899b3b1e7332803f158c8b845517eb7d04e54
+  = accepted cf4aefc9 + one memory document (memory/W1_PHASE3_PRODUCTION_ALIGNMENT_PLAN.md, 190 lines).
+  git diff --stat cf4aefc9..HEAD => 1 file changed, 190 insertions, 0 deletions, no backend/frontend code delta.
+  Tracked tree clean (only untracked memory notes).
+Runtime dependency set: 218 requirement lines, redis occurrences = 0 (Mongo only).
+
+BASELINE (what production serves BEFORE republish):
+  GET /api/                     200 {"service":"NivXRay","status":"ok"}
+  GET /api/health               200 {"status":"ok","service":"nivxray-api"}
+  GET /api/openapi.json         200 · paths = 785
+    /api/xdr/collectors/sources/catalog        ABSENT
+    /api/xdr/ingest/routing/catalog            ABSENT
+    /api/xdr/ingest/routing/deliveries         ABSENT
+    /api/xdr/ingest/routing/summary            ABSENT
+    /api/xdr/detections/{event_id}/citations   ABSENT
+    CanonicalEnvelope.declared_source          ABSENT
+    TelemetryReceipt.routing_blocked           ABSENT
+  POST /api/xdr/ingest/telemetry (no credential)      403 ACCESS_DENIED / unauthenticated
+  POST /api/xdr/ingest/telemetry (unknown nvx_ key)   401 ACCESS_DENIED / unknown-api-key
+  GET  /api/xdr/collectors/sources/catalog (anon)     404 (route does not exist on this build)
+  GET  /api/zzz-not-a-route-12345                     404
+  GET  /api/auth/me (no credential)                   403 Not authenticated
+  POST /api/auth/login (nonexistent account)          401 Invalid credentials  <- auth plane live
+
+EXPECTED AFTER REPUBLISH: paths = 790, the five paths PRESENT, both schema
+fields PRESENT, 403 / 401 / 403(catalog anon) / 404 / 403 / 401 unchanged.

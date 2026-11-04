@@ -1,0 +1,50 @@
+PASS  incident → investigation keeps identity  INC000001458 · inc_8ddc1dee7a4c46aa93c9
+PASS  exactly 8 primary views  ['overview', 'story', 'timeline', 'evidence', 'detections', 'pivots', 'response', 'activity']
+PASS  view overview mounts with content  6284 chars
+PASS  view overview preserves incident identity  
+PASS  view story mounts with content  6133 chars
+PASS  view story preserves incident identity  
+PASS  view timeline mounts with content  8120 chars
+PASS  view timeline preserves incident identity  
+PASS  view evidence mounts with content  2168 chars
+PASS  view evidence preserves incident identity  
+PASS  view detections mounts with content  1835 chars
+PASS  view detections preserves incident identity  
+PASS  view pivots mounts with content  3311 chars
+PASS  view pivots preserves incident identity  
+PASS  view response mounts with content  1174 chars
+PASS  view response preserves incident identity  
+PASS  view activity mounts with content  18783 chars
+PASS  view activity preserves incident identity  
+PASS  legacy ?tab=entities lands on story lens  
+PASS  legacy ?tab=mitre lands on detections lens  
+PASS  legacy ?tab=graph lands on story lens  
+PASS  Report is a workspace action  
+PASS  recommendations are evidence-backed or honestly empty  items=4
+PASS  recommendations never claim a model  
+PASS  affected entities section present  
+PASS  story carries the entity lens  
+PASS  graph node selection opens a contextual pane  CAPABILITY commandline_decode Close DETAILS RELATIONSHIPS (1
+PASS  graph ↔ table lens stays consistent  
+PASS  table lens selection opens the same contextual pane  INCIDENT inc_8ddc1dee7a4c46aa93c9 Close Engine state OBSERVE
+PASS  entity → hunt pivot carries entity + incident  https://greeting-app-5782.preview.emergentagent.com/xdr/hunting?q=agent-env-630704a1-621f-478b-9b86-a321772d01bf&incident=inc_8ddc1dee7a4c46aa93c9
+PASS  entity → related events pivot lands on the event surface  https://greeting-app-5782.preview.emergentagent.com/xdr/events?host=agent-env-630704a1-621f-478b-9b86-a321772d01bf
+PASS  provenance chain shows all six stages  Provenance · REAL_SENSOR_DERIVED · Open source event ·  · canonical event provenance records deliv
+PASS  unprovable stages stay honest  ['NOT_REPORTED', 'NOT_REPORTED', 'NOT_REPORTED', 'MATERIALISED', 'MATCHED', 'OBSERVED']
+PASS  proven stages are not downgraded  ['NOT_REPORTED', 'NOT_REPORTED', 'NOT_REPORTED', 'MATERIALISED', 'MATCHED', 'OBSERVED']
+PASS  evidence pivots back to its source event  
+PASS  ATT&CK is a drill-down from detections  
+PASS  six response facts stay distinct  ['REQUESTED', 'AUTHORIZED', 'DISPATCHED', 'EXECUTED', 'RESULT_REPORTED', 'VERIFIED']
+PASS  executed is never verified  
+PASS  entity-context response present on the response view  
+PASS  timeline separates the three clocks  
+PASS  theme dark applied  
+PASS  dark: no clipping and no invisible text  []
+PASS  theme light applied  
+PASS  light: no clipping and no invisible text  []
+PASS  cross-tenant workspace read is refused by the API  HTTP 404 (existence never disclosed)
+PASS  cross-tenant investigation is refused without disclosure  NIVXRAY XDR NivXMachines Workspace ◇ NOT CONFIGURED ◑ LIGHT NOT AUTHORIZED analy
+PASS  no runtime/console error  []
+
+47 PASS · 0 FAIL
+exit=0

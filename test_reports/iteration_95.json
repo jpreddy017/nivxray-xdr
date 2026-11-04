@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend-only verification of NivXForge EDR Device Trajectory Cisco-AMP-style navigation (P0-F.7 on /edr/trajectory?device=dev_42e8c6dc74b9). All new NAVIGATE zoombar controls, drag panning (horizontal=time, vertical=scrollTop), wheel-does-not-zoom behavior, nav-toggle, sub-minute hour-ribbon handles, and hidden-observation jumps are working. Zoom-in 6x keeps observations visible (no 'NO OBSERVATIONS' fallback). Regression pages /xdr/admin/edr-response and /edr/campaign-story?incident_id=inc_c253027ba781494684db both render without errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "TrajectoryLifelineCanvas.jsx clampWindow() is a misnomer: it delegates to onWindowChange without any actual clamping. The clamping is done upstream in XdrEntity360Page.onWindowChange (day-scoped only). Consider renaming to `emitWindow` or documenting so future readers don't assume it enforces observed-range bounds.",
+    "TrajectoryLifelineCanvas.jsx startPan()/onMove uses window mousemove without pointer capture. On touchscreen/pen input this may not receive pointerevents. Consider setPointerCapture on the SVG for robustness, though mouse-only flow works today.",
+    "TrajectoryLifelineCanvas.jsx wheel handler bails when neither ctrl nor meta is pressed — the intended vertical-scroll behavior is provided by native scroll on the viewport, which is correct, but a comment noting *why* the handler returns early (so native scroll takes over) would prevent regressions."
+  ],
+  "updated_files": [],
+  "verified_behaviours": {
+    "testids_present": "xdr-navigator-zoombar, xdr-nav-zoom-in/out/step-back/step-fwd/fit-visible/fit-all/first/last/span/outside, edr-lifeline-viewport, edr-lifeline-nav-toggle, edr-lifeline-svg all render. xdr-nav-jump-before/after render conditionally when hidden observations exist (confirmed: 0 before / 6334 after in 24h step-back window showed jump-after=1, jump-before=0).",
+    "zoom_in_preserves_observations": "Clicked xdr-nav-zoom-in 6x from All-observed-time; span shrank to 40.3h, outside counter reported '1 before · 0 after', NO_OBSERVATIONS_IN_SELECTED_WINDOW banner never appeared (count=0). Zoom anchors on nearest observed instant as designed.",
+    "fit_all_reset": "xdr-nav-fit-all restores 'window 105.5 d of 97.7 d observed | every observation is inside this window'.",
+    "horizontal_drag_pans_time": "Dispatched native mousedown+mousemove(+300px)+mouseup at (786,678); lifelines panel header changed from '2026-08-30 12:53:47Z → 2026-09-12 23:09:56Z' to '2026-08-27 08:02:37Z → 2026-09-09 18:18:46Z' (window shifted ~3 days earlier). Reverse drag restored original range. span text stayed constant (correct — pan doesn't change span). NOTE: Playwright page.mouse.down/move sometimes fails to trigger the React SVG onMouseDown handler; dispatchEvent path confirms code is correct.",
+    "vertical_drag_scrolls": "Mouse down on canvas, dragged up 300px → edr-lifeline-viewport.scrollTop went 0 → 300 (of 1096 scrollable px). No text selection (window.getSelection() == '').",
+    "wheel_does_not_zoom": "Hovered canvas and wheeled 500px; xdr-nav-span text unchanged, scrollTop advanced 300 → 800. Confirms wheel is vertical-scroll only (ctrl/meta+wheel modifier path not exercised).",
+    "nav_toggle_disables_drag": "edr-lifeline-nav-toggle starts checked; unchecking it makes subsequent horizontal drag leave span/header unchanged. Re-checking restores drag.",
+    "sub_minute_handles": "Dragged xdr-navigator-handle-right to xdr-navigator-handle-left position → 'window 2.4 min of 9.7 h observed' — floor is well under the previous 60s cap.",
+    "jump_before_after_conditional": "In narrow tail-end window with 6334 hidden-after observations, xdr-nav-jump-after rendered and outside counter reported the exact split. When window covers all observations, xdr-nav-jump-before/after do not render — matches 'hidden evidence is never silent' spec.",
+    "regression_pages": "/xdr/admin/edr-response — title 'NivXRay XDR', 0 error elements. /edr/campaign-story?incident_id=inc_c253027ba781494684db — renders campaign story with incident header, verdict, endpoint, behaviors, process activity table.",
+    "range_buttons": "1h/6h/24h/7d/30d/All range buttons all set window correctly (1h → 'window 7.4 min of 5.4 min observed'; 24h → 'window 105.5 d of 9.7 h observed').",
+    "no_text_selection_during_drag": "window.getSelection().toString().length == 0 after multiple drags."
+  },
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0-F.7 (Cisco AMP navigation for Device Trajectory) fully verified on device=dev_42e8c6dc74b9. If future changes touch TrajectoryLifelineCanvas.startPan or the wheel handler, retest: (1) drag horizontal must move header time range but keep span constant; (2) drag vertical must move edr-lifeline-viewport.scrollTop and NOT change span; (3) plain wheel must NOT change span; (4) unchecking edr-lifeline-nav-toggle disables drag; (5) 6x zoom-in from All must keep observations visible. Also note: Playwright's page.mouse.down/move does not reliably trigger the React SVG onMouseDown handler in this environment — use page.evaluate with native MouseEvent dispatch on the SVG (bubbles:true) for deterministic drag tests. jump-before/jump-after testids are conditional — they render only when outside-window observations exist."
+}

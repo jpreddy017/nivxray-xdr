@@ -34,17 +34,17 @@ _FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 def _signing_secret(case_id: str) -> bytes:
     """Return the HMAC key.
 
-    Priority:
-    1. `NIVXRAY_SIGNING_SECRET` env var (production / operator-controlled).
-    2. Deterministic fallback derived from a fixed installation salt +
-       the case_id so demos still emit stable signatures without leaking
-       any real secret.
+    P0-PROD-1 · resolved through the secret policy. There is no
+    repository-derived fallback: production requires an operator-set
+    `NIVXRAY_SIGNING_SECRET` and refuses to sign without it, while
+    preview/CI use an instance-local key derived for THIS purpose only.
+    The manifest carries the non-secret `key_id`, so a verifier can tell
+    which key signed a bundle.
     """
-    env = os.environ.get("NIVXRAY_SIGNING_SECRET")
-    if env:
-        return env.encode()
-    salt = os.environ.get("NIVXRAY_INSTANCE_ID", "nivxray-default-instance")
-    return hashlib.sha256(f"{salt}:{case_id}".encode()).digest()
+    from security import secret_policy
+    material, _kid, _basis = secret_policy.resolve(
+        "NIVXRAY_SIGNING_SECRET", secret_policy.PURPOSE_BUNDLE_SIGNING)
+    return material
 
 
 def _key_id(secret: bytes) -> str:

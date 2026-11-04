@@ -54,16 +54,25 @@ Follow-up items (in queue after this slice):
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, MongoClient
 
+from deps import get_current_user as _deps_current_user
+import jwt as _jwt
+from deps import JWT_ALG as _JWT_ALG
+from deps import JWT_SECRET as _JWT_SECRET
 from routers.xdr_audit_log import emit_audit
+from services import machine_rate_limit as _mrl
 
 router = APIRouter(prefix="/api/xdr/rbac", tags=["xdr-rbac"])
 
@@ -80,6 +89,7 @@ def _db():
 
 
 def _c_users():         return _db()["xdr_users"]        if _db() is not None else None
+def _c_api_keys():      return _db()["xdr_api_keys"]     if _db() is not None else None
 def _c_roles():         return _db()["xdr_roles"]        if _db() is not None else None
 def _c_groups():        return _db()["xdr_groups"]       if _db() is not None else None
 def _c_assignments():   return _db()["xdr_user_roles"]   if _db() is not None else None
@@ -163,7 +173,31 @@ _RESOURCES: dict[str, dict[str, Any]] = {
                                                    "approve"], "group": "Response"},
     "reports":       {"actions": ["read", "create", "export"],
                               "group": "Governance"},
+    "intelligence_policy": {
+        "actions": ["read", "update", "override"],
+        "group":   "Intelligence",
+    },
+    # A0.5-5 · CONSOLE AUTHORIZATION.
+    # `console.soc.access` and `console.admin.access` are INDEPENDENT
+    # permissions delivered by this authoritative RBAC system. They are not
+    # React flags, and neither implies the other. A `console` session claim
+    # names a DESTINATION; only the permission is authority.
+    "console": {
+        "actions": ["soc.access", "admin.access"],
+        "group":   "Platform",
+    },
 }
+
+# Console permissions are deliberately EXCLUDED from wildcard expansion
+# (`*.*`, `console.*`, `*.access`) so that entering a console is always an
+# explicit grant and can never be inherited from a broad administrative
+# wildcard. Independence is enforced by the catalogue, not by convention.
+_NO_WILDCARD_PERMISSIONS = frozenset({
+    "console.soc.access", "console.admin.access",
+})
+
+CONSOLE_PERMISSIONS = {"soc": "console.soc.access",
+                              "admin": "console.admin.access"}
 
 
 def _all_permissions() -> list[str]:
@@ -205,7 +239,8 @@ _BUILTIN_ROLES: list[dict] = [
                              "osint_providers.*", "extensions.*", "alerts.*",
                              "incidents.*", "investigations.*", "evidence.*",
                              "threat_hunting.*", "playbooks.*", "response.*",
-                             "reports.*", "audit.read", "engines.read"]},
+                             "reports.*", "intelligence_policy.*",
+                             "audit.read", "engines.read"]},
     {"id": "role_builtin_soc_manager",
      "name": "soc_manager", "display_name": "SOC Manager",
      "tier": "MANAGEMENT", "type": "SYSTEM",
@@ -215,6 +250,9 @@ _BUILTIN_ROLES: list[dict] = [
                              "evidence.read", "reports.read", "reports.create",
                              "response.approve", "response.recommend",
                              "playbooks.read", "playbooks.approve",
+                             "intelligence_policy.read",
+                             "intelligence_policy.update",
+                             "intelligence_policy.override",
                              "audit.read", "users.read", "roles.read"]},
     {"id": "role_builtin_l3_investigator",
      "name": "l3_investigator", "display_name": "L3 / T3 Investigator",
@@ -310,31 +348,116 @@ _BUILTIN_ROLE_BY_NAME = {r["name"]: r for r in _BUILTIN_ROLES}
 
 
 # ── Principal extraction ──────────────────────────────────────────
-def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+# A0.5 · FAIL CLOSED (owner-authorized 2026-06).
+#
+# T-RISK-1  unresolved tenant    → literal "default"            — CLOSED
+# T-RISK-2  unresolved principal → literal "admin@nivxray.com"   — CLOSED
+#
+# The previous implementation read the tenant AND the principal from
+# client-supplied `X-Tenant-Id` / `X-Principal-Id` headers and, when they
+# were absent, substituted the literal tenant `"default"` and the literal
+# identity `"admin@nivxray.com"`. Under the multitenant/MDR model that is
+# two distinct fail-open defects in one authorization boundary:
+#   · absence of a tenant became a real tenant's data (silent cross-tenant
+#     read/write, since every route below queries on this tenant);
+#   · absence of an identity became the PLATFORM ADMINISTRATOR's identity,
+#     so provenance in the audit log could be forged or fabricated.
+#
+# Now:
+#   · identity comes only from `verified_actor()` — the machine principal
+#     stamped by `authenticate_api_key()` or the `sub` of a bearer token
+#     verified with the same secret/algorithm as `deps.get_current_user`.
+#     Client `X-Principal-Id` / `X-Principal-Kind` are recorded as a
+#     non-authoritative claim and influence nothing.
+#   · the tenant is resolved by the EXISTING tenant authority
+#     (`services.session_context.authorize_requested_tenant`, which reads
+#     `dashboard_lenses.resolve_tenant_scope`). `X-Tenant-Id` is a REQUEST:
+#     it can only ever narrow to a tenant the principal is authorized for.
+#   · no resolvable tenant/principal → DENY. There is no default tenant and
+#     absence of identity never increases privilege.
+def resolve_principal(req: Request) -> tuple[str, str, str]:
+    pid, pkd = verified_actor(req)
+    if not pid:
+        _audit_scope_denial(None, None, "principal",
+                                     "T-RISK-2:unverified-principal")
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": (
+                "no verified principal; a client-supplied identity header "
+                "is never an identity"),
+            "risk": "T-RISK-2", "fail_closed": True})
+    requested = req.headers.get("X-Tenant-Id")
+
+    # MACHINE principal — the credential is already pinned to exactly one
+    # tenant by `authenticate_api_key()`; it has no scope navigator and no
+    # console. Its tenant is read off `request.state`, never a header.
+    if pkd == "api_key":
+        ten = getattr(req.state, "tenant_id", None)
+        if not ten:
+            _audit_scope_denial(None, pid, "principal",
+                                         "machine-tenant-not-resolved")
+            raise HTTPException(status_code=403, detail={
+                "code": "TENANT_NOT_RESOLVED", "reason": (
+                    "machine principal has no authenticated tenant binding"),
+                "risk": "T-RISK-1", "fail_closed": True})
+        return str(ten), str(pid), "api_key"
+
+    from services.session_context import (ScopeDenied,
+                                                             authorize_requested_tenant)
+    try:
+        ten, basis = authorize_requested_tenant(pid, requested)
+    except ScopeDenied as e:
+        _audit_scope_denial(requested, pid, "principal",
+                                     f"T-RISK-1:{e.code}:{e.basis}")
+        raise HTTPException(status_code=e.http,
+                                     detail={**e.detail(), "risk": "T-RISK-1"}) from None
+    req.state.effective_tenant_id = ten
+    req.state.tenant_resolution_basis = basis
+    return str(ten), str(pid), "user"
+
+
+def _audit_scope_denial(tenant: str | None, principal: str | None,
+                                     resource_id: str, reason: str) -> None:
+    """Every scope/identity denial is audited (A0.5-9 · contract C9)."""
+    try:
+        emit_audit(tenant_id=tenant or "unresolved",
+                          principal_id=principal or "unresolved",
+                          principal_kind="user",
+                          action="ACCESS_DENIED", resource_kind="tenant_scope",
+                          resource_id=resource_id, outcome="FAILURE",
+                          metadata={"reason": reason, "fail_closed": True})
+    except Exception:  # noqa: BLE001,S110
+        pass
+
+
+#: Single authoritative principal/tenant resolver for every tenant-scoped
+#: XDR control-plane router. Siblings delegate here so the T-RISK-1 /
+#: T-RISK-2 fallbacks cannot reappear as a per-router copy.
+_principal = resolve_principal
 
 
 # ── Permission resolution ─────────────────────────────────────────
 def _expand_wildcard(perm: str) -> set[str]:
-    """Expand `*.*`, `resource.*`, `*.action` to concrete permissions."""
+    """Expand `*.*`, `resource.*`, `*.action` to concrete permissions.
+
+    A0.5-5 · console permissions are never produced by a wildcard, so
+    `console.soc.access` / `console.admin.access` must always be granted
+    by name. Administrator ⇏ SOC access; SOC access ⇏ administrator.
+    """
+    if perm in _NO_WILDCARD_PERMISSIONS:
+        return {perm}
     if perm == "*.*":
-        return set(_all_permissions())
+        return set(_all_permissions()) - _NO_WILDCARD_PERMISSIONS
     try:
         r, a = perm.split(".", 1)
     except ValueError:
         return set()
     if r == "*":
         return {f"{res}.{a}" for res, meta in _RESOURCES.items()
-                    if a in meta["actions"]}
+                    if a in meta["actions"]} - _NO_WILDCARD_PERMISSIONS
     if a == "*":
         meta = _RESOURCES.get(r)
-        return {f"{r}.{ac}" for ac in (meta["actions"] if meta else [])}
+        return ({f"{r}.{ac}" for ac in (meta["actions"] if meta else [])}
+                    - _NO_WILDCARD_PERMISSIONS)
     return {perm}
 
 
@@ -360,22 +483,53 @@ def _user_by_email(tenant_id: str, email: str) -> dict | None:
                                              {"_id": 0})
 
 
+def _c_grants():        return _db()["xdr_access_grants"] if _db() is not None else None
+def _c_restrictions():  return _db()["xdr_access_restrictions"] if _db() is not None else None
+
+
+def _authority_inputs(tenant_id: str, user_id: str) -> dict:
+    """Every grant path the authority must consider, read once.
+
+    Groups are read for the WHOLE tenant and membership is filtered inside
+    the resolver, so no caller can forget to filter and accidentally widen
+    a group's reach.
+    """
+    def rows(coll, query):
+        return list(coll.find(query, {"_id": 0})) if coll is not None else []
+    return {
+        "assignments": rows(_c_assignments(),
+                            {"tenant_id": tenant_id, "user_id": user_id}),
+        "groups": rows(_c_groups(), {"tenant_id": tenant_id}),
+        "grants": rows(_c_grants(),
+                       {"tenant_id": tenant_id, "user_id": user_id}),
+        "restrictions": rows(_c_restrictions(),
+                             {"tenant_id": tenant_id, "user_id": user_id}),
+    }
+
+
+def resolve_access(tenant_id: str, user: dict) -> dict:
+    """The ONE authority. See `services/access_authority` for precedence."""
+    from services import access_authority
+    return access_authority.resolve(
+        tenant_id=tenant_id, user=user, role_by_id=_role_by_id,
+        expand=_expand_wildcard, **_authority_inputs(tenant_id,
+                                                     user.get("id") or ""))
+
+
 def _resolve_user_permissions(tenant_id: str, user_id: str
                                                 ) -> tuple[set[str], list[dict]]:
-    """Return (effective_permission_set, matched_assignments)."""
-    if _c_assignments() is None:
+    """Return (effective_permission_set, matched_assignments).
+
+    Now resolved through the full authority — direct roles AND group role
+    bindings AND direct grants, with explicit restrictions subtracted.
+    Before this, a group could not grant anything at all (RBAC-0, row
+    "Groups": REPAIR).
+    """
+    if _c_users() is None:
         return set(), []
-    assignments = list(_c_assignments().find(
-        {"tenant_id": tenant_id, "user_id": user_id},
-        {"_id": 0},
-    ))
-    perms: set[str] = set()
-    for a in assignments:
-        role = _role_by_id(a.get("role_id", ""))
-        if role and role.get("enabled", True):
-            for p in role.get("permissions", []):
-                perms |= _expand_wildcard(p)
-    return perms, assignments
+    user = _user_by_id(tenant_id, user_id) or {"id": user_id}
+    resolved = resolve_access(tenant_id, user)
+    return set(resolved["effective_permissions"]), resolved["assignments"]
 
 
 def check_access(tenant_id: str, principal_id: str, permission: str,
@@ -407,19 +561,51 @@ def check_access(tenant_id: str, principal_id: str, permission: str,
                      "matched_role": None, "matched_permission": None,
                      "effective_permissions": [], "scope_ok": False}
 
-    perms, assignments = _resolve_user_permissions(tenant_id, user["id"])
+    from services import access_authority
+    resolved = resolve_access(tenant_id, user)
+    perms = set(resolved["effective_permissions"])
+    assignments = resolved["assignments"]
+    decision = access_authority.explain(resolved, permission)
 
-    # Match permission (concrete first, then any wildcard hit already
-    # expanded into `perms`).
+    # An explicit restriction is a DENY that outranks every grant. It is
+    # reported as its own reason so an operator is never told "not granted"
+    # when the truth is "deliberately withheld".
+    if permission in set(resolved["restricted_permissions"]):
+        return {"allow": False, "reason": access_authority.REASON_RESTRICTED,
+                     "matched_role": None, "matched_permission": permission,
+                     "effective_permissions": sorted(perms),
+                     "scope_ok": False, "user_id": user["id"],
+                     "decision_path": decision["winning_path"],
+                     "explanation": decision["explanation"]}
+
     if permission not in perms:
         return {"allow": False, "reason": "permission-not-granted",
                      "matched_role": None, "matched_permission": None,
                      "effective_permissions": sorted(perms),
                      "scope_ok": False,
-                     "user_id": user["id"]}
+                     "user_id": user["id"],
+                     "decision_path": decision["winning_path"],
+                     "explanation": decision["explanation"]}
 
-    # Scope check — first matching assignment whose role provides this
-    # permission and whose scope allows the resource.
+    # A direct grant carries its own scope and no role. It is honoured
+    # here rather than falling through the role loop below, which would
+    # report `scope-denied` for a grant that was never scope-limited.
+    if decision["allow"] and decision["winning_path"]["source"] == \
+            access_authority.SOURCE_DIRECT_GRANT:
+        scope = decision["winning_path"].get("scope") or {}
+        allowed_ids = scope.get("resource_ids") or []
+        if not allowed_ids or not resource_id or resource_id in allowed_ids:
+            return {"allow": True, "reason": decision["reason"],
+                         "matched_role": None,
+                         "matched_permission": permission,
+                         "effective_permissions": sorted(perms),
+                         "scope_ok": True, "user_id": user["id"],
+                         "decision_path": decision["winning_path"],
+                         "explanation": decision["explanation"]}
+
+    # Scope check — first matching assignment (direct OR group-derived)
+    # whose role provides this permission and whose scope allows the
+    # resource.
     for a in assignments:
         role = _role_by_id(a.get("role_id", ""))
         if not role or not role.get("enabled", True):
@@ -434,39 +620,357 @@ def check_access(tenant_id: str, principal_id: str, permission: str,
         allowed_ids = scope.get("resource_ids") or []
         if allowed_ids and resource_id and resource_id not in allowed_ids:
             continue
-        return {"allow": True, "reason": "role-permission-match",
+        return {"allow": True,
+                     "reason": (access_authority.REASON_GRANTED_GROUP
+                                if a.get("via_group")
+                                else "role-permission-match"),
                      "matched_role": role.get("name"),
                      "matched_permission": permission,
                      "effective_permissions": sorted(perms),
                      "scope_ok": True,
-                     "user_id": user["id"]}
+                     "user_id": user["id"],
+                     "via_group": a.get("via_group_name"),
+                     "decision_path": decision["winning_path"],
+                     "explanation": decision["explanation"]}
 
     return {"allow": False, "reason": "scope-denied",
                  "matched_role": None, "matched_permission": permission,
                  "effective_permissions": sorted(perms),
                  "scope_ok": False,
-                 "user_id": user["id"]}
+                 "user_id": user["id"],
+                 "decision_path": decision["winning_path"],
+                 "explanation": decision["explanation"]}
+
+
+# ── Machine principals · XDR collector API keys ───────────────────
+# A telemetry collector is not a user: it holds no JWT and has no row in
+# `xdr_users`.  It authenticates with a scoped API key minted by
+# `routers.xdr_api_keys`, which persists ONLY the SHA-256 digest of the
+# plaintext (there is no plaintext column and therefore no plaintext
+# comparison path anywhere in this file).
+#
+# Every one of the following is a DENY — the machine path is as
+# fail-closed as the JWT path:
+#     missing key · malformed key · unknown digest · disabled · revoked
+#     · expired · malformed expiry · tenant mismatch · scope mismatch
+#     · authorization store unavailable (503)
+_API_KEY_HEADER = "X-XDR-API-Key"
+_API_KEY_RE     = re.compile(r"^nvx_[0-9a-f]{48}$")
+_TENANT_RE      = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+
+
+def _machine_denied(permission: str, reason: str, *, status: int = 401):
+    return HTTPException(status_code=status, detail={
+        "code": "ACCESS_DENIED", "permission": permission,
+        "principal_kind": "api_key", "reason": reason})
+
+
+def _throttle(scope: str, subject: str, permission: str,
+                     tenant: str | None, key_id: str | None) -> dict:
+    """Count one machine request against `scope:subject`.
+
+    FAIL CLOSED: quota exhaustion is 429, a limiter fault is 503.  A
+    protected request is never allowed through because the throttle
+    could not be evaluated.
+    """
+    try:
+        return _mrl.consume(scope, subject or "unknown")
+    except _mrl.RateLimitExceeded as ex:
+        _audit_machine_denial(tenant, key_id, permission,
+                                        f"rate-limited:{scope}")
+        raise HTTPException(status_code=429, detail={
+            "code": "RATE_LIMITED", "permission": permission,
+            "principal_kind": "api_key", "scope": scope,
+            "limit": ex.limit, "window_seconds": _mrl.WINDOW_SECONDS,
+            "retry_after": ex.retry_after},
+            headers={"Retry-After": str(ex.retry_after),
+                          "RateLimit-Limit": str(ex.limit),
+                          "RateLimit-Remaining": "0",
+                          "RateLimit-Reset": str(ex.retry_after)}) from ex
+    except _mrl.RateLimitUnavailable as ex:
+        raise HTTPException(status_code=503, detail={
+            "code": "RATE_LIMITER_UNAVAILABLE", "permission": permission,
+            "reason": str(ex)[:200], "retryable": True},
+            headers={"Retry-After": "1"}) from ex
+
+
+def _key_effective_permissions(doc: dict) -> set[str]:
+    perms: set[str] = set()
+    for s in doc.get("scopes") or []:
+        if isinstance(s, str) and _valid_permission(s):
+            perms |= _expand_wildcard(s)
+    return perms
+
+
+def _audit_machine_denial(tenant: str | None, key_id: str | None,
+                                          permission: str, reason: str) -> None:
+    try:
+        emit_audit(tenant_id=tenant or "unknown",
+                          principal_id=f"apikey:{key_id or 'unknown'}",
+                          principal_kind="api_key",
+                          action="ACCESS_DENIED", resource_kind="permission",
+                          resource_id=permission, outcome="FAILURE",
+                          metadata={"reason": reason})
+    except Exception:  # noqa: BLE001,S110
+        pass
+
+
+def authenticate_api_key(request: Request, raw_key: str,
+                                          permission: str) -> dict:
+    """Authenticate a collector API key and authorize `permission`.
+
+    Returns the matched (hash-stripped) key document.  Raises on every
+    failure — there is no permissive branch.
+    """
+    tenant_hdr = request.headers.get("X-Tenant-Id")
+    # Throttle by source IP FIRST — this also caps brute-force probing with
+    # unknown/malformed keys, which never reach the per-key counter.
+    src_ip = request.client.host if request.client else None
+    _throttle("ip", src_ip or "unknown", permission, tenant_hdr, None)
+    if not _API_KEY_RE.fullmatch(raw_key or ""):
+        _audit_machine_denial(tenant_hdr, None, permission, "malformed-api-key")
+        raise _machine_denied(permission, "malformed-api-key")
+    if not tenant_hdr or not _TENANT_RE.fullmatch(tenant_hdr):
+        _audit_machine_denial(tenant_hdr, None, permission, "missing-tenant-header")
+        raise _machine_denied(permission, "missing-tenant-header")
+    if not _valid_permission(permission):
+        raise _machine_denied(permission, "unknown-permission", status=403)
+    if _c_api_keys() is None:
+        raise HTTPException(status_code=503, detail={
+            "code": "AUTHZ_UNAVAILABLE", "permission": permission,
+            "reason": "authorization store unavailable"})
+
+    digest = hashlib.sha256(raw_key.encode("ascii")).hexdigest()
+    doc = _c_api_keys().find_one({"hash": digest})
+    if (not doc or not isinstance(doc.get("hash"), str)
+            or not hmac.compare_digest(doc["hash"], digest)):
+        _audit_machine_denial(tenant_hdr, None, permission, "unknown-api-key")
+        raise _machine_denied(permission, "unknown-api-key")
+
+    kid = doc.get("id")
+    if doc.get("revoked_at") is not None:
+        _audit_machine_denial(tenant_hdr, kid, permission, "api-key-revoked")
+        raise _machine_denied(permission, "api-key-revoked", status=403)
+    if doc.get("enabled") is not True:
+        _audit_machine_denial(tenant_hdr, kid, permission, "api-key-disabled")
+        raise _machine_denied(permission, "api-key-disabled", status=403)
+    exp = doc.get("expires_at")
+    if exp is not None:
+        try:
+            expires = datetime.fromisoformat(str(exp).replace("Z", "+00:00"))
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            # A malformed expiry is never treated as never-expiring.
+            _audit_machine_denial(tenant_hdr, kid, permission, "api-key-expiry-malformed")
+            raise _machine_denied(permission, "api-key-expiry-malformed", status=403)
+        if datetime.now(timezone.utc) >= expires:
+            _audit_machine_denial(tenant_hdr, kid, permission, "api-key-expired")
+            raise _machine_denied(permission, "api-key-expired", status=403)
+    if doc.get("tenant_id") != tenant_hdr:
+        _audit_machine_denial(tenant_hdr, kid, permission, "api-key-tenant-mismatch")
+        raise _machine_denied(permission, "api-key-tenant-mismatch", status=403)
+    if permission not in _key_effective_permissions(doc):
+        _audit_machine_denial(tenant_hdr, kid, permission, "scope-not-granted")
+        raise _machine_denied(permission, "scope-not-granted", status=403)
+
+    # Identity is proven — now enforce the per-key and per-tenant quotas so a
+    # single leaked credential cannot flood ingest for the whole tenant.
+    key_state = _throttle("key", str(kid), permission, tenant_hdr, kid)
+    _throttle("tenant", str(doc.get("tenant_id")), permission, tenant_hdr, kid)
+    request.state.machine_rate_limit = key_state
+
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        _c_api_keys().update_one({"_id": doc["_id"]}, {
+            "$set": {"last_used_at": now, "last_used_ip": src_ip},
+            "$inc": {"use_count": 1}})
+    except Exception:  # noqa: BLE001,S110
+        # Usage telemetry is best-effort; it must not gate a valid request.
+        pass
+    # Downstream routers read the principal for audit purposes.
+    request.state.tenant_id      = doc["tenant_id"]
+    request.state.principal_id   = f"apikey:{kid}"
+    request.state.principal_kind = "api_key"
+    return {k: v for k, v in doc.items() if k not in ("hash", "_id")}
+
+
+def verified_actor(request: Request) -> tuple[str | None, str | None]:
+    """B3 · the audit actor, from VERIFIED authentication only.
+        AUDIT ACTOR = VERIFIED AUTHENTICATED PRINCIPAL
+        never       = CLIENT CLAIM
+
+    Precedence: the machine principal stamped on `request.state` by
+    `authenticate_api_key()`, else the `sub` of a bearer token verified with
+    the same secret/algorithm as `deps.get_current_user`. Client-supplied
+    `X-Principal-Id` / `X-Principal-Kind` are never consulted here; when a
+    caller sends them they are parked on `request.state.principal_claim` as
+    explicitly non-authoritative metadata and influence nothing.
+
+    Returns `(None, None)` when no verified identity exists, so each caller
+    keeps its own honest default instead of inheriting a claim.
+    """
+    claim = request.headers.get("X-Principal-Id")
+    if claim:
+        try:
+            request.state.principal_claim = {
+                "claimed_principal_id": claim,
+                "claimed_principal_kind": request.headers.get("X-Principal-Kind"),
+                "used": False,
+                "reason": ("client-supplied attribution is recorded as a claim "
+                                "only; the verified principal is authoritative")}
+        except Exception:                                        # noqa: BLE001,S110
+            pass
+    pid = getattr(request.state, "principal_id", None)
+    if pid:
+        return str(pid), str(getattr(request.state, "principal_kind", None)
+                             or "api_key")
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        try:
+            claims = _jwt.decode(auth.split(None, 1)[1], _JWT_SECRET,
+                                 algorithms=[_JWT_ALG])
+            sub = claims.get("sub")
+            if sub:
+                return str(sub), "user"
+        except Exception:                                        # noqa: BLE001
+            return None, None
+    return None, None
+
+
+def authorize_tenant(request: Request, tenant_id: str, *, purpose: str) -> str:
+    """B6 · a tenant named in a request body is a REQUEST, not an authority.
+
+        authenticated principal
+          -> authoritative tenant resolution (registry: exists + ACTIVE,
+             organization ACTIVE)
+          -> principal authorized for that tenant
+          -> operation
+
+    Machine principals may only act in the tenant their credential is bound
+    to. Human principals may act in the tenants their VERIFIED user record
+    authorises — a cross-tenant role (`_CROSS_TENANT_ROLES`) keeps the
+    platform-wide authority it already has elsewhere. No security-state
+    specific authority is introduced.
+    """
+    from services import tenant_registry
+    from services.dashboard_lenses import resolve_tenant_scope
+
+    try:
+        resolved = tenant_registry.authoritative(tenant_id, purpose=purpose)
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
+
+    machine_tenant = getattr(request.state, "tenant_id", None)
+    principal_kind = getattr(request.state, "principal_kind", None)
+    if principal_kind == "api_key":
+        if machine_tenant != resolved:
+            raise HTTPException(status_code=403, detail={
+                "code": "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
+                "reason": ("the credential is bound to another tenant; a "
+                                "request body may name a tenant but never "
+                                "authorise one"),
+                "requested_tenant": resolved})
+        return resolved
+
+    email, _kind = verified_actor(request)
+    if not email:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": "unauthenticated",
+            "requested_tenant": resolved})
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": "principal not authorized",
+            "requested_tenant": resolved})
+    if scope.get("all_tenants"):
+        return resolved
+    if resolved not in (scope.get("tenant_ids") or []):
+        raise HTTPException(status_code=403, detail={
+            "code": "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
+            "reason": "principal is not authorized for this tenant",
+            "requested_tenant": resolved})
+    return resolved
 
 
 # ── Enforcement dependency ────────────────────────────────────────
+_bearer_optional = HTTPBearer(auto_error=False)
+
+
 def require_permission(permission: str, *, resource_id_header: str | None = None):
     """FastAPI dependency factory.  Use like:
 
         @router.post("/x", dependencies=[Depends(require_permission("secrets.create"))])
+
+    Two mutually exclusive principals are accepted:
+      · USER    — a verified JWT (`deps.get_current_user`), resolved
+                  through role assignments in `xdr_users` / `xdr_user_roles`.
+      · MACHINE — an `X-XDR-API-Key` + `X-Tenant-Id` pair validated
+                  against the SHA-256 digests in `xdr_api_keys`.
+    Presenting both is ambiguous and rejected.
     """
-    def _dep(request: Request):
-        # BOOTSTRAP: if THIS tenant has no users provisioned yet, allow.
-        # This lets the first admin in a fresh tenant be seeded without
-        # a chicken-and-egg RBAC lockout.  As soon as one user is
-        # provisioned for the tenant, enforcement engages.
-        if _c_users() is None:
+    async def _dep(request: Request,
+                            creds: HTTPAuthorizationCredentials | None =
+                                Depends(_bearer_optional)):
+        # Machine principal — collector API key.  Evaluated before the JWT
+        # path only when no bearer token is present, so a bad JWT can never
+        # fall through to key auth.
+        raw_key = request.headers.get(_API_KEY_HEADER)
+        if raw_key is not None and creds is not None:
+            raise _machine_denied(permission, "ambiguous-credentials")
+        if raw_key is not None:
+            authenticate_api_key(request, raw_key, permission)
             return True
-        ten, pid, pkd = _principal(request)
-        if _c_users().count_documents({"tenant_id": ten}) == 0:
-            return True
+        # No credential at all => fail closed (same 403 HTTPBearer produced
+        # before this dual-principal path existed).
+        if creds is None:
+            raise HTTPException(status_code=403, detail={
+                "code": "ACCESS_DENIED", "permission": permission,
+                "reason": "unauthenticated"})
+        # User principal — identity comes ONLY from the verified JWT.
+        user = await _deps_current_user(creds)
+        # P0-SEC (2026-09-09) · FAIL CLOSED.
+        #
+        # The previous implementation resolved the principal from the
+        # client-supplied `X-Tenant-Id` / `X-Principal-Id` headers and then
+        # returned True whenever `users` had no document for that tenant.
+        # `_principal()` defaults an anonymous caller to tenant "default" /
+        # `system@ingest`, and `seed_admin()` writes admins with no
+        # `tenant_id`, so that count was permanently 0 — every RBAC-gated
+        # route was open to unauthenticated callers in production.
+        #
+        # Identity now comes ONLY from the verified JWT (`get_current_user`,
+        # which raises 403 without a bearer token and 401 on an invalid or
+        # expired one, before any body validation or datastore lookup).
+        # Client headers can no longer establish identity, `system@ingest`
+        # is not reachable from an external request, and the tenant-empty
+        # bootstrap bypass is gone: the first admin is created by
+        # `deps.seed_admin()` at startup, which never traverses RBAC, so no
+        # chicken-and-egg lockout exists.
+        email = (user or {}).get("email")
+        role = (user or {}).get("role")
+        if not email:
+            raise HTTPException(status_code=403, detail={
+                "code": "ACCESS_DENIED", "permission": permission,
+                "reason": "unauthenticated"})
         rid = request.headers.get(resource_id_header) if resource_id_header else None
-        # RBAC bypass header for platform-level automation is intentionally
-        # NOT supported — every request must resolve to a real principal.
+        # Cross-tenant platform administrator — the same role gate
+        # `deps.require_admin` enforces elsewhere.
+        if role == "admin":
+            return True
+        # Tenant-scoped principal: the tenant is read from the AUTHENTICATED
+        # user record, never from a request header.
+        ten = (user or {}).get("tenant_id")
+        if not ten:
+            raise HTTPException(status_code=403, detail={
+                "code": "ACCESS_DENIED", "permission": permission,
+                "reason": "principal has no tenant scope"})
+        # Datastore unavailable => fail closed, never open.
+        if _c_users() is None:
+            raise HTTPException(status_code=503, detail={
+                "code": "AUTHZ_UNAVAILABLE", "permission": permission,
+                "reason": "authorization store unavailable"})
+        pid, pkd = email, "user"
         result = check_access(ten, pid, permission, resource_id=rid)
         if not result["allow"]:
             # Audit access denials (never fabricate; never spam on user-not-provisioned).
@@ -485,6 +989,55 @@ def require_permission(permission: str, *, resource_id_header: str | None = None
                 "reason": result["reason"]})
         return True
     return _dep
+
+
+# ── A0.5-5 · Console authorization ────────────────────────────────
+#: The legacy cross-tenant `role == "admin"` JWT short-circuit in
+#: `require_permission` is PRESERVED (A0.5 is not an auth redesign), so a
+#: platform administrator holds both consoles as a declared break-glass
+#: authority — reported as `PLATFORM_ADMIN_BREAK_GLASS`, never inferred
+#: from one console to the other.
+def require_console(console: str):
+    """Enforce `console.soc.access` / `console.admin.access`.
+
+    Independent permissions. A `console=` claim on a session/URL names a
+    DESTINATION and grants nothing; only this permission is authority.
+    """
+    permission = CONSOLE_PERMISSIONS[console]
+    return require_permission(permission)
+
+
+def console_authorization(user: dict | None) -> dict:
+    """Which consoles this VERIFIED principal may enter, and why.
+
+    A projection of the production resolver (`check_access` →
+    `_resolve_user_permissions`) — never a second algorithm.
+    """
+    email = (user or {}).get("email")
+    role = (user or {}).get("role")
+    if not email:
+        return {"soc": False, "admin": False, "basis": "NOT_AUTHENTICATED",
+                     "authority": "server",
+                     "note": "no verified principal"}
+    if role == "admin":
+        return {"soc": True, "admin": True,
+                     "basis": "PLATFORM_ADMIN_BREAK_GLASS",
+                     "authority": "server",
+                     "note": ("cross-tenant platform administrator · this is a "
+                                    "declared platform authority, not an inference "
+                                    "from one console to the other")}
+    ten = (user or {}).get("tenant_id")
+    if not ten:
+        return {"soc": False, "admin": False, "basis": "NO_TENANT_SCOPE",
+                     "authority": "server",
+                     "note": "principal holds no tenant scope"}
+    out = {"authority": "server", "basis": "TENANT_SCOPED_RBAC_GRANT",
+              "reasons": {}}
+    for name, perm in CONSOLE_PERMISSIONS.items():
+        res = check_access(ten, email, perm)
+        out[name] = bool(res["allow"])
+        out["reasons"][name] = res["reason"]
+    return out
 
 
 # ── Pydantic bodies ───────────────────────────────────────────────
@@ -978,3 +1531,109 @@ def simulate(body: SimulateBody, request: Request):
         "effective_permissions_count": len(result.get("effective_permissions") or []),
         "scope_ok":  result.get("scope_ok"),
     }}
+
+
+# ── Endpoint · SELF-scoped effective access (RBAC-0 · gap G-3) ────
+# The role-aware SPA needs to know what the CALLER may do. Every other
+# effective-access route is gated on `users.read`, which an analyst does not
+# hold, so a non-admin could not read their own permissions and navigation
+# would have to be hard-coded on role names — forbidden by the owner
+# directive §4/§23.
+#
+# This is a PROJECTION of the existing resolver, not a new authority:
+#   · identity comes only from the verified JWT (`_deps_current_user`)
+#   · the tenant comes only from the persisted user record, never a header
+#   · permissions come from `_resolve_user_permissions()` — the same function
+#     `check_access()` uses, so there is no second algorithm
+#   · it grants nothing and mutates nothing
+#
+# `basis` tells the client WHY it received this set, so the UI can render an
+# honest state instead of guessing.
+@router.get("/me/effective")
+def my_effective_access(user=Depends(_deps_current_user)):
+    email = (user or {}).get("email")
+    role  = (user or {}).get("role")
+    if not email:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": "unauthenticated"})
+
+    # Cross-tenant platform administrator — the same gate
+    # `require_permission` short-circuits on (`:783`). Its authority is
+    # platform-wide, so its effective set is the whole catalog.
+    if role == "admin":
+        return {"ok": True, "data": {
+            "principal":    email,
+            "tenant":       (user or {}).get("tenant_id"),
+            "cross_tenant": True,
+            "basis":        "CROSS_TENANT_ADMIN_ROLE",
+            "roles":        ["platform_admin"],
+            "groups":       [],
+            "permissions":  sorted(_all_permissions()),
+            "scopes":       [],
+            "note":         ("platform administrator · authority is not "
+                                    "narrowed by a tenant-scoped RBAC grant"),
+        }}
+
+    ten = (user or {}).get("tenant_id")
+    if not ten:
+        return {"ok": True, "data": {
+            "principal": email, "tenant": None, "cross_tenant": False,
+            "basis": "NO_TENANT_SCOPE", "roles": [], "groups": [],
+            "permissions": [], "scopes": [],
+            "note": "principal has no tenant scope"}}
+
+    if _c_users() is None:
+        raise HTTPException(status_code=503, detail={
+            "code": "AUTHZ_UNAVAILABLE",
+            "reason": "authorization store unavailable"})
+
+    u = _user_by_email(ten, email)
+    if not u:
+        return {"ok": True, "data": {
+            "principal": email, "tenant": ten, "cross_tenant": False,
+            "basis": "USER_NOT_PROVISIONED", "roles": [], "groups": [],
+            "permissions": [], "scopes": [],
+            "note": ("this principal has no RBAC record in its tenant, so no "
+                            "XDR control-plane permission is granted")}}
+    if not u.get("enabled", True):
+        return {"ok": True, "data": {
+            "principal": email, "tenant": ten, "cross_tenant": False,
+            "basis": "USER_DISABLED", "roles": [], "groups": [],
+            "permissions": [], "scopes": [],
+            "note": "RBAC record is disabled"}}
+
+    perms, assigns = _resolve_user_permissions(ten, u["id"])
+    roles, scopes = [], []
+    for a in assigns:
+        r = _role_by_id(a.get("role_id", ""))
+        if r:
+            roles.append(r.get("name"))
+        sc = a.get("scope") or {}
+        if sc.get("resource_ids") or sc.get("environment"):
+            scopes.append({"role": (r or {}).get("name"),
+                                 "resource_ids": sc.get("resource_ids") or [],
+                                 "environment": sc.get("environment")})
+    return {"ok": True, "data": {
+        "principal":    email,
+        "tenant":       ten,
+        "cross_tenant": False,
+        "basis":        "TENANT_SCOPED_RBAC_GRANT",
+        # `groups` is reported as persisted. RBAC-0 finding G-1: group
+        # membership confers NO permission today, so it is never presented as
+        # a source of access.
+        "roles":        sorted(set(roles) - {None}),
+        "groups":       list(u.get("groups") or []),
+        "groups_confer_access": False,
+        "permissions":  sorted(perms),
+        "scopes":       scopes,
+    }}
+
+
+# ── Endpoint · session context (shell customer pill) ──────────────
+# The XDR shell top bar previously printed the analyst's e-mail where the
+# customer belongs. Tenant identity is an authorisation fact, so it is
+# resolved here from the persisted principal and the real case corpus.
+@router.get("/session-context")
+def rbac_session_context(user=Depends(_deps_current_user)):
+    from services.session_context import tenant_context
+    return {"ok": True, "data": tenant_context((user or {}).get("email"))}

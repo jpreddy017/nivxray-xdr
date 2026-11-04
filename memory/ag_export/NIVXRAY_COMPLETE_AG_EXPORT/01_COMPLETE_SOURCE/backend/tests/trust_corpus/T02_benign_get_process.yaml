@@ -1,0 +1,19 @@
+id: T02_benign_get_process
+title: Benign — Get-Process admin listing
+provenance: manually curated · common help-desk troubleshooting
+input: 'Get-Process | Sort-Object CPU -Descending | Select-Object -First 5'
+expected_verdict: benign
+must_fire_intents: []
+must_not_fire:
+  - discovery
+  - staging
+  - persistence
+  - credential_access
+forbidden_words_in_verdict:
+  - credential theft
+  - reconnaissance
+must_admit_unknown: false
+notes: >
+  Single-primitive discovery-shaped command. A tightened discovery
+  rule must NOT fire on this alone — it's the most common help-desk
+  action on a Windows host.

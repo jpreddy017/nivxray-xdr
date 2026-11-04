@@ -34,6 +34,7 @@ from datetime    import datetime, timezone
 from typing      import Any, Dict, Iterable, List, Optional, Tuple
 
 from framework.base import Envelope
+from framework.identity import collector_id
 
 
 # ── Status enum ────────────────────────────────────────────────────
@@ -44,9 +45,34 @@ class OutboxStatus:
     DELIVERED    = "delivered"
     RETRYING     = "retrying"
     DEAD_LETTER  = "dead_letter"
+    #: The request may have reached the backend and may have been committed,
+    #: and the endpoint never saw the answer. It is NOT queued (retrying it
+    #: blindly races a possible commit) and it is NOT delivered (nothing is
+    #: proven). It waits for an authoritative receipt.
+    UNKNOWN_COMMIT_STATE = "unknown_commit_state"
 
     ALL = ("received", "queued", "delivering", "delivered",
-             "retrying", "dead_letter")
+             "retrying", "dead_letter", "unknown_commit_state")
+
+
+class RestartRecovery:
+    """What opening the store may do to rows left mid-flight.
+
+    `Outbox.__init__` historically reset every DELIVERING row to QUEUED, which
+    is a side effect on unrelated delivery state merely because a process
+    opened the database — it is what made the R5/R6 forensic work handle the
+    store through bounded scripts instead of the real component. The policy is
+    now explicit, and the permanent durable-delivery protocol uses RECONCILE.
+    """
+    #: Legacy at-least-once behaviour: DELIVERING -> QUEUED (blind re-send).
+    RESET_TO_QUEUED = "reset_to_queued"
+    #: Permanent protocol: DELIVERING -> UNKNOWN_COMMIT_STATE, to be resolved
+    #: by an authoritative receipt instead of a blind retransmission.
+    RECONCILE = "reconcile"
+    #: Touch nothing. For forensic/bounded tooling that must not mutate.
+    NONE = "none"
+
+    ALL = (RESET_TO_QUEUED, RECONCILE, NONE)
 
 
 # ── Retry policy ───────────────────────────────────────────────────
@@ -60,6 +86,17 @@ def _utcnow() -> datetime:
 
 def _iso(dt: datetime) -> str:
     return dt.isoformat()
+
+
+def _receipt_json(raw: Optional[str]) -> Optional[Dict[str, Any]]:
+    """A corrupt persisted receipt is NO receipt — never a crash, never a
+    delivery. `mark_receipt_verified` is the only writer, and it refuses
+    anything that is not a verified receipt, so this can only be damage."""
+    try:
+        doc = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return doc if isinstance(doc, dict) else None
 
 
 @dataclass
@@ -76,12 +113,35 @@ class OutboxRow:
     event_type:          str
     raw:                 Dict[str, Any]
     canonical:           Dict[str, Any]
+    #: D15 · the declaration this delivery must present at the
+    #: authoritative ingest boundary. Without it the boundary refuses the
+    #: delivery (DECLARATION_REQUIRED), so the outbox must carry it or a
+    #: durable delivery silently loses its declaration.
+    declared_source:     Optional[str]
     status:              str
     attempts:            int
     next_attempt_at:     str
     last_error:          Optional[str]
+    #: G1-R2 · bounded, redacted evidence of the LAST failed delivery
+    #: attempt: classification, status code, application attribution,
+    #: request id, content-type, body excerpt and resolved URL. Without it
+    #: an infrastructure refusal is indistinguishable from an authoritative
+    #: one after the fact — which is what made the G1 404 loss expensive to
+    #: diagnose. Never contains the credential.
+    failure_detail:      Optional[Dict[str, Any]]
     created_at:          str
     updated_at:          str
+    #: The stable delivery identity this row was (or will be) sent under. It
+    #: is written once and never re-issued, so a timeout, a retry, a restart
+    #: and a reconciliation all speak about the same delivery.
+    delivery_key:        Optional[str] = None
+    #: The verified authoritative disposition behind a terminal local status.
+    receipt:             Optional[Dict[str, Any]] = None
+    receipt_basis:       Optional[str] = None
+    receipt_verified_at: Optional[str] = None
+    unknown_since:       Optional[str] = None
+    dispatch_started_at: Optional[str] = None
+    reconcile_attempts:  int = 0
 
     def to_envelope(self) -> Envelope:
         return Envelope(
@@ -89,7 +149,7 @@ class OutboxRow:
             source               = self.source,
             source_event_id      = self.source_event_id,
             connector_id         = self.connector_id,
-            collector_id         = "collector-local",
+            collector_id         = collector_id(),
             collection_method    = self.collection_method,
             parser_version       = self.parser_version,
             source_timestamp     = self.source_timestamp,
@@ -97,6 +157,7 @@ class OutboxRow:
             event_type           = self.event_type,
             raw                  = self.raw,
             canonical            = self.canonical,
+            declared_source      = self.declared_source,
         )
 
 
@@ -120,6 +181,7 @@ class Outbox:
         event_type           TEXT,
         raw_json             TEXT,
         canonical_json       TEXT,
+        declared_source      TEXT,
         status               TEXT NOT NULL,
         attempts             INTEGER NOT NULL DEFAULT 0,
         next_attempt_at      TEXT NOT NULL,
@@ -132,11 +194,36 @@ class Outbox:
     CREATE UNIQUE INDEX IF NOT EXISTS ux_env_event_id
         ON envelopes(tenant_id, connector_id, source_event_id)
         WHERE source_event_id IS NOT NULL;
+    -- G1-R3.1 · durable delivery health (circuit) state. It lives HERE, in
+    -- the same store and the same durability boundary as the rows whose
+    -- delivery it governs, so "what is queued" and "is the destination
+    -- reachable" can never diverge across a restart. One row per
+    -- destination; no secret is ever written to it.
+    CREATE TABLE IF NOT EXISTS delivery_health_gate (
+        destination_key      TEXT PRIMARY KEY,
+        state_version        INTEGER NOT NULL,
+        state                TEXT NOT NULL,
+        consecutive_failures INTEGER NOT NULL,
+        cooldown_seconds     REAL NOT NULL,
+        cooldown_until_epoch REAL,
+        opened_count         INTEGER NOT NULL,
+        probes               INTEGER NOT NULL,
+        last_reason          TEXT,
+        last_transition_at   TEXT,
+        updated_at           TEXT NOT NULL
+    );
     """
 
     def __init__(self, path: Optional[str] = None,
                     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-                    backoff_seconds: Tuple[int, ...] = DEFAULT_BACKOFF_SECONDS) -> None:
+                    backoff_seconds: Tuple[int, ...] = DEFAULT_BACKOFF_SECONDS,
+                    restart_recovery: str = RestartRecovery.RESET_TO_QUEUED) -> None:
+        if restart_recovery not in RestartRecovery.ALL:
+            raise ValueError(
+                f"unknown restart_recovery policy {restart_recovery!r}; "
+                f"expected one of {RestartRecovery.ALL}")
+        self.restart_recovery = restart_recovery
+        self.restart_recovery_result: Dict[str, Any] = {}
         self._path = path or os.environ.get("XDR_STATE_DIR")
         self._db_path = ":memory:" if self._path is None \
                           else os.path.join(self._path, "outbox.db")
@@ -159,18 +246,76 @@ class Outbox:
     def _init_schema(self) -> None:
         with self._lock:
             self._conn.executescript(self._SCHEMA)
+            # Additive migration for databases written before the
+            # declaration column existed.
+            cols = {r["name"] for r in self._conn.execute(
+                "PRAGMA table_info(envelopes)")}
+            if "declared_source" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE envelopes ADD COLUMN declared_source TEXT")
+            # G1-R2 · additive migration for the failure-detail record.
+            if "failure_detail_json" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE envelopes ADD COLUMN failure_detail_json TEXT")
+            # Durable delivery receipts · additive, backward-compatible.
+            # Every column is nullable and no existing column changes, so an
+            # older database keeps working and an older process can still read
+            # a newer one.
+            for name, ddl in (
+                    ("delivery_key", "TEXT"),
+                    ("receipt_json", "TEXT"),
+                    ("receipt_basis", "TEXT"),
+                    ("receipt_verified_at", "TEXT"),
+                    ("dispatch_started_at", "TEXT"),
+                    ("unknown_since", "TEXT"),
+                    ("reconcile_attempts", "INTEGER NOT NULL DEFAULT 0")):
+                if name not in cols:
+                    self._conn.execute(
+                        f"ALTER TABLE envelopes ADD COLUMN {name} {ddl}")
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS ix_env_delivery_key "
+                "  ON envelopes(delivery_key)")
 
     def _reset_stuck_delivering(self) -> None:
-        """Restart-recovery: anything left in DELIVERING is put back
-        into QUEUED for immediate re-attempt.  Idempotency at the
-        ingest endpoint prevents double-writes."""
+        """Restart recovery, under the policy the caller asked for.
+
+        RESET_TO_QUEUED is the legacy at-least-once behaviour: a row that may
+        already have been committed is re-sent blindly. RECONCILE is the
+        permanent protocol: the row becomes UNKNOWN_COMMIT_STATE and only an
+        authoritative receipt decides its fate. NONE mutates nothing.
+        """
+        policy = self.restart_recovery
         with self._lock:
             now = _iso(_utcnow())
-            self._conn.execute("""
-                UPDATE envelopes
-                   SET status=?, updated_at=?
-                 WHERE status=?
-            """, (OutboxStatus.QUEUED, now, OutboxStatus.DELIVERING))
+            before = int(self._conn.execute(
+                "SELECT COUNT(*) FROM envelopes WHERE status=?",
+                (OutboxStatus.DELIVERING,)).fetchone()[0])
+            moved = 0
+            if before and policy == RestartRecovery.RESET_TO_QUEUED:
+                moved = self._conn.execute(
+                    "UPDATE envelopes SET status=?, updated_at=? "
+                    " WHERE status=?",
+                    (OutboxStatus.QUEUED, now, OutboxStatus.DELIVERING)
+                ).rowcount or 0
+            elif before and policy == RestartRecovery.RECONCILE:
+                moved = self._conn.execute(
+                    "UPDATE envelopes SET status=?, updated_at=?, "
+                    "       unknown_since=COALESCE(unknown_since, ?), "
+                    "       last_error=? "
+                    " WHERE status=?",
+                    (OutboxStatus.UNKNOWN_COMMIT_STATE, now, now,
+                     "restart with an unresolved dispatch: commit state "
+                     "unknown, awaiting an authoritative receipt",
+                     OutboxStatus.DELIVERING)).rowcount or 0
+            self.restart_recovery_result = {
+                "policy": policy,
+                "delivering_before": before,
+                "rows_moved": moved,
+                "moved_to": (OutboxStatus.QUEUED
+                             if policy == RestartRecovery.RESET_TO_QUEUED
+                             else OutboxStatus.UNKNOWN_COMMIT_STATE
+                             if policy == RestartRecovery.RECONCILE else None),
+            }
 
     # ── CRUD ──────────────────────────────────────────────────
     def record(self, env: Envelope) -> Tuple[str, str]:
@@ -196,17 +341,59 @@ class Outbox:
                 (id, tenant_id, connector_id, source, source_event_id,
                     collection_method, parser_version, source_timestamp,
                     collection_timestamp, event_type, raw_json, canonical_json,
+                    declared_source,
                     status, attempts, next_attempt_at, last_error,
                     created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (rid, env.tenant_id, env.connector_id, env.source,
                     env.source_event_id, env.collection_method,
                     env.parser_version, env.source_timestamp,
                     env.collection_timestamp, env.event_type,
                     json.dumps(env.raw, default=str),
                     json.dumps(env.canonical or {}, default=str),
+                    env.declared_source,
                     OutboxStatus.QUEUED, 0, now, None, now, now))
             return rid, OutboxStatus.QUEUED
+
+    def statuses_for(self, tenant_id: str, connector_id_: str,
+                        keys: Iterable[str]) -> Dict[str, str]:
+        """Current status per idempotency key.
+
+        Used by the durable acquisition state to decide whether a vendor
+        batch has actually been ACCEPTED by the authoritative ingest — a
+        key with no row is reported as absent rather than assumed accepted.
+        """
+        out: Dict[str, str] = {}
+        keys = [k for k in keys if k]
+        if not keys:
+            return out
+        with self._lock:
+            for i in range(0, len(keys), 500):
+                chunk = keys[i:i + 500]
+                marks = ",".join("?" * len(chunk))
+                rows = self._conn.execute(f"""
+                    SELECT source_event_id, status FROM envelopes
+                     WHERE tenant_id=? AND connector_id=?
+                       AND source_event_id IN ({marks})
+                """, (tenant_id, connector_id_, *chunk)).fetchall()
+                for r in rows:
+                    out[r["source_event_id"]] = r["status"]
+        return out
+
+    def row_for_key(self, tenant_id: str, connector_id_: str,
+                        key: str) -> Optional[OutboxRow]:
+        """The row behind one idempotency key, with its failure history.
+
+        Used when a rejection becomes terminal: the quarantine evidence is
+        copied from the real delivery attempts, never reconstructed.
+        """
+        with self._lock:
+            r = self._conn.execute("""
+                SELECT * FROM envelopes
+                 WHERE tenant_id=? AND connector_id=? AND source_event_id=?
+                 LIMIT 1
+            """, (tenant_id, connector_id_, key)).fetchone()
+        return self._row(r) if r else None
 
     def by_id(self, rid: str) -> Optional[OutboxRow]:
         with self._lock:
@@ -237,8 +424,192 @@ class Outbox:
         with self._lock:
             qmarks = ",".join("?" * len(ids))
             self._conn.execute(
-                f"UPDATE envelopes SET status=?, updated_at=? WHERE id IN ({qmarks})",
-                [OutboxStatus.DELIVERING, now, *ids])
+                f"UPDATE envelopes SET status=?, updated_at=?, "
+                f"       dispatch_started_at=? WHERE id IN ({qmarks})",
+                [OutboxStatus.DELIVERING, now, now, *ids])
+
+    # ── durable delivery receipts ─────────────────────────────
+    def set_delivery_key(self, rid: str, key: str) -> None:
+        """Record the stable identity this row is dispatched under.
+
+        Written once: a row that already carries a key keeps it, so a retry or
+        a restart can never silently re-issue an identity and orphan the
+        claim the backend already holds.
+        """
+        with self._lock:
+            self._conn.execute(
+                "UPDATE envelopes SET delivery_key=COALESCE(delivery_key, ?) "
+                " WHERE id=?", (key, rid))
+
+    def mark_unknown_commit(self, rid: str, reason: str,
+                               detail: Optional[Dict[str, Any]] = None) -> None:
+        """The backend MAY have committed this delivery and we cannot say.
+
+        Deliberately not RETRYING: re-sending now would race a commit that
+        may already exist. The row waits for an authoritative receipt. No
+        retry budget is consumed, because nothing has been disproven.
+        """
+        now = _iso(_utcnow())
+        det = json.dumps(detail) if detail else None
+        with self._lock:
+            self._conn.execute(
+                "UPDATE envelopes "
+                "   SET status=?, updated_at=?, last_error=?, "
+                "       unknown_since=COALESCE(unknown_since, ?), "
+                "       failure_detail_json=COALESCE(?, failure_detail_json) "
+                " WHERE id=?",
+                (OutboxStatus.UNKNOWN_COMMIT_STATE, now, reason, now, det,
+                 rid))
+
+    def mark_receipt_verified(self, rid: str, receipt: Dict[str, Any]) -> bool:
+        """DELIVERED, and only with the verified receipt that authorises it.
+
+        One statement, so a crash can never leave a row `delivered` without
+        the evidence behind it. Refuses a receipt that does not authorise a
+        delivery, and refuses to move a row that is already terminal.
+        """
+        from framework import receipts as _receipts
+        if not _receipts.is_verified_delivery(receipt):
+            raise ValueError(
+                "refusing to mark a row delivered without a verified "
+                "authoritative receipt")
+        now = _iso(_utcnow())
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE envelopes "
+                "   SET status=?, updated_at=?, last_error=NULL, "
+                "       receipt_json=?, receipt_basis=?, "
+                "       receipt_verified_at=? "
+                " WHERE id=? AND status IN (?,?,?,?)",
+                (OutboxStatus.DELIVERED, now, json.dumps(receipt),
+                 receipt.get("basis"), receipt.get("verified_at") or now, rid,
+                 OutboxStatus.DELIVERING, OutboxStatus.UNKNOWN_COMMIT_STATE,
+                 OutboxStatus.QUEUED, OutboxStatus.RETRYING))
+            return bool(cur.rowcount)
+
+    def mark_terminal_accounted(self, rid: str, receipt: Dict[str, Any],
+                                   reason: str) -> bool:
+        """An authoritative refusal, kept with the evidence that proves it."""
+        now = _iso(_utcnow())
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE envelopes "
+                "   SET status=?, updated_at=?, last_error=?, "
+                "       receipt_json=?, receipt_basis=?, "
+                "       receipt_verified_at=? "
+                " WHERE id=? AND status<>?",
+                (OutboxStatus.DEAD_LETTER, now, reason, json.dumps(receipt),
+                 receipt.get("basis"), receipt.get("verified_at") or now, rid,
+                 OutboxStatus.DELIVERED))
+            return bool(cur.rowcount)
+
+    def note_reconcile_attempt(self, rid: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE envelopes SET reconcile_attempts="
+                "  COALESCE(reconcile_attempts, 0) + 1 WHERE id=?", (rid,))
+
+    def rows_by_status(self, status: str, limit: int = 50) -> List[OutboxRow]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM envelopes WHERE status=? "
+                " ORDER BY updated_at ASC LIMIT ?", (status, limit)).fetchall()
+        return [self._row(r) for r in rows]
+
+    def stale_dispatching(self, older_than_seconds: float,
+                             limit: int = 50) -> List[OutboxRow]:
+        """DELIVERING rows whose dispatch can no longer be in flight.
+
+        A crash while DISPATCHING leaves exactly this shape, and it is the
+        same question as UNKNOWN_COMMIT_STATE: the answer must come from the
+        authoritative plane, not from a timer.
+        """
+        cutoff = _iso(datetime.fromtimestamp(
+            _utcnow().timestamp() - float(older_than_seconds),
+            tz=timezone.utc))
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM envelopes WHERE status=? "
+                "   AND COALESCE(dispatch_started_at, updated_at) <= ? "
+                " ORDER BY updated_at ASC LIMIT ?",
+                (OutboxStatus.DELIVERING, cutoff, limit)).fetchall()
+        return [self._row(r) for r in rows]
+
+    def release_delivering(self, ids: Iterable[str]) -> int:
+        """G1-R3 · hand claimed-but-unattempted rows back to QUEUED.
+
+        Used when the delivery health gate opens mid-batch: those rows were
+        never sent, so they must not lose retry budget and must not be left
+        stranded in DELIVERING. `attempts` and `next_attempt_at` are left
+        exactly as they were, and only rows still in DELIVERING are touched,
+        so this can never resurrect a row that meanwhile reached a terminal
+        state."""
+        ids = list(ids)
+        if not ids:
+            return 0
+        now = _iso(_utcnow())
+        with self._lock:
+            qmarks = ",".join("?" * len(ids))
+            cur = self._conn.execute(
+                f"UPDATE envelopes SET status=?, updated_at=? "
+                f" WHERE id IN ({qmarks}) AND status=?",
+                [OutboxStatus.QUEUED, now, *ids, OutboxStatus.DELIVERING])
+            return cur.rowcount or 0
+
+
+    # ── G1-R3.1 · durable delivery health state ───────────────
+    def load_health_gate(self, destination_key: str
+                            ) -> Optional[Dict[str, Any]]:
+        """The persisted gate row for one destination, or None on first boot.
+
+        Returned verbatim — validation belongs to the gate, which is the
+        component that knows what a trustworthy outage looks like and how to
+        fail safe when the row is not one."""
+        with self._lock:
+            r = self._conn.execute(
+                "SELECT * FROM delivery_health_gate WHERE destination_key=?",
+                (destination_key,)).fetchone()
+        if r is None:
+            return None
+        return {k: r[k] for k in r.keys()}
+
+    def save_health_gate(self, destination_key: str,
+                            snapshot: Dict[str, Any]) -> None:
+        """Write the gate state as ONE atomic upsert.
+
+        Single-statement, so a restart or crash can only ever observe the
+        whole previous state or the whole new one — never a half-written
+        outage."""
+        now = _iso(_utcnow())
+        with self._lock:
+            self._conn.execute("""
+                INSERT INTO delivery_health_gate
+                (destination_key, state_version, state, consecutive_failures,
+                    cooldown_seconds, cooldown_until_epoch, opened_count,
+                    probes, last_reason, last_transition_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(destination_key) DO UPDATE SET
+                    state_version=excluded.state_version,
+                    state=excluded.state,
+                    consecutive_failures=excluded.consecutive_failures,
+                    cooldown_seconds=excluded.cooldown_seconds,
+                    cooldown_until_epoch=excluded.cooldown_until_epoch,
+                    opened_count=excluded.opened_count,
+                    probes=excluded.probes,
+                    last_reason=excluded.last_reason,
+                    last_transition_at=excluded.last_transition_at,
+                    updated_at=excluded.updated_at
+            """, (destination_key,
+                    snapshot.get("state_version"),
+                    snapshot.get("state"),
+                    snapshot.get("consecutive_failures"),
+                    snapshot.get("cooldown_seconds"),
+                    snapshot.get("cooldown_until_epoch"),
+                    snapshot.get("opened_count"),
+                    snapshot.get("probes"),
+                    snapshot.get("last_reason"),
+                    snapshot.get("last_transition_at"),
+                    now))
 
     def mark_delivered(self, ids: Iterable[str]) -> None:
         ids = list(ids)
@@ -252,10 +623,16 @@ class Outbox:
                 f" WHERE id IN ({qmarks})",
                 [OutboxStatus.DELIVERED, now, *ids])
 
-    def mark_retry(self, rid: str, error: str) -> str:
+    def mark_retry(self, rid: str, error: str,
+                      detail: Optional[Dict[str, Any]] = None) -> str:
         """Advance one row into RETRYING with backoff, or DEAD_LETTER
-        if attempts are exhausted.  Returns the new status."""
+        if attempts are exhausted.  Returns the new status.
+
+        `detail` (G1-R2) is the bounded failure record for THIS attempt; it
+        replaces the previous one so the row always describes its latest
+        failure rather than growing without bound."""
         now = _utcnow()
+        det = json.dumps(detail) if detail else None
         with self._lock:
             row = self._conn.execute(
                 "SELECT attempts FROM envelopes WHERE id=?", (rid,)).fetchone()
@@ -264,26 +641,36 @@ class Outbox:
             attempts  = int(row["attempts"]) + 1
             if attempts >= self._max_attempts:
                 self._conn.execute(
-                    "UPDATE envelopes SET status=?, attempts=?, last_error=?, updated_at=? "
+                    "UPDATE envelopes SET status=?, attempts=?, last_error=?,"
+                    "       failure_detail_json=COALESCE(?, failure_detail_json),"
+                    "       updated_at=? "
                     " WHERE id=?",
-                    (OutboxStatus.DEAD_LETTER, attempts, error, _iso(now), rid))
+                    (OutboxStatus.DEAD_LETTER, attempts, error, det,
+                     _iso(now), rid))
                 return OutboxStatus.DEAD_LETTER
             idx = min(attempts - 1, len(self._backoff) - 1)
             next_at = now.timestamp() + self._backoff[idx]
             next_iso = _iso(datetime.fromtimestamp(next_at, tz=timezone.utc))
             self._conn.execute(
                 "UPDATE envelopes "
-                "   SET status=?, attempts=?, next_attempt_at=?, last_error=?, updated_at=? "
+                "   SET status=?, attempts=?, next_attempt_at=?, last_error=?, "
+                "       failure_detail_json=COALESCE(?, failure_detail_json), "
+                "       updated_at=? "
                 " WHERE id=?",
-                (OutboxStatus.RETRYING, attempts, next_iso, error, _iso(now), rid))
+                (OutboxStatus.RETRYING, attempts, next_iso, error, det,
+                 _iso(now), rid))
             return OutboxStatus.RETRYING
 
-    def mark_dead(self, rid: str, error: str) -> None:
+    def mark_dead(self, rid: str, error: str,
+                     detail: Optional[Dict[str, Any]] = None) -> None:
         now = _iso(_utcnow())
+        det = json.dumps(detail) if detail else None
         with self._lock:
             self._conn.execute(
-                "UPDATE envelopes SET status=?, last_error=?, updated_at=? WHERE id=?",
-                (OutboxStatus.DEAD_LETTER, error, now, rid))
+                "UPDATE envelopes SET status=?, last_error=?, "
+                "       failure_detail_json=COALESCE(?, failure_detail_json), "
+                "       updated_at=? WHERE id=?",
+                (OutboxStatus.DEAD_LETTER, error, det, now, rid))
 
     def replay_dead(self, rid: str) -> bool:
         """Requeue a dead-letter row for another delivery attempt."""
@@ -376,10 +763,32 @@ class Outbox:
             event_type=r["event_type"],
             raw=json.loads(r["raw_json"] or "{}"),
             canonical=json.loads(r["canonical_json"] or "{}"),
+            declared_source=(r["declared_source"]
+                             if "declared_source" in r.keys() else None),
             status=r["status"], attempts=int(r["attempts"]),
             next_attempt_at=r["next_attempt_at"],
             last_error=r["last_error"],
+            failure_detail=(json.loads(r["failure_detail_json"])
+                            if "failure_detail_json" in r.keys()
+                            and r["failure_detail_json"] else None),
             created_at=r["created_at"], updated_at=r["updated_at"],
+            delivery_key=(r["delivery_key"] if "delivery_key" in r.keys()
+                          else None),
+            receipt=(_receipt_json(r["receipt_json"])
+                     if "receipt_json" in r.keys() and r["receipt_json"]
+                     else None),
+            receipt_basis=(r["receipt_basis"] if "receipt_basis" in r.keys()
+                           else None),
+            receipt_verified_at=(r["receipt_verified_at"]
+                                 if "receipt_verified_at" in r.keys()
+                                 else None),
+            unknown_since=(r["unknown_since"] if "unknown_since" in r.keys()
+                           else None),
+            dispatch_started_at=(r["dispatch_started_at"]
+                                 if "dispatch_started_at" in r.keys()
+                                 else None),
+            reconcile_attempts=int(r["reconcile_attempts"] or 0)
+            if "reconcile_attempts" in r.keys() else 0,
         )
 
     def close(self) -> None:

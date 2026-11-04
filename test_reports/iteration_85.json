@@ -1,0 +1,30 @@
+{
+  "summary": "P1.10 'Activate Real Telemetry Ingestion' verified end-to-end. Ran regression suites (10 CEF/LEEF DSM + 20 cross-tenant + 12 collectors + 97 pipeline/engine = 139 pass), ran live UDP proof driver (4 real CEF/LEEF events over 127.0.0.1:5514), and confirmed the full honest-state chain: collector service delivered +4 (13→17) with zero NEW dead_letters, core collector col_6551885c766a458ab315 CONNECTED with recv/parsed/norm counters advancing by 4, 4 v2_shadow_observations with origin='collector-live' created, exactly 2 promoted to real incidents on /api/incidents (customer=nivx-live, detection_source=nivxray::xdr::veee, titles with real dest IPs 203.0.113.55 & 198.51.100.7), 2 correctly refused with case_id=null. Ingest contract: bare list AND {'envelopes':[...]} both return 200; tenant isolation guard fires 403 TENANT_ISOLATION_VIOLATION BEFORE collector lookup (header-vs-envelope mismatch AND mixed envelope tenants); mixed collectors returns 400 MIXED_COLLECTORS. Protocol catalog reports cef/leef IMPLEMENTED, counts implemented=5 total=12. Honest UNKNOWN state confirmed: CEF has process.ppid=null with epistemic_state.ppid=UNKNOWN and file_sha256=UNKNOWN; LEEF has pid=null with epistemic_state.pid=UNKNOWN. CEF/LEEF parsing correct: raw_ref.line preserved verbatim; unescaped base64 in cs1= was NOT read as a new key (parse_notes records 'not_a_key:SQBFAFgAJwBoAHQAdABwAA') and full command line survives intact; LEEF 2.0 spaces in cmd= survive. Severity band: CEF sev=8→HIGH, LEEF sev=9→CRITICAL (Suricata numeric path unchanged in regression). No fabricated PIDs/hashes/incidents; two refusals reported honestly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/xdr/ingest/telemetry", "issue": "Top-level convenience flags pid_state/ppid_state/file_sha256_state on canonical evidence documents are stored inside additional_fields.epistemic_state map rather than as sibling top-level fields — the epistemic marking is present and honest, but the review contract's literal top-level field-name expectation is met only via the map. Not a correctness bug."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/edr/test_p1_10_cef_leef_dsm.py",
+    "/app/backend/tests/edr/test_p1_10_live_contract.py",
+    "/app/backend/tests/edr/test_cross_tenant.py",
+    "/app/backend/tests/test_xdr_data_sources_collectors.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Live reasoning bridge is a DSM (detection_content/telemetry/cef_leef_dsm.py) — no parallel/second reasoning engine was introduced; the canonical process_event_through_pipeline path is the only reasoning chain. Confirmed by code inspection and by observing incidents materialising from the standard verdict card + xdr_pipeline stages on workspace_cases docs.",
+    "Tenant-isolation guard correctly fires BEFORE collector lookup — verified programmatically: mismatched envelope tenant returns 403 TENANT_ISOLATION_VIOLATION rather than 404 collector-not-found (would leak collector existence).",
+    "Honest-state rule holds under adversarial probe: two of four real events did NOT warrant an incident and were correctly recorded as observations with case_id=null. No synthetic PID/PPID/hash/case fabricated."
+  ],
+  "updated_files": ["/app/backend/tests/edr/test_p1_10_live_contract.py"],
+  "success_rate": {"backend": "100%", "frontend": "n/a (backend-only scope)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK; tenant nivx-live uses bootstrap-allow (no bearer needed for /api/xdr/ingest/telemetry)",
+  "seed_data_creation": "Reset script (mongo) clears workspace_cases/xdr_canonical_evidence for tenant nivx-live, v2_shadow_observations origin=collector-live, xdr_live_reasoning_audit. Live proof run: 4 UDP syslog packets → 4 evidence rows → 4 observations → 2 real incidents (inc_c3527cdf6adf43c2b92b Suspicious/70 for CEF sig 4001, inc_bd62563258834b5db241 Malicious/80 for LEEF sig 4711).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All P1.10 contracts pass. Live proof is repeatable via `python3 /app/scripts/p1_10_live_proof.py` then wait ~20s. New contract tests at backend/tests/edr/test_p1_10_live_contract.py (6 tests) are usable regression. Collector outbox baseline for future runs: dead_letter is 3 historical rows (from pre-fix 422 era) — assert on DELTA not absolute. xdr_collectors uses field `id` (not `collector_id`) as the primary identifier; the `collector_id` field is null in DB.",
+  "rca_of_the_issue": "N/A — this iteration verified fixes already applied by main agent. Both the surface 422 bug (bare-list vs envelopes-wrapper) and the deeper reasoning-bridge miss (writes to xdr_canonical_events collection that nothing read) are resolved: /api/xdr/ingest/telemetry now uses TelemetryBatch|list[CanonicalEnvelope] union, writes canonical evidence into the collections the standard pipeline reads, and drives process_event_through_pipeline for real reasoning. Two auxiliary defects (xdr_response_decision None-startswith crash and CEF/LEEF severity read on Suricata scale) were also fixed and are covered by the 97-test regression pass."
+}

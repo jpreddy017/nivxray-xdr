@@ -1,6 +1,6 @@
 """Free Public IOC Feeds — Feb 2026 v1.3.0
 
-Pulls from the same public sources nivxmachines.com aggregates:
+Pulls from independent public sources directly at their origin:
   - SANS ISC DShield  (top attacker IPs)
   - URLhaus abuse.ch  (live malware URLs)
   - Feodo Tracker     (active botnet C2 IPs)

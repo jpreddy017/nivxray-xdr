@@ -1,0 +1,42 @@
+{
+  "id": "SCN-2026-BEN-001",
+  "category": "benign",
+  "title": "IT admin PowerShell software inventory",
+  "description": "A domain-joined administrator runs an approved PowerShell inventory script during a scheduled maintenance window. Rule fires, but every negative-evidence facet confirms legitimate activity.",
+  "raw_events": [
+    { "kind": "process_create", "ts": "2026-02-10T02:15:00Z",
+      "image": "powershell.exe", "parent_image": "explorer.exe",
+      "user": "admin.it", "host": "IT-JUMP-01",
+      "command_line": "powershell.exe -ExecutionPolicy Bypass -File C:\\ITOps\\Inventory.ps1" }
+  ],
+  "normalized_evidence": [
+    { "type": "process", "image": "powershell.exe",
+      "parent": "explorer.exe", "user": "admin.it", "host": "IT-JUMP-01",
+      "hash_sha256": "aa11...bb22" }
+  ],
+  "expected_entities": {
+    "hosts": ["IT-JUMP-01"], "users": ["admin.it"],
+    "processes": ["powershell.exe"], "iocs": []
+  },
+  "expected_correlations": [],
+  "expected_rules_matched": [
+    { "rule_id": "encoded_powershell", "match": "partially_matched",
+      "fields": { "image": "powershell.exe" },
+      "technique": "T1059.001",
+      "reason_not_full": "no encoded payload; script signed and approved" }
+  ],
+  "expected_mitre": [],
+  "expected_attack_story": [],
+  "expected_verdict": {
+    "verdict": "benign", "confidence": 0.92, "severity": "info",
+    "reason": "Approved script hash + approved account + maintenance window"
+  },
+  "expected_severity": "info",
+  "expected_recommendations": [
+    { "kind": "enrich", "action": "confirm_baseline", "priority": "low" }
+  ],
+  "expected_playbook": null,
+  "expected_response_outcome": { "state": "NOT_REQUIRED" },
+  "expected_report_sections": ["executive_summary", "detection_summary",
+                                                 "supporting_evidence", "final_conclusion"]
+}

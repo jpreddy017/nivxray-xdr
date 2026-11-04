@@ -184,7 +184,7 @@ export default function DetectionContentBody() {
                   <span key={t} className="mono"
                             style={{ padding: "1px 5px", marginRight: 4,
                                         border: "1px solid #f472b6",
-                                        color: "#f472b6", fontSize: 9,
+                                        color: "var(--nx-purple)", fontSize: 9,
                                         borderRadius: 3 }}>
                     {t}
                   </span>
@@ -216,7 +216,7 @@ export default function DetectionContentBody() {
         {lolbasLicense || "license: not synced yet"} · parent-child relations:
         {" "}<span style={{ color: "var(--mint)" }}>{pcCounts.normal} normal</span>
         {" · "}<span style={{ color: "var(--amber)" }}>{pcCounts.suspicious} suspicious</span>
-        {" · "}<span style={{ color: "#f87171" }}>{pcCounts.abnormal} abnormal</span>
+        {" · "}<span style={{ color: "var(--nx-critical)" }}>{pcCounts.abnormal} abnormal</span>
       </div>
       <div style={{ display: "grid",
                         gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
@@ -254,7 +254,7 @@ export default function DetectionContentBody() {
                   <span key={t} className="mono"
                             style={{ padding: "1px 5px", marginRight: 4,
                                         border: "1px solid #f472b6",
-                                        color: "#f472b6", fontSize: 9,
+                                        color: "var(--nx-purple)", fontSize: 9,
                                         borderRadius: 3 }}>
                     {t}
                   </span>
@@ -283,7 +283,7 @@ export default function DetectionContentBody() {
                     data-testid={`xdr-technique-${t}`}
                     style={{ padding: "2px 6px", fontSize: 10,
                                 border: "1px solid #f472b6",
-                                color: "#f472b6", borderRadius: 3 }}>
+                                color: "var(--nx-purple)", borderRadius: 3 }}>
             {t}
           </span>
         ))}

@@ -1,0 +1,97 @@
+{
+ "phase": "P0 \u00b7 DETECTION ATTRIBUTION",
+ "base_url": "https://greeting-app-5782.preview.emergentagent.com",
+ "acceptance": [
+  {
+   "item": "A_authoritative_detections_exist",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "82 DETECTION_MATCHED derivations on ep_2d57cbe6f80152062109"
+  },
+  {
+   "item": "B_every_detection_reached_carries_attribution",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "8 of 8 detections carry rule attribution on the observation itself; 0 do not"
+  },
+  {
+   "item": "C_rule_attribution_matches_the_authoritative_record",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "observation rules ['EDR-LNX-002'] == derivation rules ['EDR-LNX-002'] \u00b7 engine ['nivxray::detection_content::nivxray_native_sigma'] \u00b7 verdict SUSPICIOUS"
+  },
+  {
+   "item": "D_disposition_is_no_longer_unassessed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "raw_f5cae2936c2f2b8fbf6b9d74 -> disposition SUSPICIOUS (was UNKNOWN_NOT_ASSESSED)"
+  },
+  {
+   "item": "E_provenance_back_to_the_raw_derivation_is_intact",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "DETECTION_MATCHED \u2192 raw_f5cae2936c2f2b8fbf6b9d74 \u2192 cev_f5cae2936c2f2b8fbf6b9d74_0"
+  },
+  {
+   "item": "F_attribution_is_exact_not_blanket",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "31 of 4000 observations in page 1 carry a detection; 3969 do not"
+  },
+  {
+   "item": "G_no_detected_observation_reads_as_unassessed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "all 31 detected observations are assessed, e.g. ['DET-EX-006', 'EDR-LNX-003'] / DETECTED_RULE_MATCHED"
+  },
+  {
+   "item": "H_undetected_observations_are_unchanged",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "3969 telemetry observations still report NO_DETECTION_CLAIMED_THIS_OBSERVATION \u2014 absence of a detection is not a verdict of clean"
+  },
+  {
+   "item": "I_attribution_is_deterministic_across_requests",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "the same observation returns the same rule_ids through a second, independent request path (focus by event_iid)"
+  },
+  {
+   "item": "J_rule_id_is_searchable_on_the_trajectory",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "filtering the trajectory by the rule id reduces it to the observations that rule fired on"
+  },
+  {
+   "item": "K_a_forged_identifier_manufactures_no_attribution",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> OBSERVATION_NOT_RESOLVED"
+  },
+  {
+   "item": "L_attribution_never_crosses_a_customer_boundary",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "nivx-live principal on a default endpoint -> ENDPOINT_NOT_RESOLVED"
+  }
+ ],
+ "attribution_chain": {
+  "rule_ids": [
+   "EDR-LNX-002"
+  ],
+  "engine": [
+   "nivxray::detection_content::nivxray_native_sigma"
+  ],
+  "verdict": "SUSPICIOUS",
+  "detection_id": "inc_57fee8bc67a047da9685::rule::EDR-LNX-002",
+  "outcome": "DETECTION_MATCHED",
+  "raw_event_id": "raw_f5cae2936c2f2b8fbf6b9d74",
+  "canonical_event_id": "cev_f5cae2936c2f2b8fbf6b9d74_0",
+  "observation": "evt_2005068965f6d9b9#54610d7ddc",
+  "disposition": "SUSPICIOUS",
+  "assessment_state": "ASSESSED_BY_DETECTION_FABRIC"
+ },
+ "join": "edr_raw_events.raw_id == v2_shadow_observations.ingest_job_id AND derivations[].event_id == canonical_event_id \u2014 persisted identifiers only",
+ "passed": 12,
+ "failed": 0
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_P3_LEDGER",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-01",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "d6fa40ec010315145637feef374e1ffec80fd333bf6e62a43c803670155c568d",
+    "payload": {
+      "v": 1
+    },
+    "timestamp": "2026-09-04T01:50:10.148077+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_P3_LEDGER",
+    "sequence_number": 2,
+    "block_id": "blk-000002",
+    "event_type": "TRANSITION",
+    "entity_id": "host-01",
+    "state_version": 2,
+    "previous_hash": "d6fa40ec010315145637feef374e1ffec80fd333bf6e62a43c803670155c568d",
+    "current_hash": "293c0b37e99cea5e8da043c02498957427bfaa2b9c90e70d631311f189a495c4",
+    "payload": {
+      "v": 2
+    },
+    "timestamp": "2026-09-04T01:50:10.167555+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_P3_LEDGER",
+    "sequence_number": 3,
+    "block_id": "blk-000003",
+    "event_type": "RESPONSE_VERIFIED",
+    "entity_id": "host-01",
+    "state_version": 2,
+    "previous_hash": "293c0b37e99cea5e8da043c02498957427bfaa2b9c90e70d631311f189a495c4",
+    "current_hash": "78e3421cd1bd8aac0d7fc3e8138e939db7d832ebc202d8ac6a5d264c8e1f75e2",
+    "payload": {
+      "v": 2
+    },
+    "timestamp": "2026-09-04T01:50:10.191932+00:00",
+    "verified": true
+  }
+]

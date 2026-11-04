@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend-only validation of P1.11 endpoint-header pattern (Show/Hide details drawer + Actions menu) on /xdr/endpoints/HYD-FW05/trajectory and regression on WKS-01. All 11 spec assertions from the review request pass. This confirms the Cisco-Secure-Endpoint style interaction was adopted correctly with NivXRay's honest-state contract: disabled actions with reasons are the CORRECT, specified behaviour and were verified as such (no fake action success anywhere).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_assertions": [
+    "Header shows `Show details` (endpoint-details-toggle) and `Actions` (endpoint-actions-trigger). Drawer CLOSED on first load, toggle label = 'Show details'.",
+    "Toggle opens endpoint-details-drawer on the right; label flips to 'Hide details'. endpoint-drawer-close closes it; label returns to 'Show details'.",
+    "Drawer persists across all tab switches (overview, lanes, ancestry, trajectory) — drawer count stayed 1 on every tab change.",
+    "HYD-FW05 drawer real evidence: hostname 'HYD-FW05', INFERRED qualifier, device_iid=dev_43a4192d7e35, ◆ AUTHORITATIVE, 1 observation persisted, first/last observed timestamps present, user n.iyer, telemetry provider 'Fortinet FortiGate'.",
+    "Honest-state on absent capability: ⊘ NO CONNECTOR ENROLLED, ⊘ NO POLICY PLANE BOUND, ⊘ NO HEARTBEAT — TELEMETRY IS HISTORIC ONLY, ⊘ NO LIVE-QUERY DRIVER REGISTERED, ◇ NOT REPORTED — NO SENSOR ENROLMENT all present. Isolation state = '⊘ ISOLATION STATE UNKNOWN — RESPONSE DRIVER NOT REGISTERED' and does NOT say 'Not isolated'.",
+    "Zero drawer overflow @1920x950 AND @1440x900 (drawer width=318px, right edge=1892 within viewport, 0 overflowing descendants).",
+    "Section defaults: identity/sensor/isolation aria-expanded=true; antivirus/vulnerabilities aria-expanded=false. Antivirus toggles correctly on click.",
+    "Actions menu groups in exact spec order: DEVICE ACTIONS → INVESTIGATE → RESPONSE → PIVOTS / LINKS. Menu closes on Escape and on outside click; chevron flips.",
+    "State-awareness: 9 unavailable items (scan, isolate, move-group, diagnose-sensor, forensic-snapshot, live-query, response-actions, quarantine-file, terminate-process) all have data-state=unavailable, aria-disabled=true, non-empty tooltip. 2 no_evidence items (related-incidents, audit-log) have data-state=no_evidence, aria-disabled=true. 8 enabled items have no aria-disabled and no data-state (available). endpoint-actions-unavailable-note reports '11 actions are disabled...' fully visible.",
+    "No fake success: force-clicking isolate/terminate-process/scan/live-query produced 0 API requests, no URL change, no toast, no console error.",
+    "Menu offers single disabled 'Isolate endpoint'; strings 'Start isolation' and 'Release isolation' are NOT present anywhere.",
+    "Trajectory regression on HYD-FW05: '? NO PROCESS EVIDENCE' visible, artifact lifeline '203.0.113.77' with '[IPv4]' badge visible, bad badge '[77]' NOT present, Events Ledger shows 'NOT RECORDED'.",
+    "Process-evidence regression on WKS-01: real process lifelines with '[EXE]' extension badge render; drawer + Actions menu work identically.",
+    "Console: 0 errors on all flows. Only React Router v7 future-flag WARNINGS (pre-existing, unrelated to this feature)."
+  ],
+  "notes": [
+    "None of the 12 corpus endpoints currently have a promoted incident (incident_id=None for all in GET /api/edr/endpoints), so the 'endpoint-action-related-incidents becomes ENABLED' branch could not be exercised against real data. The code path (state: incidentId ? \"available\" : \"no_evidence\") is present and correct; this is a data condition, not a code defect. Flagged for awareness only, no action required."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P1.11 endpoint-header pattern is fully green on HYD-FW05 and WKS-01. If future work wants to verify related-incidents enablement path, first promote a case→incident on one of the 12 v2_shadow_observations hosts (e.g., WKS-01 which has real process evidence) then the related-incidents action should render enabled with label 'Related incident'."
+}

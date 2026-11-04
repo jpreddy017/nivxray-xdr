@@ -46,6 +46,29 @@ EVENT_KINDS: Final[tuple[str, ...]] = (
     "kernel_event",
     "logon_success", "logon_failure", "token_manipulation",
     "privilege_escalation",
+    # ── Windows Security OBSERVATIONS (2026-06 governance amendment) ──
+    # `event.kind` = what was OBSERVED. A detection is what a detection
+    # engine concluded. 4720/4732/4738 used to resolve to `detection`, so
+    # ordinary account-management telemetry was presented as a security
+    # conclusion; these kinds state the fact instead. Names reuse the
+    # existing `windows_security_dsm` event_type vocabulary.
+    "logoff", "credential_validation", "special_privileges_assigned",
+    "user_account_created", "user_account_changed",
+    "security_group_member_added",
+    "scheduled_task_enabled", "audit_log_cleared",
+    # ── Sysmon OBSERVATIONS (2026-06 governance amendment) ───────────
+    # These Event IDs were mapped to a stronger or simply different
+    # subsystem than their source evidence supports: 2 was `file_write`,
+    # 4 was `process_exit`, 9 was `file_write`, 14 was `registry_delete`,
+    # 24 was `file_write`, 25 was `process_access`, and 255 was the
+    # security claim `alert`.
+    "file_creation_time_changed", "sensor_service_state_changed",
+    "raw_disk_access_read", "registry_rename", "clipboard_change",
+    "process_image_tampering", "sensor_error",
+    # Telemetry we received and could not classify. Already emitted by the
+    # ingestion classifier; it belongs in the vocabulary because it is the
+    # honest alternative to a guessed claim.
+    "unclassified_telemetry",
     "mail_delivery", "mail_read",
     "cloud_iam_action", "cloud_resource_change",
     "alert", "detection",

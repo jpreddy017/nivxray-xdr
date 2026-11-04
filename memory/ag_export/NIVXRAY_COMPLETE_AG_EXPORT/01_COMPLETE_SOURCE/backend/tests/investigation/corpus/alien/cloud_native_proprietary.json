@@ -1,0 +1,23 @@
+{
+  "cn_trace": {
+    "svc": "cart-service",
+    "region_cell": "usw2-c",
+    "workload_ref": "workloads/prod/cart/v14",
+    "container_ref": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "orchestrator_pod": "cart/cart-7b9-xyz",
+    "issuer_spiffe_id": "spiffe://prod.example/ns/cart/sa/default"
+  },
+  "http_probe": {
+    "peer_ip": "100.72.14.9",
+    "peer_asn": 15169,
+    "path_template": "/api/v1/cart/{cartId}",
+    "http_verb": "POST",
+    "duration_us": 4210,
+    "http_result": 500
+  },
+  "policy_decision": {
+    "decision": "deny",
+    "policy_ref": "policies/network/egress-v3",
+    "reason_code": "OUTBOUND_UNAPPROVED"
+  }
+}

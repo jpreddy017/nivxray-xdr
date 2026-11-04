@@ -1,0 +1,119 @@
+{
+ "phase": "P0-F.13.4",
+ "base_url": "https://greeting-app-5782.preview.emergentagent.com",
+ "principals": {
+  "admin": "admin@nivxray.com",
+  "default": "analyst@default.com",
+  "nivx-live": "analyst@nivx-live.com"
+ },
+ "inventory_counts": {
+  "admin": 14,
+  "default": 1,
+  "nivx-live": 5
+ },
+ "http": {
+  "admin": 200,
+  "default": 200,
+  "nivx-live": 200
+ },
+ "acceptance": [
+  {
+   "item": "A_enrollment_creates_endpoint_ownership",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "6 of 14 devices carry a server-resolved tenant_id from edr_endpoints"
+  },
+  {
+   "item": "B_endpoint_resolves_to_one_tenant",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "1 conflicted/mismatched device(s) carry tenant_id None and are released to nobody"
+  },
+  {
+   "item": "C_customer_default_sees_only_default",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "1 device(s), tenants=['default']"
+  },
+  {
+   "item": "D_customer_nivxlive_sees_only_nivxlive",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "5 device(s), tenants=['nivx-live']"
+  },
+  {
+   "item": "CD_no_overlap_between_customers",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "intersection=[]"
+  },
+  {
+   "item": "E_cross_tenant_endpoint_access_fails_closed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "trajectory=ENDPOINT_NOT_RESOLVED events=0 process_tree_nodes=0"
+  },
+  {
+   "item": "F_xdr_incident_to_edr_pivot_valid",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "XDR_PIVOT \u00b7 REFERENCES_THIS_ENDPOINT \u00b7 customer={'value': 'default', 'basis': 'INHERITED_FROM_INCIDENT'}"
+  },
+  {
+   "item": "G_direct_edr_has_no_incident_context",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "DIRECT_EDR investigation=None"
+  },
+  {
+   "item": "H_pivot_carries_tenant_incident_endpoint",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "tenant=default incident=INC000000293 endpoint=RESOLVED"
+  },
+  {
+   "item": "H2_cross_tenant_incident_pivot_refused",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "errors=['INCIDENT_TENANT_OUT_OF_SCOPE']"
+  },
+  {
+   "item": "MANIP_tenant_and_org_params_cannot_widen_scope",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "5 device(s) with forged params vs 5 without"
+  },
+  {
+   "item": "MANIP_forged_tenant_never_echoed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "forged tenant absent from the response body"
+  },
+  {
+   "item": "I_no_duplicate_endpoint_registry",
+   "result": "PASS",
+   "status": "IMPLEMENTED",
+   "detail": "ownership read from edr_endpoints (the enrolment store); no second registry or tenant map was created"
+  },
+  {
+   "item": "J_no_duplicate_telemetry_or_evidence_store",
+   "result": "PASS",
+   "status": "IMPLEMENTED",
+   "detail": "attribution reads tenant_id/connector_id already written by the authenticated ingest path; no store added, no event mutated"
+  },
+  {
+   "item": "K_device_trajectory_still_reads_canonical_substrate",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "nivxray::edr_plane::trajectory_window \u00b7 6356 observations"
+  },
+  {
+   "item": "LEGACY_unattributed_visible_to_cross_tenant_only",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "7 legacy device(s) labelled and released to cross-tenant roles only"
+  }
+ ],
+ "passed": 16,
+ "failed": 0
+}

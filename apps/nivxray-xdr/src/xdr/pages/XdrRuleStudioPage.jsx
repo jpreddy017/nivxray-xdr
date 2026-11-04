@@ -15,6 +15,7 @@ import { Layers, Search, RefreshCcw, Plus, Play, Ban, CheckCircle2,
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 const STATE_COLOR = {
@@ -65,7 +66,7 @@ export default function XdrRuleStudioPage() {
         setLanes(l?.data?.data?.lanes || []);
         setRules(r?.data?.data?.rules || []);
       } catch (x) {
-        setErr(x?.response?.data?.detail || x?.message || "load failed");
+        setErr(apiErrorText(x, "load failed"));
       } finally { if (!cancelled) setBusy(false); }
     })();
     return () => { cancelled = true; };
@@ -111,7 +112,7 @@ export default function XdrRuleStudioPage() {
       if (openRule?.id === ruleId) {
         setOpenRule({ ...openRule, gate_state: g.data.data.gate });
       }
-    } catch (x) { setErr(x?.response?.data?.detail || x?.message); }
+    } catch (x) { setErr(apiErrorText(x)); }
   };
 
   return (
@@ -478,8 +479,7 @@ function NewRuleWizard({ lanes, onClose, onCreated }) {
       onCreated();
     } catch (x) {
       setErr(x?.response?.data?.detail?.code
-                  || x?.response?.data?.detail
-                  || x?.message);
+                  || apiErrorText(x));
     } finally { setBusy(false); }
   };
 

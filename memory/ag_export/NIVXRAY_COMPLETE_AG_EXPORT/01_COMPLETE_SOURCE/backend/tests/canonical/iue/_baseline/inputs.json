@@ -1,0 +1,34 @@
+{
+  "bare_url_medium_style": {
+    "confidence": 0.98,
+    "hero": "URL",
+    "input_type": "url_only",
+    "reasoning": [
+      "Input is a bare URL."
+    ]
+  },
+  "hex_ratio_long": {
+    "confidence": 0.9,
+    "hero": "Base64 Blob (no wrapper)",
+    "input_type": "base64_blob",
+    "reasoning": [
+      "Input is a validated base64 blob (524 chars)."
+    ]
+  },
+  "plain_english_short": {
+    "confidence": 0.8,
+    "hero": "Single Command",
+    "input_type": "single_command",
+    "reasoning": [
+      "Single CLI-shaped line detected."
+    ]
+  },
+  "powershell_naked": {
+    "confidence": 0.9,
+    "hero": "PowerShell Command / Script",
+    "input_type": "powershell_naked",
+    "reasoning": [
+      "PowerShell interpreter reference detected."
+    ]
+  }
+}

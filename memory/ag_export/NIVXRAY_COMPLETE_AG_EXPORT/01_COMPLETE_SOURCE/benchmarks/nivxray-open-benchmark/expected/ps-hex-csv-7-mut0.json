@@ -1,0 +1,9 @@
+{
+  "id": "ps-hex-csv-7-mut0",
+  "category": "ps-hex-csv",
+  "expected_keywords": [
+    "mppreference",
+    "add-mppreference"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

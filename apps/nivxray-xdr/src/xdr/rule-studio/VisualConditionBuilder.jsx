@@ -110,7 +110,7 @@ function GroupNode({ node, ast, setAst, laneSchema, depth, isRoot,
           <button type="button"
                   data-testid={`${testIdPrefix}-remove-${node.id}`}
                   onClick={remove}
-                  style={{ ...smallBtn, color: "#f87171" }}>
+                  style={{ ...smallBtn, color: "var(--nx-critical)" }}>
             <Trash2 size={10} />
           </button>
         )}
@@ -202,11 +202,11 @@ function ConditionNode({ node, ast, setAst, laneSchema, errorMap,
       <button type="button"
               data-testid={`${testIdPrefix}-remove-${node.id}`}
               onClick={remove}
-              style={{ ...smallBtn, color: "#f87171" }}>
+              style={{ ...smallBtn, color: "var(--nx-critical)" }}>
         <Trash2 size={10} />
       </button>
       {errs.length > 0 && (
-        <div style={{ flexBasis: "100%", fontSize: 10, color: "#f87171",
+        <div style={{ flexBasis: "100%", fontSize: 10, color: "var(--nx-critical)",
                       fontFamily: "var(--mono)", padding: "2px 6px" }}
              data-testid={`${testIdPrefix}-err-${node.id}`}>
           {errs.join(" · ")}
@@ -381,6 +381,6 @@ const pickerPanel = {
 };
 const errBanner = {
   padding: "4px 8px", fontSize: 10.5, fontFamily: "var(--mono)",
-  color: "#f87171", border: "1px solid #f87171", borderRadius: 3,
+  color: "var(--nx-critical)", border: "1px solid #f87171", borderRadius: 3,
   marginTop: 6, display: "flex", alignItems: "center", gap: 4,
 };

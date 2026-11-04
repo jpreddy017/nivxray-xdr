@@ -17,5 +17,17 @@ html, body, #root {
 }
 *, *::before, *::after { box-sizing: border-box; }
 
+/* The document canvas follows the SAME theme authority as the consoles
+ * (`data-nx-theme` on the document root, written by whichever console
+ * owns the toggle). Without this the page behind a console shorter than
+ * the viewport stayed dark in the light theme. */
+html[data-nx-theme="light"],
+html[data-nx-theme="light"] body,
+html[data-nx-theme="light"] #root {
+  background: #F5F8FB;
+  color: #0F172A;
+}
+html[data-nx-theme="light"] { color-scheme: light; }
+
 button { cursor: pointer; font-family: inherit; }
 a { color: inherit; }

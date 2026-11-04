@@ -34,7 +34,10 @@ const CAPABILITIES = {
       { label: "Sightings",     value: 0, hint: "cross-incident matches" },
     ],
     reason: "No intelligence sources are configured for this tenant.",
-    cta:    { label: "Configure Intelligence Source", to: "/xdr/admin/integrations" },
+    cta:    { label: "Configure Intelligence Source",
+                to:    null,
+                deferred_to: "Round P1.0 · Intelligence Planes",
+                deferred_reason: "STIX / TAXII / OSINT source configuration ships when the Intelligence Planes round wires the indicator store to canonical evidence." },
   },
 
   iocs: {
@@ -55,7 +58,10 @@ const CAPABILITIES = {
       { label: "Watchlists",      value: 0 },
     ],
     reason: "No indicator sources or OSINT enrichers are configured.",
-    cta:    { label: "Configure OSINT Sources", to: "/xdr/admin/integrations" },
+    cta:    { label: "Configure OSINT Sources",
+                to:    null,
+                deferred_to: "Round P1.0 · Intelligence Planes",
+                deferred_reason: "OSINT enrichers (VirusTotal · AbuseIPDB · URLScan · OTX · Hybrid Analysis · Umbrella · Talos) ship in the Intelligence Planes round.  Configuring them earlier would risk claiming evidence provenance that this build cannot honour." },
   },
 
   command: {
@@ -187,12 +193,32 @@ export default function XdrReservedPage({ capability }) {
             {cap.reason}
           </div>
           {cap.cta && (
-            <Link to={cap.cta.to} className="btn primary"
-                      style={{ textDecoration: "none", padding: "5px 12px",
-                                      fontSize: 12 }}
-                      data-testid={`xdr-cap-${capability}-cta`}>
-              <ArrowUpRight size={12} /> {cap.cta.label}
-            </Link>
+            cap.cta.to
+              ? (
+                  <Link to={cap.cta.to} className="btn primary"
+                            style={{ textDecoration: "none", padding: "5px 12px",
+                                            fontSize: 12 }}
+                            data-testid={`xdr-cap-${capability}-cta`}>
+                    <ArrowUpRight size={12} /> {cap.cta.label}
+                  </Link>
+                )
+              : (
+                  <div data-testid={`xdr-cap-${capability}-cta-deferred`}
+                          style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <button type="button" className="btn primary" disabled
+                                style={{ padding: "5px 12px", fontSize: 12,
+                                                cursor: "not-allowed",
+                                                opacity: 0.65 }}>
+                      {cap.cta.label} · deferred
+                    </button>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 10.5,
+                                          color: "var(--faint)", lineHeight: 1.5,
+                                          maxWidth: 720 }}>
+                      Ships in <strong>{cap.cta.deferred_to}</strong>.{" "}
+                      {cap.cta.deferred_reason}
+                    </div>
+                  </div>
+                )
           )}
         </section>
 

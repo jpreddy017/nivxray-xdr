@@ -1,0 +1,8 @@
+{
+  "id": "ps-hex-csv-2",
+  "category": "ps-hex-csv",
+  "expected_keywords": [
+    "whoami"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

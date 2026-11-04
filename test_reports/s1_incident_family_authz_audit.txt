@@ -1,0 +1,43 @@
+{"ts": "2026-09-21T01:49:08.032+00:00", "level": "INFO", "logger": "nivxray", "msg": "IOC providers → 7/7 live · ✓ abuseipdb, hybrid-analysis, malwarebazaar, threatfox, urlhaus, urlscan, virustotal"}
+{"ts": "2026-09-21T01:49:08.160+00:00", "level": "INFO", "logger": "nivxray", "msg": "[startup] Vendor wizard mounted at /api/xdr/vendor/{vendor_key}"}
+{"ts": "2026-09-21T01:49:08.163+00:00", "level": "INFO", "logger": "nivxray", "msg": "[startup] Cortex response console mounted at /api/xdr/vendor/cortex/actions"}
+{"ts": "2026-09-21T01:49:08.166+00:00", "level": "INFO", "logger": "nivxray", "msg": "[startup] Cortex ingest fabric mounted at /api/xdr/vendor/cortex"}
+{"ts": "2026-09-21T01:49:08.168+00:00", "level": "INFO", "logger": "nivxray", "msg": "[startup] Cortex XDR vendor wizard mounted at /api/xdr/vendor/cortex"}
+{"ts": "2026-09-21T01:49:08.193+00:00", "level": "INFO", "logger": "nivxray.xdr.collector.landing", "msg": "collector landing: mounted at /api/xdr/collector"}
+{"ts": "2026-09-21T01:49:08.193+00:00", "level": "INFO", "logger": "nivxray", "msg": "[startup] XDR collector landing: mounted at /api/xdr/collector"}
+{"ts": "2026-09-21T01:49:08.593+00:00", "level": "INFO", "logger": "nivxray", "msg": "CORS policy: origins=1 wildcard=True credentials=False"}
+28 routes in the incident family
+
+AGGGET     /api/incidents                                                         deps=['get_current_user_optional'] resolved=False action_gate=False
+AGGGET     /api/incidents/provenance/summary                                      deps=['get_current_user'] resolved=False action_gate=False
+!! GET     /api/incidents/{incident_id}                                           deps=['get_current_user_optional'] resolved=True action_gate=False
+OK PATCH   /api/incidents/{incident_id}/assignee                                  deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/attack-evidence                           deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/attack-graph                              deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/attack-story                              deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/inspector/{kind}/{ref_id:path}            deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/intelligence/overlays                     deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/intelligence/overlays/{target_kind}/{target_id}/{field_key} deps=['get_current_user'] resolved=True action_gate=False
+OK PUT     /api/incidents/{incident_id}/intelligence/overlays/{target_kind}/{target_id}/{field_key} deps=['get_current_user'] resolved=True action_gate=True
+OK DELETE  /api/incidents/{incident_id}/intelligence/overlays/{target_kind}/{target_id}/{field_key} deps=['get_current_user'] resolved=True action_gate=True
+OK GET     /api/incidents/{incident_id}/intelligence/overlays/{target_kind}/{target_id}/{field_key}/history deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/investigation                             deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/investigation/executions                  deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/investigation/findings                    deps=['get_current_user'] resolved=True action_gate=False
+!! PATCH   /api/incidents/{incident_id}/operations                                deps=['get_current_user_optional'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/pivots                                    deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/report                                    deps=['get_current_user'] resolved=True action_gate=False
+OK POST    /api/incidents/{incident_id}/report/blocks                             deps=['get_current_user'] resolved=True action_gate=True
+OK PATCH   /api/incidents/{incident_id}/report/blocks/{block_id}                  deps=['get_current_user'] resolved=True action_gate=True
+OK DELETE  /api/incidents/{incident_id}/report/blocks/{block_id}                  deps=['get_current_user'] resolved=True action_gate=True
+OK POST    /api/incidents/{incident_id}/report/blocks/{block_id}/suppress         deps=['get_current_user'] resolved=True action_gate=True
+OK GET     /api/incidents/{incident_id}/report/pdf                                deps=['get_current_user'] resolved=True action_gate=False
+OK PATCH   /api/incidents/{incident_id}/state                                     deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/summary                                   deps=['get_current_user'] resolved=True action_gate=False
+OK GET     /api/incidents/{incident_id}/threat-model                              deps=['get_current_user'] resolved=True action_gate=False
+!! GET     /api/incidents/{incident_id}/understanding                             deps=['get_current_user_optional'] resolved=True action_gate=False
+
+NOT (authenticated AND incident-resolved): 3
+  GET     /api/incidents/{incident_id}                                           authed=False resolved=True ['get_current_user_optional']
+  PATCH   /api/incidents/{incident_id}/operations                                authed=False resolved=True ['get_current_user_optional']
+  GET     /api/incidents/{incident_id}/understanding                             authed=False resolved=True ['get_current_user_optional']

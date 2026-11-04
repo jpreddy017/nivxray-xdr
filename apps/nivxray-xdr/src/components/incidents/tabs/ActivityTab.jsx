@@ -10,6 +10,7 @@ import { ExternalLink, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
 import { INCIDENT_TESTIDS as T } from "@/constants/incidentTestIds";
+import { productHref, productMode } from "@/productOrigins";
 
 const KINDS = [
   { key: "process",  label: "Processes",  accent: "var(--xpurple)" },
@@ -74,7 +75,10 @@ export default function ActivityTab({ incident }) {
         <button
           type="button"
           className="btn primary"
-          onClick={() => window.open("/edr/trajectory", "_blank", "noopener,noreferrer")}
+          data-testid="activity-open-trajectory"
+          data-pivot-mode={productMode("edr")}
+          onClick={() => window.open(productHref("edr", "/edr/trajectory"),
+                                     "_blank", "noopener,noreferrer")}
         >
           Open Device Trajectory <ExternalLink size={11} />
         </button>

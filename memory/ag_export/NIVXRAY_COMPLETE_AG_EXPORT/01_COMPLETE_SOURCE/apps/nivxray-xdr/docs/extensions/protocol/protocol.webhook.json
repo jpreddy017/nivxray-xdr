@@ -1,0 +1,20 @@
+{
+  "capability_id": "protocol.webhook",
+  "name": "Webhook Receiver",
+  "type": "PROTOCOL",
+  "provider": "nivxray",
+  "version": "1.2.0",
+  "vendor": "NivXRay",
+  "description": "POST /api/xdr/webhooks/{secret_id} with HMAC verification (hmac.compare_digest), 5-min replay window via X-Timestamp header. Ships in Phase B collector.",
+  "authentication": ["hmac_shared_secret"],
+  "permissions": ["receive:remote_events"],
+  "supported_operations": ["receive", "verify_signature", "test_delivery"],
+  "input_schema": { "secret_id": "string", "signature": "hmac", "body": "object" },
+  "output_schema": { "canonical_event": "object" },
+  "health_check": { "kind": "internal_endpoint", "interval_seconds": 30 },
+  "lifecycle": "ENABLED",
+  "adapter_status": "AVAILABLE",
+  "transport": "HTTPS",
+  "risk": "low",
+  "execution_mode": "async"
+}

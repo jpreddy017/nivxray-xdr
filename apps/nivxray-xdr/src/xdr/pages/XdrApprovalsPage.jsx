@@ -21,6 +21,7 @@ import { RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Filter as FilterIcon, Clock, ExternalLink } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxChip, NxSection, NxState } from "@/xdr/nx";
 import { useAuth } from "@/lib/auth";
 import * as Engine from "@/xdr/respond/responseEngineApi";
 import { RESPONSE_ENGINE_CONFIGURED } from "@/xdr/respond/responseEngineApi";
@@ -45,7 +46,7 @@ export default function XdrApprovalsPage() {
       setRows(res.rows || []);
     } catch (e) {
       const c = e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
-        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL)."
+        ? "The response engine endpoint is not configured in this deployment."
         : (e?.response?.data?.detail?.error || e?.message || String(e));
       setError(c);
     } finally { setL(false); }
@@ -102,24 +103,22 @@ export default function XdrApprovalsPage() {
         </button>
       </div>
       <div className="page-sub">
-        Every response execution currently parked in{" "}
-        <span className="mono" style={{ color: "var(--amber)" }}>
-          WAITING_APPROVAL
-        </span>. A peer approval resumes the SAME execution — no
-        duplicate request is submitted.
+        Every response execution currently waiting for approval. A peer
+        approval resumes the SAME execution — no duplicate request is
+        submitted.
       </div>
 
       {!RESPONSE_ENGINE_CONFIGURED && (
-        <div data-testid="xdr-approvals-not-wired"
-                style={{ marginTop: 10, padding: 10,
-                            border: "1px dashed var(--amber)", borderRadius: 4,
-                            background: "rgba(245,166,35,.08)",
-                            color: "var(--text-dim)", fontSize: 11.5 }}>
-          <b style={{ color: "var(--amber)", fontFamily: "var(--mono)" }}>
-            NOT WIRED
-          </b> — set <span className="mono">VITE_XDR_RESPONSE_URL</span>
-          {" "}to see live pending approvals.
-        </div>
+        <NxSection variant="inset" testid="xdr-approvals-not-wired"
+                   title="Response engine is not connected"
+                   note="This console can show and decide approvals only once
+                         the response plane is reachable. Until then the queue
+                         is not empty — it is UNKNOWN, and saying so is the
+                         honest answer.">
+          <NxState value="NOT_CONFIGURED"
+                   reason="the response engine endpoint is not configured in
+                           this deployment" />
+        </NxSection>
       )}
 
       {/* Filter bar */}
@@ -144,20 +143,27 @@ export default function XdrApprovalsPage() {
       {error && (
         <div data-testid="xdr-approvals-error"
                 style={{ padding: 10, marginBottom: 10, borderRadius: 4,
-                            border: "1px solid #ff5b5b",
+                            border: "1px solid var(--nx-bd-quiet)",
                             background: "rgba(255,91,91,.08)",
-                            color: "#ff9494", fontSize: 11.5 }}>
+                            color: "var(--nx-critical)", fontSize: 11.5 }}>
           <AlertTriangle size={11} /> {error}
         </div>
       )}
 
-      {loading && <div className="x-empty">LOADING…</div>}
+      {loading && (
+        <p className="nx-sec-note" data-testid="xdr-approvals-loading">
+          Reading the approval queue…
+        </p>
+      )}
       {!loading && !error && visible.length === 0 && (
-        <div className="x-empty" data-testid="xdr-approvals-empty">
-          <CheckCircle2 size={13} style={{ verticalAlign: "middle",
-                                                            marginRight: 6, color: "var(--mint)" }} />
-          No pending approvals.
-        </div>
+        <NxSection variant="card" testid="xdr-approvals-empty"
+                   title="No action is waiting for approval"
+                   note="This is a statement about the queue, not a claim that
+                         no response is in flight — an action already approved
+                         and executing is tracked on the incident it belongs
+                         to.">
+          <NxState value="NOT_OBSERVED" />
+        </NxSection>
       )}
 
       {visible.map((r) => {
@@ -172,22 +178,18 @@ export default function XdrApprovalsPage() {
                               borderLeft: "3px solid var(--amber)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10,
                               flexWrap: "wrap" }}>
-              <span className="mono" style={{ color: "var(--amber)",
-                                                            fontSize: 10.5, fontWeight: 800,
-                                                            letterSpacing: ".4px" }}>
-                WAITING_APPROVAL
-              </span>
+              {/* The backend state stays the authority and travels in
+                  `data-nx-state`; only the LABEL is ours. */}
+              <NxState value="PENDING_APPROVAL"
+                       testid={`xdr-approvals-state-${r.execution_id}`} />
               <b style={{ fontSize: 13, color: "var(--text)" }}>
                 {action?.label || r.action_id}
               </b>
               {action?.destructive && (
-                <span className="mono"
-                         style={{ padding: "1px 6px", borderRadius: 3,
-                                     border: "1px solid #ff9494", color: "#ff9494",
-                                     fontSize: 9.5, letterSpacing: ".3px",
-                                     textTransform: "uppercase" }}>
+                <NxChip tone="critical" variant="tinted"
+                        data-testid={`xdr-approvals-destructive-${r.execution_id}`}>
                   Destructive
-                </span>
+                </NxChip>
               )}
               <span style={{ flex: 1 }} />
               <span className="mono" style={{ color: "var(--faint)",
@@ -209,7 +211,8 @@ export default function XdrApprovalsPage() {
                         link={r.invoker?.context?.playbook_id
                                   ? `/xdr/respond/playbooks/${r.invoker.context.playbook_id}` : null} />
               <Field k="Reversible"   v={action?.reversible ? "yes" : "no"}
-                        color={action?.reversible ? "var(--mint)" : "#ff9494"} />
+                        color={action?.reversible ? "var(--nx-benign)"
+                                                  : "var(--nx-critical)"} />
             </div>
 
             <div style={{ marginTop: 10, display: "flex", gap: 8,

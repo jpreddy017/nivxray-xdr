@@ -156,8 +156,8 @@ def test_collector_crud_and_protocol_registry():
     # Protocol catalog honest split
     r = client.get("/api/xdr/collectors/protocols/catalog", headers=_hdrs())
     counts = r.json()["data"]["counts"]
-    assert counts["implemented"] == 3, counts   # syslog / webhook / rest
-    assert counts["scaffold"] >= 9, counts
+    assert counts["implemented"] == 5, counts   # syslog / webhook / rest / cef / leef
+    assert counts["scaffold"] >= 7, counts
     assert counts["blocked"] == 0
 
     cid = _create_syslog_collector("syslog-receiver-crud")

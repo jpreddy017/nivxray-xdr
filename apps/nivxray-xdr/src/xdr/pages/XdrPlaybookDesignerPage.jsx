@@ -180,7 +180,7 @@ export default function XdrPlaybookDesignerPage() {
                   disabled={!RESPONSE_ENGINE_WIRED}
                   title={RESPONSE_ENGINE_WIRED
                             ? "Live run — real Response Engine · state machine · persisted approvals"
-                            : "Response Engine not wired · set VITE_XDR_RESPONSE_URL"}
+                            : "Response Engine not wired · configure the response engine endpoint"}
                   onClick={() => { setStudioMode("live"); setView("studio"); }}
                   data-testid="xdr-designer-run">
           <Play size={11} /> Run {RESPONSE_ENGINE_WIRED ? "" : "(disabled)"}
@@ -363,7 +363,7 @@ function NodeCard({ entry, selected, onSelect, onDelete, onInsertAction, onInser
                           fontFamily: "var(--mono)" }}>
             <span style={{ color: "var(--mint)" }}>yes → {entry.yes_next?.slice(-5)}</span>
             <span style={{ color: "var(--faint)" }}>·</span>
-            <span style={{ color: "#ff9494" }}>no → {entry.no_next?.slice(-5)}</span>
+            <span style={{ color: "var(--nx-critical)" }}>no → {entry.no_next?.slice(-5)}</span>
           </div>
         )}
       </div>

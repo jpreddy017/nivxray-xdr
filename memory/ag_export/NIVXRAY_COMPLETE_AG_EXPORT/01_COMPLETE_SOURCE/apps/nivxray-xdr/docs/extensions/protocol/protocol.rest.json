@@ -1,0 +1,21 @@
+{
+  "capability_id": "protocol.rest",
+  "name": "REST Poller",
+  "type": "PROTOCOL",
+  "provider": "nivxray",
+  "version": "1.2.0",
+  "vendor": "NivXRay",
+  "description": "httpx-based REST poller with bearer/basic/api-key auth, cursor pagination, checkpoint advancement, and rate-limit awareness. Shipped in nivxray-xdr-collector Phase B.",
+  "authentication": ["bearer", "basic", "api_key"],
+  "permissions": ["read:remote_events"],
+  "supported_operations": ["poll", "test_connection", "checkpoint_advance"],
+  "input_schema": { "endpoint": "url", "auth": "object", "interval_seconds": "int" },
+  "output_schema": { "canonical_event": "object" },
+  "health_check": { "kind": "http_probe", "interval_seconds": 30 },
+  "lifecycle": "ENABLED",
+  "adapter_status": "AVAILABLE",
+  "transport": "REST",
+  "risk": "low",
+  "execution_mode": "async",
+  "rollback": { "supported": true, "evidence_required": false }
+}

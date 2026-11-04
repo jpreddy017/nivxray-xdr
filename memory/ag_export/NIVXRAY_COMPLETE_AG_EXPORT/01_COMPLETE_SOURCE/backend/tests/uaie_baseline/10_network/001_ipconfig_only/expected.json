@@ -1,0 +1,46 @@
+{
+  "behavior": {
+    "behaviors": [
+      {
+        "label": "Network Configuration Discovery",
+        "mitre": [
+          "T1016"
+        ],
+        "mitre_tactics": [
+          "Discovery"
+        ]
+      }
+    ],
+    "timeline": [
+      {
+        "event": "Network Configuration Discovery",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Discovery"
+        ]
+      }
+    ]
+  },
+  "evidence": {},
+  "explainability": {
+    "decoder_path": [],
+    "engine_health": {
+      "die_analyze": "ok",
+      "health": "ok",
+      "ice_correlate": "ok",
+      "iocs": "ok",
+      "iue": "ok",
+      "paste_synthesis": "ok",
+      "preprocessor": "ok"
+    }
+  },
+  "graph": {
+    "layer_count": 0,
+    "stages": []
+  },
+  "verdict": {
+    "confidence": null,
+    "family": "",
+    "severity": ""
+  }
+}

@@ -30,6 +30,7 @@ _WEIGHTS = {
     "urlhaus":         1.1,
     "urlscan":         1.0,
     "talos":           1.0,
+    "dshield":         0.8,
     "virustotal":      1.4,
     "abuseipdb":       0.9,
     "hybrid-analysis": 1.1,

@@ -72,14 +72,12 @@ def _c_state():
     return _db()["xdr_correlation_state"]   if _db() is not None else None
 
 
+# A0.5 · delegated to the SINGLE authority (`routers.xdr_rbac`). The local
+# copy carried the T-RISK-1 `"default"` tenant fallback and the T-RISK-2
+# `"admin@nivxray.com"` identity fallback; both now fail closed.
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
 
 
 def _now() -> datetime:
@@ -618,10 +616,23 @@ _BUNDLED_RULES: list[dict] = [
      {"id": "N", "operator": "EVENT_MATCH",
       "match": {"event_kind": "detection.execution"}},
    ],
-   "operators": {"type": "NEGATIVE_EVIDENCE", "window_seconds": 900},
-   "group_by":            ["host_id"],
-   "attack_techniques":   ["T1566.001"]},
+    "operators": {"type": "NEGATIVE_EVIDENCE", "window_seconds": 900},
+    "group_by":            ["host_id"],
+    "attack_techniques":   ["T1566.001"]},
 ]
+
+# Incorporate the 5 enterprise multi-stage correlation scenarios
+from detection_content.correlation_library import ENTERPRISE_CORRELATION_SCENARIOS
+_BUNDLED_RULES.extend(ENTERPRISE_CORRELATION_SCENARIOS)
+
+# N1 · network / DNS content. Seeded DISABLED by its own declaration — see
+# `_seed_bundled_rules`, which honours an explicit `enabled` / `state`.
+from detection_content.correlation_library import NETWORK_DNS_CORRELATION_SCENARIOS
+_BUNDLED_RULES.extend(NETWORK_DNS_CORRELATION_SCENARIOS)
+
+# N2.1 · endpoint/process → network attribution. Also seeded DISABLED.
+from detection_content.correlation_library import ENDPOINT_PROCESS_NETWORK_SCENARIOS
+_BUNDLED_RULES.extend(ENDPOINT_PROCESS_NETWORK_SCENARIOS)
 
 
 def _seed_bundled_rules() -> int:
@@ -638,8 +649,11 @@ def _seed_bundled_rules() -> int:
             **r,
             "id":         _mint_rule_id(),
             "tenant_id":  "*",             # bundled = platform-wide
-            "enabled":    True,
-            "state":      "VALIDATED",
+            # A rule pack may seed itself DISABLED. New content that would
+            # change detection behaviour for every tenant on the day it
+            # ships has to be turned on deliberately.
+            "enabled":    bool(r.get("enabled", True)),
+            "state":      r.get("state", "VALIDATED"),
             "version":    1,
             "source":     "NivXRay-native",
             "license":    "NivXRay Public Content",

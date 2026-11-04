@@ -1,0 +1,44 @@
+{
+  "id": "aes-cbc-inline-ps-1",
+  "category": "ps-crypto",
+  "algorithm": "AES-CBC",
+  "command_line": "$key=[Convert]::FromBase64String('QUVTS2V5MjAyNkFFU0tleTIwMjZBRVNLZXk='); $iv=[Convert]::FromBase64String('MTIzNDU2Nzg5MDEyMzQ1Ng=='); $c=[Convert]::FromBase64String('Q0lQSEVSVEVYVF8x'); $aes = [System.Security.Cryptography.Aes]::Create(); $aes.Key = $key; $aes.IV = $iv; $aes.Mode = 'CBC'; $dec = $aes.CreateDecryptor(); $plain = $dec.TransformFinalBlock($c, 0, $c.Length); IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "base64-decode-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-decode-iv",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-decode-ciphertext",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "aes-cbc-decrypt",
+      "recoverable": false,
+      "reason": "AES cipher-block-chain requires .NET runtime primitives; static recovery flags the algorithm + key material but does not execute Aes.CreateDecryptor()."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "Detects AES-CBC by pattern: Aes::Create + Key + IV + Mode='CBC'.",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

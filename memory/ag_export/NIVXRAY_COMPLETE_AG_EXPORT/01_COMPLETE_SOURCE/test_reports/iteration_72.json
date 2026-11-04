@@ -1,0 +1,43 @@
+{
+  "summary": "P0.2 Evidence-Chain gate + P0.3 payload guards independently verified. Full pytest under /app/backend/tests/canonical/api/ → 43 passed, 4 skipped, 0 failures, 0 errors (~173s wall) — matches the user's local baseline (43/4/0). Wire path independently probed against external REACT_APP_BACKEND_URL (https://greeting-app-5782.preview.emergentagent.com) with the exact SEP CSV fixture from test_p02_evidence_chain.py plus the prose fixture and an empty input: every emitted MITRE technique on both prose and CSV inputs carries a non-empty evidence[] whose items each populate all 5 required keys {source, event_or_rule, field, observed_value, evidence_ref} non-empty. No partial-evidence violations observed. Empty input correctly produced object.mitre = [] (P0.2 NO FABRICATION). Two identical POSTs of the SEP CSV produced identical evidence_ref sha256 hashes (determinism). Response sizes 20.6KB (CSV) and 11.4KB (prose) — well under the 250KB budget. Forbidden heavy fields (preprocessor/commands/artifacts/explanations/acquired_document/behaviour/ice/incident) absent on both CSV and prose inputs (P0.3 GUARD 1). Sample1 immutability + Workspace↔X-Lab isolation guards green. canonical_bridge.py lines 273-288 confirm enforce_evidence_chain is wired and mitre_suppressed / mitre_suppressed_count are attached with 'suppression_reason' propagated per {id, reason} row.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/die/investigation-results (empty-string input only)",
+        "issue": "When input is '', the canonical_bridge slim path is not exercised, so the raw DIE response leaks the forbidden heavy keys {preprocessor, commands, artifacts, explanations, acquired_document, behaviour, ice, incident} (P0.3 GUARD 1 allow-list violation for this edge case only). mitre stays [] correctly (P0.2 NO FABRICATION honoured). The P0.3 test module test_investigation_results_payload_shape.py parametrises only csv_edr + prose (lines 148-150, 165-167, 185-187), so this edge case is uncovered by the canonical suite and passes the guard as-currently-written. Not a regression against the defined guards, but worth strip-slimming the empty-input branch too for consistency."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/canonical/api/test_p02_evidence_chain.py",
+    "/app/backend/tests/canonical/api/test_investigation_results_payload_shape.py",
+    "/app/backend/tests/canonical/api/test_sample1_immutability_guard.py",
+    "/app/backend/tests/canonical/api/test_workspace_isolation_guard.py",
+    "/app/test_reports/pytest/iter72_canonical.xml"
+  ],
+  "action_items": [
+    "OPTIONAL (minor): extend canonical_bridge's slim/allow-list projection so empty-string inputs also strip preprocessor/commands/artifacts/explanations/acquired_document/behaviour/ice/incident. Alternately, extend test_investigation_results_payload_shape.py's parametrize with an ('empty', '') row so the guard actually catches this branch — currently it does not."
+  ],
+  "critical_code_review_comments": [
+    "canonical_bridge.py:279-288 correctly wires enforce_evidence_chain and emits mitre_suppressed=[{id, reason}] with 'P0.2 evidence-chain gate' text propagated via _dropped[i]['suppression_reason']. No fabrication observed on empty input.",
+    "evidence_ref values on the wire are deterministic sha256 hashes (verified: 4/4 refs identical across two calls) — no clock/random drift.",
+    "csv_edr_analyzer 'SEP category X (action=Y)' free-text pattern is being normalised by mitre_evidence_chain._normalise_evidence into a fully-populated 5-key structured evidence row (source=csv_edr_analyzer, event_or_rule=sep.<subcategory>.<action>, field=category+action, observed_value=category=X; action=Y, evidence_ref=ev-<12hex>) — verified on the wire.",
+    "The 3 pre-existing xdist RuntimeError('Event loop is closed') artefacts noted in the handoff were NOT observed in this run — 0 errors reported by pytest. The test_p02_evidence_chain client fixture's decision to not use 'with TestClient(app) as c' is confirmed sound and did not need retro-fitting to the other 3 P0.3 modules (per user directive)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (43/43 canonical tests passed, 4 xfail/skip, 0 errors) + wire probe green on CSV+prose+determinism+size+forbidden-keys", "frontend": "N/A — backend-only per review spec"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (not exercised — no auth needed for /api/die/investigation-results)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run `cd /app/backend && python -m pytest tests/canonical/api/ -q` (~173s under -n 2 --dist loadscope from pytest.ini; do NOT modify pytest.ini). Wire probe script saved to /tmp/wire_probe.py (transient); for a persistent version replicate the fixture bodies from tests/canonical/api/test_p02_evidence_chain.py::_fixture_csv() / _fixture_prose(). External URL from /app/frontend/.env REACT_APP_BACKEND_URL. The empty-input branch leaks forbidden heavy keys — if you extend the payload_shape test with ('empty','') it will red-flag until canonical_bridge is patched.",
+  "wire_probe_matrix": {
+    "SEP_CSV": {"status": 200, "size_bytes": 20611, "mitre_count": 4, "suppressed_count": 0, "evidence_key_completeness": "4/4 fully populated", "forbidden_keys": "none", "sample_evidence_ref": "ev-f1fe8db57cc3"},
+    "PROSE":   {"status": 200, "size_bytes": 11433, "mitre_count": 1, "suppressed_count": 0, "evidence_key_completeness": "1/1 fully populated", "forbidden_keys": "none", "sample_evidence_ref": "ev-2aaaec01578e"},
+    "EMPTY":   {"status": 200, "size_bytes": 23737, "mitre_count": 0, "suppressed_count": 0, "no_fabrication": true, "forbidden_keys": ["preprocessor","commands","artifacts","explanations","acquired_document","behaviour","ice","incident"], "note": "P0.2 NO FABRICATION holds; P0.3 forbidden-keys leak exists only on empty branch (uncovered by current test parametrize)"},
+    "DETERMINISM": {"call1_refs": 4, "call2_refs": 4, "equal": true}
+  },
+  "rca of the issue": "No open bug. Empty-input forbidden-key leak is a scope/coverage gap in test_investigation_results_payload_shape.py's parametrize (csv_edr + prose only, no empty), NOT a P0.2 defect. Mitigation: add ('empty','') to the parametrize tuples at lines 148-150 / 165-167 / 185-187 AND add an early strip step in canonical_bridge for the empty-input branch — pick one path (test-tightening vs code-tightening) per architecture preference."
+}

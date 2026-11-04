@@ -1,0 +1,44 @@
+{
+  "id": "des-inline-ps-2",
+  "category": "ps-crypto",
+  "algorithm": "DES",
+  "command_line": "$prov = New-Object System.Security.Cryptography.DESCryptoServiceProvider; $prov.Key = [Text.Encoding]::UTF8.GetBytes('DESKey12'); $prov.IV = [Text.Encoding]::UTF8.GetBytes('DESIVsq8'); $c = [Convert]::FromBase64String('REVTX0RFU18y'); $dec = $prov.CreateDecryptor(); $plain = $dec.TransformFinalBlock($c, 0, $c.Length);IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-iv",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-cipher-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "des-decrypt",
+      "recoverable": false,
+      "reason": "DES requires .NET CryptoServiceProvider runtime."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_confidence_min": 0.75,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

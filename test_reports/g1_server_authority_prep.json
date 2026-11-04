@@ -1,0 +1,161 @@
+{
+  "base_url": "https://greeting-app-5782.preview.emergentagent.com",
+  "steps": [
+    {
+      "step": "admin session",
+      "http": 200,
+      "detail": "authenticated (token not recorded)"
+    },
+    {
+      "step": "organization (reused)",
+      "http": 200,
+      "detail": "org_10b45e9746dd71655ecbb13287"
+    },
+    {
+      "step": "tenant reused g1-windows-proof",
+      "http": 409,
+      "detail": "ten_f1a5479243e901cf159e230fa0"
+    },
+    {
+      "step": "tenant reused g1-windows-isolation",
+      "http": 409,
+      "detail": "ten_fe58e4a683a671a8dbafe45d57"
+    },
+    {
+      "step": "collector reused",
+      "http": 409,
+      "detail": "col_d6b0b9e8172246f29be9"
+    },
+    {
+      "step": "protocol metadata",
+      "http": 200,
+      "detail": {
+        "collector_protocol": "windows-eventlog",
+        "collector_transport": "windows-evt-api",
+        "collector_implementation": "IMPLEMENTED"
+      }
+    },
+    {
+      "step": "verification key minted",
+      "http": 200,
+      "detail": {
+        "id": "key_7c77a426c3504d4691b0",
+        "prefix": "nvx_60cd19c6",
+        "scopes": [
+          "collectors.enroll"
+        ]
+      }
+    },
+    {
+      "step": "isolation collector enrolled",
+      "http": 200,
+      "detail": "col_98ea65b24b5049579c46"
+    },
+    {
+      "step": "isolation key minted",
+      "http": 200,
+      "detail": {
+        "id": "key_a3a2b1c65984497dbd49",
+        "prefix": "nvx_f5c6f93c"
+      }
+    },
+    {
+      "step": "verification key revoked",
+      "http": 200,
+      "detail": "key_7c77a426c3504d4691b0"
+    },
+    {
+      "step": "isolation key revoked",
+      "http": 200,
+      "detail": "key_a3a2b1c65984497dbd49"
+    },
+    {
+      "step": "baseline snapshot",
+      "http": 200,
+      "detail": {
+        "state": "ADOPTED",
+        "events_received": 0,
+        "events_parsed": 0,
+        "events_normalized": 0,
+        "events_error": 0,
+        "last_event_at": "2026-09-22T13:55:16.816262+00:00"
+      }
+    }
+  ],
+  "negative_controls": [
+    {
+      "control": "unauthenticated ingest denied",
+      "http": 403,
+      "expected_http": 403,
+      "pass": true,
+      "detail": "ACCESS_DENIED"
+    },
+    {
+      "control": "proof key cannot act in the isolation tenant",
+      "http": 403,
+      "expected_http": 403,
+      "pass": true,
+      "detail": "ACCESS_DENIED"
+    },
+    {
+      "control": "foreign tenant cannot use this collector id (no disclosure)",
+      "http": 403,
+      "expected_http": 403,
+      "pass": true,
+      "detail": "TENANT_ISOLATION_VIOLATION"
+    },
+    {
+      "control": "unenrolled collector identity denied",
+      "http": 404,
+      "expected_http": 404,
+      "pass": true,
+      "detail": "collector not found"
+    },
+    {
+      "control": "unauthorized/unsupported source refused (B4 shape)",
+      "http": 200,
+      "expected_http": 200,
+      "pass": true,
+      "detail": {
+        "accepted": 0,
+        "routing_blocked": 1
+      }
+    },
+    {
+      "control": "undeclared source refused (DECLARATION_REQUIRED)",
+      "http": 200,
+      "expected_http": 200,
+      "pass": true,
+      "detail": {
+        "accepted": 0,
+        "routing_blocked": 1
+      }
+    }
+  ],
+  "authority": {
+    "organization_id": "org_10b45e9746dd71655ecbb13287",
+    "tenant_id": "ten_f1a5479243e901cf159e230fa0",
+    "isolation_tenant_id": "ten_fe58e4a683a671a8dbafe45d57",
+    "collector_id": "col_d6b0b9e8172246f29be9",
+    "collector_protocol": "windows-eventlog",
+    "collector_transport": "windows-evt-api",
+    "collector_implementation": "IMPLEMENTED",
+    "collector_canonical_schema": "canonical.host.process",
+    "authorized_sources": [
+      "microsoft-sysmon",
+      "windows-security-evd",
+      "windows-powershell-evd"
+    ],
+    "collector_state": "ADOPTED"
+  },
+  "isolation_collector_id": "col_98ea65b24b5049579c46",
+  "baseline": {
+    "state": "ADOPTED",
+    "events_received": 0,
+    "events_parsed": 0,
+    "events_normalized": 0,
+    "events_error": 0,
+    "last_event_at": "2026-09-22T13:55:16.816262+00:00"
+  },
+  "all_negative_controls_pass": true
+}

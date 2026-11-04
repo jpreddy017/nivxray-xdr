@@ -1,0 +1,45 @@
+{
+  "id": "SCN-2026-CON-001",
+  "category": "conflicting",
+  "title": "TI marks domain malicious, DNS shows corporate CDN",
+  "description": "One threat-intel source lists the destination domain as malicious; independent DNS + certificate evidence identifies the same domain as a sanctioned corporate CDN edge. Engine must expose the conflict rather than collapse to a single verdict.",
+  "raw_events": [
+    { "kind": "network_connect", "ts": "2026-02-10T13:11:00Z",
+      "src": "HOST-14", "dst_ip": "23.100.20.5", "dst_port": 443,
+      "dst_domain": "cdn.acme-internal.com" }
+  ],
+  "normalized_evidence": [
+    { "type": "domain", "value": "cdn.acme-internal.com" },
+    { "type": "ti_disposition", "source": "vendor-a", "verdict": "malicious", "confidence": 0.6 },
+    { "type": "ti_disposition", "source": "internal-cmdb", "verdict": "sanctioned", "confidence": 0.95 },
+    { "type": "cert", "cn": "*.acme-internal.com", "issuer": "Acme Internal CA" }
+  ],
+  "expected_entities": {
+    "hosts": ["HOST-14"], "users": [],
+    "processes": [], "iocs": ["cdn.acme-internal.com"]
+  },
+  "expected_correlations": [],
+  "expected_rules_matched": [
+    { "rule_id": "ti_hit_domain", "match": "conflicting",
+      "fields": { "dst_domain": "cdn.acme-internal.com" },
+      "technique": "T1071.001" }
+  ],
+  "expected_mitre": [],
+  "expected_attack_story": [
+    "Conflicting evidence: vendor-a flagged cdn.acme-internal.com as malicious.",
+    "Independent evidence: internal-cmdb + valid Acme Internal CA cert marks the destination as sanctioned."
+  ],
+  "expected_verdict": {
+    "verdict": "ambiguous", "confidence": 0.50, "severity": "low",
+    "reason": "Contradictory TI vs internal-CMDB + valid enterprise certificate"
+  },
+  "expected_severity": "low",
+  "expected_recommendations": [
+    { "kind": "enrich",     "action": "resolve_ti_conflict",   "priority": "high" },
+    { "kind": "investigate","action": "verify_certificate",    "priority": "medium" }
+  ],
+  "expected_playbook": null,
+  "expected_response_outcome": { "state": "PENDING_TRIAGE" },
+  "expected_report_sections": ["executive_summary", "investigation_gaps",
+                                                 "supporting_evidence", "final_conclusion"]
+}

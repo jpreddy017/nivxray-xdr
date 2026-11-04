@@ -1,0 +1,1918 @@
+[
+  {
+    "sha": "5767e4072c0caa83b7f2d59ac3fa140a9e87d722",
+    "date": "2026-07-09 12:24:15 +0000",
+    "note": "pre-v1.5.6",
+    "checkout_error": "no backend/server.py or routers/ops.py in this revision",
+    "samples": {}
+  },
+  {
+    "sha": "02715be1cd88509eea34d1ee085b4f02302a87b3",
+    "date": "2026-07-15 08:58:42 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "PASS",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ],
+        "stages": {
+          "interpreter_selected": null,
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": true,
+          "first_missing_stage": "interpreter",
+          "final_snippet": "Write-Host \"tweet, tweet!\""
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": []
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": []
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "hex-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "43d4400410c8f4b8eb5d369f95f7702261251de3",
+    "date": "2026-07-17 01:47:58 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "PASS",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-decode"
+        ],
+        "stages": {
+          "interpreter_selected": null,
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": true,
+          "final_payload_correct": true,
+          "first_missing_stage": "interpreter",
+          "final_snippet": "Write-Host \"tweet, tweet!\"\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      magic \u00b7 conf 52/100\n  Chain:       extract-payload \u2192 base64-decode \u2192 utf16le-decode\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion\n\n  LOLBIN       powershell.ex"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-b64"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "strip-carets"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "hex-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "53f6076eaeffd884cb0b451ec24c2a33e43e9ec6",
+    "date": "2026-07-18 09:54:11 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "PASS",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-decode"
+        ],
+        "stages": {
+          "interpreter_selected": null,
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": true,
+          "final_payload_correct": true,
+          "first_missing_stage": "interpreter",
+          "final_snippet": "Write-Host \"tweet, tweet!\"\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      magic \u00b7 conf 52/100\n  Chain:       extract-payload \u2192 base64-decode \u2192 utf16le-decode\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion\n\n  LOLBIN       powershell.ex"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "hex-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "20d0cb88bba2b4cada6f7831ff3bd994af83ba6a",
+    "date": "2026-07-19 07:00:46 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "PASS",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-decode"
+        ],
+        "stages": {
+          "interpreter_selected": null,
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": true,
+          "final_payload_correct": true,
+          "first_missing_stage": "interpreter",
+          "final_snippet": "Write-Host \"tweet, tweet!\"\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Partial Decode\n  Engine:      magic \u00b7 conf 52/100\n  Chain:       extract-payload \u2192 base64-decode \u2192 utf16le-decode\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "hex-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "5cab99e2b82e119e397d79c8e1783a44aa498617",
+    "date": "2026-07-20 03:06:27 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "PASS",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "utf16le-decode"
+        ],
+        "stages": {
+          "interpreter_selected": null,
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": true,
+          "final_payload_correct": true,
+          "first_missing_stage": "interpreter",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nWrite-Host \"tweet, tweet!\"\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious\n  Engine:      magic \u00b7 conf 52/"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-encodedcommand-recovery"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "cmd-runtime-reconstruct",
+          "extract-payload",
+          "base64-decode",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-reconstruct",
+          "ioc-extract"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "crypto-detect"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "rot47"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "hex-decode",
+          "base64-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "51666219ed40993be29b00d31983d24e87344ed1",
+    "date": "2026-07-21 09:07:02 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "hex-decode",
+          "base58-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "009d1497686c64173cf430a280da0701bbf7b34b",
+    "date": "2026-07-22 08:31:22 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "hex-decode",
+          "base58-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "521535d702996bf7124520e159b32b557eb5e1cc",
+    "date": "2026-07-24 07:30:07 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "hex-decode",
+          "base58-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "7f147f8fc117ccdd67f90759570e94a088124324",
+    "date": "2026-07-27 16:41:06 +0000",
+    "note": "pre-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": false,
+        "ops": [
+          "hex-decode",
+          "base58-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "fff5897b17ecc053f8439e561e70d2011306424a",
+    "date": "2026-07-28 16:10:16 +0000",
+    "note": "v1.5.6 anchor (Certified Baseline)",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "hex-decode",
+          "base58-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "09a556701a0486cfafbec9ff88d1867f5cd025d3",
+    "date": "2026-07-29 02:20:21 +0000",
+    "note": "post-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "strip-carets",
+          "extract-b64",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ps-string-concat"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "gzip-decompress"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "extract-payload"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "hex-decode",
+          "base58-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": []
+      }
+    }
+  },
+  {
+    "sha": "42d7dffd1db6bbfab635dc8f6dbee7ea32a276cb",
+    "date": "2026-07-30 13:30:41 +0000",
+    "note": "post-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-encodedcommand-recovery",
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "powershell-alias-normalize"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "cmd-runtime-reconstruct",
+          "extract-payload",
+          "base64-decode",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-reconstruct",
+          "powershell-alias-normalize",
+          "ioc-extract"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "crypto-detect"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "rot47"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": true,
+        "ops": [
+          "hex-decode",
+          "base64-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "powershell-alias-normalize"
+        ]
+      }
+    }
+  },
+  {
+    "sha": "9d680addc1ed0ab9239d629c3b574751114982e9",
+    "date": "2026-08-01 09:06:52 +0000",
+    "note": "post-v1.5.6",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-encodedcommand-recovery",
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "powershell-alias-normalize"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "cmd-runtime-reconstruct",
+          "extract-payload",
+          "base64-decode",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-reconstruct",
+          "powershell-alias-normalize",
+          "ioc-extract"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "crypto-detect"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "rot47"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": true,
+        "ops": [
+          "hex-decode",
+          "base64-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "powershell-alias-normalize"
+        ]
+      }
+    }
+  },
+  {
+    "sha": "1a07de3775fa7b4a2ae5d2e0e4872bd32a8be7f2",
+    "date": "2026-08-02 14:59:01 +0000",
+    "note": "HEAD",
+    "samples": {
+      "S001_ps_writehost_tweet": {
+        "sample": "S001_ps_writehost_tweet",
+        "status": "FAIL",
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "stages": {
+          "interpreter_selected": "powershell",
+          "encodedcommand_recognized": false,
+          "payload_extracted": true,
+          "base64_decoded": true,
+          "utf16le_decoded": false,
+          "final_payload_correct": false,
+          "first_missing_stage": "encodedcommand_recognition",
+          "final_snippet": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80"
+        }
+      },
+      "S01_ps_b64_utf16le": {
+        "sample": "S01_ps_b64_utf16le",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-encodedcommand-recovery",
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S02_bash_xxd_b64_rev": {
+        "sample": "S02_bash_xxd_b64_rev",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "powershell-alias-normalize"
+        ]
+      },
+      "S03_cmd_caret_escaped": {
+        "sample": "S03_cmd_caret_escaped",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "cmd-runtime-reconstruct",
+          "extract-payload",
+          "base64-decode",
+          "utf16le-or-utf8-decode"
+        ]
+      },
+      "S04_ps_alias_heavy": {
+        "sample": "S04_ps_alias_heavy",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "ps-reconstruct",
+          "powershell-alias-normalize",
+          "ioc-extract"
+        ]
+      },
+      "S05_nested_b64_gzip": {
+        "sample": "S05_nested_b64_gzip",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": true,
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "crypto-detect"
+        ]
+      },
+      "S06_xor_obfuscated": {
+        "sample": "S06_xor_obfuscated",
+        "status": "PASS",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": true,
+        "same_final": true,
+        "ops": [
+          "ascii-decimal-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ]
+      },
+      "S07_rc4_openssl": {
+        "sample": "S07_rc4_openssl",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "rot47"
+        ]
+      },
+      "S08_unicode_obfuscation": {
+        "sample": "S08_unicode_obfuscation",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ]
+      },
+      "S09_hex_b64_gzip_chain": {
+        "sample": "S09_hex_b64_gzip_chain",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": true,
+        "ops": [
+          "hex-decode",
+          "base64-decode"
+        ]
+      },
+      "S10_bash_with_powershell_comment": {
+        "sample": "S10_bash_with_powershell_comment",
+        "status": "FAIL",
+        "against": "v1.5.6_fingerprint",
+        "same_ops": false,
+        "same_final": false,
+        "ops": [
+          "powershell-alias-normalize"
+        ]
+      }
+    }
+  }
+]

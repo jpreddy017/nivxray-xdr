@@ -6,11 +6,32 @@
  *   • faint = searched (no telemetry hits recorded)
  *   • dashed faint = notconnected (integration not present for tenant)
  *
- * Owner rule: launch buttons open the domain surface in a NEW BROWSER
- * TAB — never a modal, drawer, inline miniature, or iframe.
+ * PR-XDR-0 · launch buttons navigate IN-PRODUCT (the NivXRay XDR shell
+ * stays mounted). Only a NivXForge EDR destination may open a new tab, and
+ * only when that product genuinely lives at another origin.
  */
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { INCIDENT_TESTIDS as T } from "@/constants/incidentTestIds";
+import { productHref, productMode } from "@/productOrigins";
+
+/**
+ * PR-XDR-0 · a pointer's `deep_link` must be a canonical in-product
+ * NivXRay XDR route, or a NivXForge EDR route resolved through
+ * `productOrigins`. Anything else has no destination and the launch
+ * control stays disabled instead of opening a tab that lands nowhere.
+ */
+function openTarget(p) {
+  const link = p?.deep_link;
+  if (!link || typeof link !== "string") return null;
+  if (link.startsWith("/xdr/")) return { to: link, mode: "IN_PRODUCT" };
+  if (link.startsWith("/edr")) {
+    return { to: productHref("edr", link),
+             mode: productMode("edr") === "CONFIGURED"
+                     ? "CROSS_PRODUCT" : "IN_PRODUCT" };
+  }
+  return null;
+}
 
 const DOMAIN_LABELS = {
   edr:       "EDR",
@@ -32,6 +53,7 @@ function classifyPointer(p) {
 }
 
 export default function OverviewTab({ incident }) {
+  const navigate = useNavigate();
   const pointers = incident?.evidence_pointers || [];
 
   return (
@@ -76,13 +98,18 @@ export default function OverviewTab({ incident }) {
                 type="button"
                 className="edom-open"
                 data-testid={T.domainLaunch(domainKey)}
-                disabled={!available}
+                disabled={!available || !openTarget(p)}
+                data-open-to={openTarget(p)?.to || undefined}
+                data-open-mode={openTarget(p)?.mode || undefined}
                 onClick={() => {
-                  if (!available) return;
-                  window.open(p.deep_link, "_blank", "noopener,noreferrer");
+                  const t = openTarget(p);
+                  if (!available || !t) return;
+                  if (t.mode === "CROSS_PRODUCT")
+                    window.open(t.to, "_blank", "noopener,noreferrer");
+                  else navigate(t.to);
                 }}
               >
-                {available ? "Open in new tab →" : "Not available"}
+                {available && openTarget(p) ? "Open →" : "Not available"}
               </button>
             </div>
           );

@@ -1,0 +1,31 @@
+·  incident under proof: inc_r42_8ef7ff52ebd8
+PASS  Pivots is a first-class view in the incident workspace  tab=pivots
+PASS  the view sits in the primary tab bar  ['overview', 'story', 'timeline', 'evidence', 'detections', 'pivots', 'response', 'activity']
+PASS  telemetry origin reports all five stages  5 rows
+PASS  every origin stage carries an explicit state  ['NOT_RECORDED', 'OBSERVED']
+PASS  an unrecorded origin stage says so rather than looking complete  ['NOT_RECORDED', 'OBSERVED']
+PASS  origin states the field it was read from  
+PASS  observables are listed with their kind  2 observables
+PASS  an externally verifiable observable offers provider actions  kinds=['ip', 'user'] · external buttons=8
+PASS  an observable no provider verifies says so instead of a dead link  1 statements
+PASS  external verification is gated by an egress confirmation  www.virustotal.com
+PASS  no external tab opens before the analyst confirms  1 tab(s)
+PASS  the analyst can refuse the external navigation  
+PASS  every native console row carries a distinct state  ['NOT_CONFIGURED']
+PASS  a console link exists only where the backend says AVAILABLE  AVAILABLE=0 · links=0
+PASS  a refused console states WHY  Native console pivots offered only where this tenant's own integration
+PASS  every recommendation cites a reason and its evidence  reasons=1 evidence=1
+PASS  recommendations never claim a model  
+PASS  AUTO_ENRICHMENT and EXTERNAL_PIVOT are separate facts  7 providers
+PASS  no provider claims enrichment NivXRay has not implemented  ['NOT_IMPLEMENTED', 'UNSUPPORTED']
+PASS  light · interpretation text is readable  17.85:1 fg=[15, 23, 42] bg=[255, 255, 255]
+PASS  light · section label is readable  6.92:1 fg=[71, 85, 105] bg=[241, 245, 249]
+PASS  light · Edit control is readable  17.85:1 fg=[15, 23, 42] bg=[255, 255, 255]
+PASS  dark · interpretation text is readable  16.38:1 fg=[241, 245, 249] bg=[18, 23, 33]
+PASS  dark · section label is readable  7.26:1 fg=[148, 163, 184] bg=[14, 19, 28]
+PASS  dark · Edit control is readable  14.75:1 fg=[241, 245, 249] bg=[26, 33, 45]
+PASS  cross-tenant pivots read is refused without disclosure  HTTP 404
+PASS  no runtime/console error  []
+
+27 PASS · 0 FAIL
+task3a exit=0

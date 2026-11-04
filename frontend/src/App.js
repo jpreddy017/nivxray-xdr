@@ -48,7 +48,9 @@ const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
 const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage"));
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
-const DeviceTrajectoryPage  = lazy(() => import("@/pages/DeviceTrajectoryPage"));
+// `pages/DeviceTrajectoryPage.jsx` is retained in source but no longer
+// routed in the Workspace product (OWNER LOCK · Phase 1 · Q3 = B) —
+// Device Trajectory belongs to NivXForge EDR (edr.nivxforge.com).
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 // Slice 1 · Canonical Incident shell + NivXRay XDR platform shell
 // have been EXTRACTED into a separate standalone application at
@@ -81,17 +83,10 @@ const V2IngestionPage          = lazy(() => import("@/v2/pages/IngestionPage"));
 // v2 · Validation Pack (Phase 4.2) — Golden Corpus × Expected Investigation matrix.
 const V2ValidationPage         = lazy(() => import("@/v2/pages/ValidationPage"));
 
-// NivXForge (Preview) — evidence-driven governance surface. Read-only.
-// ADR-0005 authorised the router mount (2026-02-28); this page consumes
-// /api/nivxforge/preview/* GET endpoints only.
-const NivxForgePreviewPage     = lazy(() => import("@/nivxforge/pages/PreviewPage"));
-const NivxForgeInvestigatePage = lazy(() => import("@/nivxforge/pages/InvestigatePage"));
-const NivxForgeDashboardPage   = lazy(() => import("@/nivxforge/pages/DashboardPage"));
-const NivxForgeThreatIntelPage    = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatIntelPage })));
-const NivxForgeThreatHuntingPage  = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatHuntingPage })));
-const NivxForgeKnowledgeBasePage  = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.KnowledgeBasePage })));
-const NivxForgeReportsPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ReportsPage })));
-const NivxForgeHistoryPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.HistoryPage })));
+// NivXForge (Preview) governance/analyst shell — RETAINED IN SOURCE at
+// `src/nivxforge/**` but no longer imported or routed by the Workspace
+// product (OWNER LOCK · Phase 1 · Q2 = A). See the removal note beside the
+// route table below for the dependency proof.
 
 // X-Lab observational surface removed 2026-08-11 (owner directive after
 // ADR-005 X-Lab Removal Impact Audit). The `/nivxforge/x-lab*` routes
@@ -170,7 +165,7 @@ function App() {
               <Route path="/compare/:caseA/:caseB" element={<Protected><ComparePage /></Protected>} />
               <Route path="/platform" element={<Protected><PlatformHealthPage /></Protected>} />
               <Route path="/learner" element={<Protected><LearnerPage /></Protected>} />
-              <Route path="/benchmark" element={<BenchmarkPage />} />
+              <Route path="/benchmark" element={<Protected><BenchmarkPage /></Protected>} />
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
@@ -182,7 +177,14 @@ function App() {
                   `/edr/hunting`, `/edr/forensics`, `/edr/live-query`,
                   `/edr/response`) are hosted by the standalone
                   `/app/apps/nivxray-xdr` application. */}
-              <Route path="/edr/trajectory" element={<Protected><DeviceTrajectoryPage /></Protected>} />
+              {/* Device Trajectory REMOVED from the Workspace product
+                  (OWNER LOCK · Phase 1 · Q3 = B). Device Trajectory is a
+                  NivXForge EDR operational surface and its production home
+                  is edr.nivxforge.com (Phase 3). `pages/DeviceTrajectoryPage.jsx`
+                  is retained in source — only the Workspace route/exposure is
+                  removed. No external link to edr.nivxforge.com is created
+                  here: that hostname is not live yet and a dead outbound link
+                  is worse than no link. Cross-product pivots are Phase 4. */}
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
               <Route path="/workspace/session/:sessionId"
@@ -216,16 +218,21 @@ function App() {
               <Route path="/v2/ingest" element={<Protected><V2IngestionPage /></Protected>} />
               {/* v2 · Validation Pack — 34-dataset Golden Corpus matrix */}
               <Route path="/v2/validation" element={<Protected><V2ValidationPage /></Protected>} />
-              {/* NivXForge (ADR-0006 · Phase 1 + platform shell) · analyst-parity surface + governance */}
-              <Route path="/nivxforge"              element={<Protected><NivxForgeDashboardPage /></Protected>} />
-              <Route path="/nivxforge/dashboard"    element={<Protected><NivxForgeDashboardPage /></Protected>} />
-              <Route path="/nivxforge/investigate"  element={<Protected><NivxForgeInvestigatePage /></Protected>} />
-              <Route path="/nivxforge/threat-intel" element={<Protected><NivxForgeThreatIntelPage /></Protected>} />
-              <Route path="/nivxforge/hunting"      element={<Protected><NivxForgeThreatHuntingPage /></Protected>} />
-              <Route path="/nivxforge/knowledge"    element={<Protected><NivxForgeKnowledgeBasePage /></Protected>} />
-              <Route path="/nivxforge/reports"      element={<Protected><NivxForgeReportsPage /></Protected>} />
-              <Route path="/nivxforge/history"      element={<Protected><NivxForgeHistoryPage /></Protected>} />
-              <Route path="/nivxforge/governance"   element={<Protected><NivxForgePreviewPage /></Protected>} />
+              {/* `/nivxforge/*` REMOVED from the Workspace product
+                  (OWNER LOCK · Phase 1 · Q2 = A). Those nine routes were a
+                  second NivXForge-branded console embedded in the Workspace
+                  and collide with the final product boundary: NivXForge EDR
+                  ships at edr.nivxforge.com (Phase 3), the Workspace at
+                  workspace.nivxmachines.com.
+                  Dependency proof before removal: nothing outside `App.js`
+                  imports `@/nivxforge/*`, and `src/nivxforge/**` imports only
+                  INTO retained shared code (`lib/api`,
+                  `pages/AutoInvestigatePage`, `components/Header`,
+                  `components/InputToolbar`, `components/InvestigationPipeline`).
+                  The dependency direction is one-way, so removing the routes
+                  removes all product exposure and drops the chunks from the
+                  bundle. `src/nivxforge/**` and every shared component are
+                  RETAINED in source, exactly as instructed. */}
               {/* L4 Analyst Workspace (PR-3 · Blueprint v1.1). Additive:
                   every legacy route above continues to work unchanged.
                   Shell only in this PR; lens content lands in PR-4+. */}

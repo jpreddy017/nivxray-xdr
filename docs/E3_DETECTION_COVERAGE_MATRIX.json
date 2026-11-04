@@ -1,0 +1,1538 @@
+{
+ "corpus": {
+  "tenant": "ten_f1a5479243e901cf159e230fa0",
+  "total": 3299,
+  "by_type": {
+   "registry_event": 3101,
+   "process_create": 16,
+   "file_create": 107,
+   "network_connect": 70,
+   "dns_query": 1,
+   "special_privileges_assigned": 2,
+   "logon_success": 2
+  },
+  "field_pop": {
+   "process.name": 3297,
+   "process.pid": 3295,
+   "process.executable_path": 3297,
+   "process.process_guid": 3295,
+   "process.attribution_state": 3299,
+   "process.attribution_reason": 3295,
+   "process.field_provenance": 3295,
+   "registry.hive": 1407,
+   "registry.key_path": 3101,
+   "registry.action": 3101,
+   "registry.target_object": 3101,
+   "identity.principal_id": 3299,
+   "identity.username": 3299,
+   "registry.value_name": 2335,
+   "registry.value_data": 2335,
+   "process.ppid": 16,
+   "process.parent_name": 16,
+   "process.command_line": 16,
+   "process.original_file_name": 16,
+   "process.parent_executable_path": 16,
+   "process.parent_command_line": 16,
+   "process.hashes": 16,
+   "process.parent_process_guid": 16,
+   "file.path": 107,
+   "file.name": 107,
+   "file.action": 107,
+   "file.field_provenance": 107,
+   "network.src_ip": 72,
+   "network.src_port": 70,
+   "network.dest_ip": 70,
+   "network.dest_port": 70,
+   "network.protocol": 70,
+   "network.field_provenance": 71,
+   "network.dns_query": 1,
+   "network.dns_response_ips": 1,
+   "network.dns_response_records": 1,
+   "identity.domain": 4,
+   "identity.user_sid": 4,
+   "identity.logon_id": 4,
+   "identity.is_privileged": 2,
+   "network.direction": 2
+  },
+  "evaluated": 3299,
+  "source_ids": {
+   "Sysmon:12": 766,
+   "Sysmon:13": 2335,
+   "Sysmon:1": 16,
+   "Sysmon:11": 107,
+   "Sysmon:3": 70,
+   "Sysmon:22": 1,
+   "Windows Security Log:4672": 2,
+   "Windows Security Log:4624": 2
+  }
+ },
+ "rules": [
+  {
+   "rule_id": "DET-EX-001",
+   "name": "Suspicious Encoded PowerShell Execution",
+   "technique": "T1059.001",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "windows",
+   "lane": "content",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-EX-002",
+   "name": "Certutil Ingress Tool Transfer (Download)",
+   "technique": "T1105",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-EX-003",
+   "name": "Bitsadmin Remote File Transfer",
+   "technique": "T1105",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-IA-002",
+   "name": "Office Application Spawning Script Host",
+   "technique": "T1566.001",
+   "tactic": "Initial Access",
+   "family": "Initial Access",
+   "platform": "windows",
+   "lane": "behavior",
+   "severity": "critical",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "parent_process"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.executable_path",
+    "process.name",
+    "process.parent_name",
+    "process.parent_process_guid"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.executable_path": 3297,
+    "process.name": 3297,
+    "process.parent_name": 16,
+    "process.parent_process_guid": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-EX-004",
+   "name": "WMI Local/Remote Process Creation",
+   "technique": "T1047",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-EX-005",
+   "name": "Regsvr32 Remote Scriptlet Execution (Squiblydoo)",
+   "technique": "T1218.010",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-EX-006",
+   "name": "Linux Pipe to Shell Execution",
+   "technique": "T1059.004",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "linux",
+   "lane": "content",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "command_line",
+    "process.command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a linux rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-PS-001",
+   "name": "Registry Run Key Persistence",
+   "technique": "T1547.001",
+   "tactic": "Persistence",
+   "family": "Persistence",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "2",
+   "required_telemetry": [
+    "registry_event",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create",
+    "registry_event",
+    "registry_set"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "registry.key_path"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16,
+    "registry_event": 3101,
+    "registry_set": 0
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "registry.key_path": 3101
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(4/4)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-PS-002",
+   "name": "Suspicious Scheduled Task Creation",
+   "technique": "T1053.005",
+   "tactic": "Persistence",
+   "family": "Persistence",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-PS-003",
+   "name": "Windows Service Creation via SC.exe",
+   "technique": "T1543.003",
+   "tactic": "Persistence",
+   "family": "Persistence",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-PS-004",
+   "name": "M365 Malicious Inbox Rule Creation",
+   "technique": "T1114.003",
+   "tactic": "Persistence",
+   "family": "Persistence",
+   "platform": "cloud",
+   "lane": "event",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "cloud_audit",
+    "m365_exchange"
+   ],
+   "canonical_event_types": [],
+   "canonical_fields": [],
+   "channels": [],
+   "sensor_can_observe": false,
+   "actually_collected": {},
+   "canonical_field_available": {},
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(4/4)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a cloud rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-PE-002",
+   "name": "Active Directory Certificate Services Template Misconfiguration Abuse",
+   "technique": "T1649",
+   "tactic": "Privilege Escalation",
+   "family": "Privilege Escalation",
+   "platform": "identity",
+   "lane": "event",
+   "severity": "critical",
+   "rule_version": "1",
+   "required_telemetry": [
+    "active_directory_audit",
+    "ad_cs"
+   ],
+   "canonical_event_types": [
+    "directory_change"
+   ],
+   "canonical_fields": [
+    "identity.username"
+   ],
+   "channels": [
+    "Directory Service",
+    "Security"
+   ],
+   "sensor_can_observe": false,
+   "actually_collected": {
+    "directory_change": 0
+   },
+   "canonical_field_available": {
+    "identity.username": 3299
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a identity rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-PE-003",
+   "name": "Cloud IAM Excessive Policy Assignment",
+   "technique": "T1098",
+   "tactic": "Privilege Escalation",
+   "family": "Privilege Escalation",
+   "platform": "cloud",
+   "lane": "event",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "cloud_audit",
+    "iam"
+   ],
+   "canonical_event_types": [],
+   "canonical_fields": [],
+   "channels": [],
+   "sensor_can_observe": false,
+   "actually_collected": {},
+   "canonical_field_available": {},
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a cloud rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-DE-001",
+   "name": "Windows Defender Real-Time Monitoring Disabled",
+   "technique": "T1562.001",
+   "tactic": "Defense Evasion",
+   "family": "Defense Evasion",
+   "platform": "windows",
+   "lane": "content",
+   "severity": "critical",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-DE-002",
+   "name": "Security Event Log Cleared via Wevtutil",
+   "technique": "T1070.001",
+   "tactic": "Defense Evasion",
+   "family": "Defense Evasion",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-DE-003",
+   "name": "AMSI Memory Patch / Bypass",
+   "technique": "T1562.001",
+   "tactic": "Defense Evasion",
+   "family": "Defense Evasion",
+   "platform": "windows",
+   "lane": "content",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "script_block_logging",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "powershell_script_block",
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line"
+   ],
+   "channels": [
+    "Microsoft-Windows-PowerShell/Operational",
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "powershell_script_block": 0,
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-CR-001",
+   "name": "LSASS Memory Dumping via Comsvcs/Procdump",
+   "technique": "T1003.001",
+   "tactic": "Credential Access",
+   "family": "Credential Access",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-CR-002",
+   "name": "NTDS.dit Volume Shadow Copy Extraction",
+   "technique": "T1003.003",
+   "tactic": "Credential Access",
+   "family": "Credential Access",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-CR-004",
+   "name": "Kerberoasting Service Principal Name Ticket Request",
+   "technique": "T1558.003",
+   "tactic": "Credential Access",
+   "family": "Credential Access",
+   "platform": "identity",
+   "lane": "event",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "security_event_4769",
+    "kerberos"
+   ],
+   "canonical_event_types": [
+    "kerberos_service_ticket",
+    "kerberos_tgt_request"
+   ],
+   "canonical_fields": [
+    "identity.username"
+   ],
+   "channels": [
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "kerberos_service_ticket": 0,
+    "kerberos_tgt_request": 0
+   },
+   "canonical_field_available": {
+    "identity.username": 3299
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(3/3)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a identity rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-CR-005",
+   "name": "AS-REP Roasting for Accounts Without Preauthentication",
+   "technique": "T1558.004",
+   "tactic": "Credential Access",
+   "family": "Credential Access",
+   "platform": "identity",
+   "lane": "event",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "security_event_4768",
+    "kerberos"
+   ],
+   "canonical_event_types": [
+    "kerberos_service_ticket",
+    "kerberos_tgt_request"
+   ],
+   "canonical_fields": [
+    "identity.username"
+   ],
+   "channels": [
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "kerberos_service_ticket": 0,
+    "kerberos_tgt_request": 0
+   },
+   "canonical_field_available": {
+    "identity.username": 3299
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a identity rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-CR-006",
+   "name": "Cloud Instance Metadata Service (IMDS) Credential Theft",
+   "technique": "T1552.005",
+   "tactic": "Credential Access",
+   "family": "Credential Access",
+   "platform": "cloud",
+   "lane": "network",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "network_traffic",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "network_connect",
+    "process_create"
+   ],
+   "canonical_fields": [
+    "network.dest_ip",
+    "process.command_line"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "network_connect": 70,
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "network.dest_ip": 70,
+    "process.command_line": 16
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a cloud rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-DS-001",
+   "name": "Active Directory Reconnaissance via SharpHound/AdFind",
+   "technique": "T1087.002",
+   "tactic": "Discovery",
+   "family": "Discovery",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-LM-001",
+   "name": "PsExec Lateral Movement Service Creation",
+   "technique": "T1021.002",
+   "tactic": "Lateral Movement",
+   "family": "Lateral Movement",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "service_creation",
+    "process_creation"
+   ],
+   "canonical_event_types": [
+    "process_create",
+    "service_installed"
+   ],
+   "canonical_fields": [
+    "process.executable_path",
+    "process.name",
+    "registry.service_name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security",
+    "System"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16,
+    "service_installed": 0
+   },
+   "canonical_field_available": {
+    "process.executable_path": 3297,
+    "process.name": 3297,
+    "registry.service_name": 0
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "PARTIAL",
+   "reason": "fires on canonical evidence, but these canonical fields are never populated in the real corpus: registry.service_name"
+  },
+  {
+   "rule_id": "DET-LM-002",
+   "name": "WinRM Remote PowerShell Execution",
+   "technique": "T1021.006",
+   "tactic": "Lateral Movement",
+   "family": "Lateral Movement",
+   "platform": "windows",
+   "lane": "behavior",
+   "severity": "medium",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "parent_process"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.executable_path",
+    "process.name",
+    "process.parent_name",
+    "process.parent_process_guid"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.executable_path": 3297,
+    "process.name": 3297,
+    "process.parent_name": 16,
+    "process.parent_process_guid": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-CC-001",
+   "name": "Dual-Use RMM Remote Access Tool Execution",
+   "technique": "T1219",
+   "tactic": "Command and Control",
+   "family": "Command and Control",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-CC-002",
+   "name": "DNS Tunneling Query Pattern",
+   "technique": "T1071.004",
+   "tactic": "Command and Control",
+   "family": "Command and Control",
+   "platform": "windows",
+   "lane": "network",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "dns_query"
+   ],
+   "canonical_event_types": [
+    "dns_query"
+   ],
+   "canonical_fields": [
+    "network.dns_query"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "dns_query": 1
+   },
+   "canonical_field_available": {
+    "network.dns_query": 1
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-IM-001",
+   "name": "Volume Shadow Copy Deletion",
+   "technique": "T1490",
+   "tactic": "Impact",
+   "family": "Impact",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-IM-003",
+   "name": "VMware ESXi Mass Virtual Machine Destruction",
+   "technique": "T1485",
+   "tactic": "Impact",
+   "family": "Impact",
+   "platform": "hypervisor",
+   "lane": "endpoint",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "hypervisor_command_line",
+    "auditd"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [],
+   "channels": [],
+   "sensor_can_observe": false,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {},
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a hypervisor rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-IM-004",
+   "name": "High-Velocity Mass Ransomware Encryption",
+   "technique": "T1486",
+   "tactic": "Impact",
+   "family": "Impact",
+   "platform": "windows",
+   "lane": "behavior",
+   "severity": "critical",
+   "rule_version": "1",
+   "required_telemetry": [
+    "file_activity",
+    "endpoint"
+   ],
+   "canonical_event_types": [
+    "file_create",
+    "file_event",
+    "process_create"
+   ],
+   "canonical_fields": [
+    "file.path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "file_create": 107,
+    "file_event": 0,
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "file.path": 107,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-EM-001",
+   "name": "Non-Human Identity Key Abuse",
+   "technique": "T1078.004",
+   "tactic": "Privilege Escalation",
+   "family": "Privilege Escalation",
+   "platform": "cloud",
+   "lane": "event",
+   "severity": "critical",
+   "rule_version": "2",
+   "required_telemetry": [
+    "cloud_audit",
+    "entra_id"
+   ],
+   "canonical_event_types": [],
+   "canonical_fields": [],
+   "channels": [],
+   "sensor_can_observe": false,
+   "actually_collected": {},
+   "canonical_field_available": {},
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a cloud rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "DET-EM-002",
+   "name": "Autonomous AI-Agent Subprocess Shell Execution",
+   "technique": "T1059",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "windows",
+   "lane": "behavior",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "identity"
+   ],
+   "canonical_event_types": [
+    "logon_success",
+    "process_create"
+   ],
+   "canonical_fields": [
+    "identity.username",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "logon_success": 2,
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "identity.username": 3299,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "DET-PS-005",
+   "name": "Registry Run Key Persistence Requested via Command Line",
+   "technique": "T1547.001",
+   "tactic": "Persistence",
+   "family": "Persistence",
+   "platform": "windows",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process_creation",
+    "command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path",
+    "process.name"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational",
+    "Security"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297,
+    "process.name": 3297
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "SUPPORTED",
+   "reason": "fires on canonical evidence AND the required evidence is actually collected on the real endpoint"
+  },
+  {
+   "rule_id": "EDR-LNX-001",
+   "name": "Base64-decoded payload piped into a shell",
+   "technique": "T1027",
+   "tactic": "Defense Evasion",
+   "family": "Defense Evasion",
+   "platform": "linux",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process.command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a linux rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "EDR-LNX-002",
+   "name": "Execution from a world-writable directory",
+   "technique": "T1059",
+   "tactic": "Execution",
+   "family": "Execution",
+   "platform": "linux",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process.executable_path",
+    "process.command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line",
+    "process.executable_path"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16,
+    "process.executable_path": 3297
+   },
+   "positive_control_fixture_shape": "PASS(2/2)",
+   "positive_control_canonical_shape": "PASS(2/2)",
+   "negative_control": "PASS(2/2)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a linux rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "EDR-LNX-003",
+   "name": "Remote content fetched and piped directly to an interpreter",
+   "technique": "T1105",
+   "tactic": "Command and Control",
+   "family": "Command and Control",
+   "platform": "linux",
+   "lane": "endpoint",
+   "severity": "high",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process.command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a linux rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "EDR-LNX-004",
+   "name": "Reverse-shell shaped command line",
+   "technique": "T1071",
+   "tactic": "Command and Control",
+   "family": "Command and Control",
+   "platform": "linux",
+   "lane": "endpoint",
+   "severity": "critical",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process.command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a linux rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  },
+  {
+   "rule_id": "EDR-LNX-005",
+   "name": "Execute permission granted to a file in a world-writable path",
+   "technique": "T1222.002",
+   "tactic": "Defense Evasion",
+   "family": "Defense Evasion",
+   "platform": "linux",
+   "lane": "endpoint",
+   "severity": "medium",
+   "rule_version": "1",
+   "required_telemetry": [
+    "process.command_line"
+   ],
+   "canonical_event_types": [
+    "process_create"
+   ],
+   "canonical_fields": [
+    "process.command_line"
+   ],
+   "channels": [
+    "Microsoft-Windows-Sysmon/Operational"
+   ],
+   "sensor_can_observe": true,
+   "actually_collected": {
+    "process_create": 16
+   },
+   "canonical_field_available": {
+    "process.command_line": 16
+   },
+   "positive_control_fixture_shape": "PASS(1/1)",
+   "positive_control_canonical_shape": "PASS(1/1)",
+   "negative_control": "PASS(1/1)",
+   "real_corpus_evaluated": true,
+   "verdict": "NOT_APPLICABLE",
+   "reason": "a linux rule; this acceptance corpus is a WINDOWS endpoint, so it is out of scope here rather than unsupported"
+  }
+ ]
+}

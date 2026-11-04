@@ -1,0 +1,565 @@
+{
+  "generated_at": "2026-08-03T10:12:16+00:00",
+  "kpi_panel": {
+    "families_covered": 7,
+    "capabilities_exercised": 31,
+    "technique_coverage_pct": 84.93150684931507,
+    "transformation_coverage_pct": 100.0,
+    "sample_dcs_pct": 100.0,
+    "regression_status": "PASS",
+    "certification_corpus_status": "PASS"
+  },
+  "capability_kpi": {
+    "vocabulary_size": 31,
+    "capabilities_exercised": 31,
+    "coverage_pct": 100.0
+  },
+  "families": [
+    {
+      "family_id": "cobalt_strike",
+      "display_name": "Cobalt Strike",
+      "techniques_in_corpus": 14,
+      "known_universe": 14,
+      "techniques_passed": 14,
+      "samples": 35,
+      "samples_passed": 35,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 100.0
+    },
+    {
+      "family_id": "darkgate",
+      "display_name": "DarkGate",
+      "techniques_in_corpus": 8,
+      "known_universe": 11,
+      "techniques_passed": 8,
+      "samples": 11,
+      "samples_passed": 11,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 72.72727272727273
+    },
+    {
+      "family_id": "emotet",
+      "display_name": "Emotet",
+      "techniques_in_corpus": 8,
+      "known_universe": 11,
+      "techniques_passed": 8,
+      "samples": 11,
+      "samples_passed": 11,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 72.72727272727273
+    },
+    {
+      "family_id": "gootloader",
+      "display_name": "GootLoader",
+      "techniques_in_corpus": 13,
+      "known_universe": 13,
+      "techniques_passed": 13,
+      "samples": 26,
+      "samples_passed": 26,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 100.0
+    },
+    {
+      "family_id": "linux_droppers",
+      "display_name": "Linux Droppers",
+      "techniques_in_corpus": 3,
+      "known_universe": 3,
+      "techniques_passed": 3,
+      "samples": 3,
+      "samples_passed": 3,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 100.0
+    },
+    {
+      "family_id": "lumma_stealer",
+      "display_name": "Lumma Stealer",
+      "techniques_in_corpus": 8,
+      "known_universe": 11,
+      "techniques_passed": 8,
+      "samples": 10,
+      "samples_passed": 10,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 72.72727272727273
+    },
+    {
+      "family_id": "socgholish",
+      "display_name": "SocGholish",
+      "techniques_in_corpus": 8,
+      "known_universe": 10,
+      "techniques_passed": 8,
+      "samples": 11,
+      "samples_passed": 11,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 80.0
+    }
+  ],
+  "family_overall": {
+    "families": 7,
+    "samples": 107,
+    "samples_passed": 107,
+    "sample_dcs_pct": 100.0,
+    "techniques_known": 73,
+    "techniques_passed": 62,
+    "technique_coverage_pct": 84.93150684931507
+  },
+  "transformations": [
+    {
+      "name": "structural-string-concat-fold",
+      "category": "structural",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "qakbot",
+        "darkgate",
+        "lumma"
+      ],
+      "techniques_declared": [
+        "string_concat_url_obfuscation",
+        "powershell_string_concat_obfuscation",
+        "powershell_variable_reconstruction"
+      ]
+    },
+    {
+      "name": "structural-join-operator-fold",
+      "category": "structural",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "structural-static-join-fold",
+      "category": "structural",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "structural-cmd-caret-strip",
+      "category": "structural",
+      "language": "cmd",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "emotet",
+        "qakbot",
+        "gootloader",
+        "darkgate"
+      ],
+      "techniques_declared": [
+        "cmd_caret_powershell_handoff"
+      ]
+    },
+    {
+      "name": "structural-js-split-reverse-join",
+      "category": "structural",
+      "language": "javascript",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "gootloader",
+        "socgholish",
+        "clearfake",
+        "chromeloader",
+        "pikabot"
+      ],
+      "techniques_declared": [
+        "javascript_string_split_shuffle"
+      ]
+    },
+    {
+      "name": "structural-js-split-join",
+      "category": "structural",
+      "language": "javascript",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "gootloader",
+        "socgholish",
+        "chromeloader",
+        "pikabot"
+      ],
+      "techniques_declared": [
+        "javascript_string_split_shuffle"
+      ]
+    },
+    {
+      "name": "content-ps-operator-case-normalize",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet"
+      ],
+      "techniques_declared": [
+        "powershell_case_obfuscation"
+      ]
+    },
+    {
+      "name": "content-env-var-case-normalize",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "content-env-var-substitute",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "content-string-index-single-fold",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "content-string-index-range-fold",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "content-string-index-list-fold",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader"
+      ],
+      "techniques_declared": [
+        "env_var_reconstruction",
+        "powershell_env_var_slicing"
+      ]
+    },
+    {
+      "name": "content-backtick-escape-strip",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "darkgate"
+      ],
+      "techniques_declared": [
+        "backtick_alias_obfuscation",
+        "powershell_backtick_obfuscation"
+      ]
+    },
+    {
+      "name": "content-numeric-constant-fold",
+      "category": "content",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [],
+      "techniques_declared": []
+    },
+    {
+      "name": "decoder-powershell-encoded-command",
+      "category": "decoder",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "qakbot",
+        "darkgate",
+        "lumma",
+        "asyncrat"
+      ],
+      "techniques_declared": [
+        "powershell_encodedcommand_base64_utf16le",
+        "cmd_caret_powershell_handoff"
+      ]
+    },
+    {
+      "name": "decoder-frombase64string-fold",
+      "category": "decoder",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "emotet",
+        "gootloader"
+      ],
+      "techniques_declared": [
+        "nested_multi_layer_encoding"
+      ]
+    },
+    {
+      "name": "decoder-hex-full",
+      "category": "decoder",
+      "language": "generic",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "qakbot",
+        "darkgate"
+      ],
+      "techniques_declared": [
+        "nested_multi_layer_encoding"
+      ]
+    },
+    {
+      "name": "decoder-base64-full",
+      "category": "decoder",
+      "language": "generic",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "qakbot",
+        "lumma"
+      ],
+      "techniques_declared": [
+        "nested_multi_layer_encoding"
+      ]
+    },
+    {
+      "name": "decoder-xor-byte-array",
+      "category": "decoder",
+      "language": "generic",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "bumblebee",
+        "darkgate",
+        "asyncrat"
+      ],
+      "techniques_declared": [
+        "xor_byte_array"
+      ]
+    },
+    {
+      "name": "decoder-js-unicode-escape",
+      "category": "decoder",
+      "language": "javascript",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "gootloader",
+        "socgholish",
+        "clearfake",
+        "clickfix",
+        "chromeloader",
+        "pikabot"
+      ],
+      "techniques_declared": [
+        "javascript_unicode_escape"
+      ]
+    },
+    {
+      "name": "decoder-js-atob",
+      "category": "decoder",
+      "language": "javascript",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "gootloader",
+        "socgholish",
+        "clearfake",
+        "clickfix",
+        "chromeloader",
+        "pikabot",
+        "phishing_kits"
+      ],
+      "techniques_declared": [
+        "javascript_atob_chain"
+      ]
+    },
+    {
+      "name": "semantic-bash-pipeline-reduce",
+      "category": "semantic",
+      "language": "bash",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "linux_droppers"
+      ],
+      "techniques_declared": [
+        "bash_pipeline_obfuscation"
+      ]
+    },
+    {
+      "name": "semantic-ps-alias-expand",
+      "category": "semantic",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "qakbot",
+        "darkgate",
+        "lumma"
+      ],
+      "techniques_declared": [
+        "iex_downloadstring_cradle",
+        "iwr_useb_iex_pipeline",
+        "curl_alias_useb_iex",
+        "backtick_alias_obfuscation",
+        "powershell_backtick_obfuscation",
+        "powershell_iex_download_cradle",
+        "powershell_iwr_useb_iex_pipeline"
+      ]
+    },
+    {
+      "name": "semantic-ps-variable-propagate",
+      "category": "semantic",
+      "language": "powershell",
+      "version": "1.0",
+      "covered": true,
+      "families_declared": [
+        "cobalt_strike",
+        "gootloader",
+        "emotet",
+        "darkgate"
+      ],
+      "techniques_declared": [
+        "string_concat_url_obfuscation",
+        "powershell_variable_reconstruction",
+        "powershell_string_concat_obfuscation"
+      ]
+    }
+  ],
+  "transformation_overall": {
+    "by_language": [
+      {
+        "language": "bash",
+        "transformations": 1,
+        "covered": 1,
+        "coverage_pct": 100.0
+      },
+      {
+        "language": "cmd",
+        "transformations": 1,
+        "covered": 1,
+        "coverage_pct": 100.0
+      },
+      {
+        "language": "generic",
+        "transformations": 3,
+        "covered": 3,
+        "coverage_pct": 100.0
+      },
+      {
+        "language": "javascript",
+        "transformations": 4,
+        "covered": 4,
+        "coverage_pct": 100.0
+      },
+      {
+        "language": "powershell",
+        "transformations": 15,
+        "covered": 15,
+        "coverage_pct": 100.0
+      }
+    ],
+    "by_category": [
+      {
+        "category": "content",
+        "transformations": 8,
+        "covered": 8,
+        "coverage_pct": 100.0
+      },
+      {
+        "category": "decoder",
+        "transformations": 7,
+        "covered": 7,
+        "coverage_pct": 100.0
+      },
+      {
+        "category": "semantic",
+        "transformations": 3,
+        "covered": 3,
+        "coverage_pct": 100.0
+      },
+      {
+        "category": "structural",
+        "transformations": 6,
+        "covered": 6,
+        "coverage_pct": 100.0
+      }
+    ],
+    "total_transformations": 24,
+    "covered_transformations": 24,
+    "overall_coverage_pct": 100.0
+  }
+}

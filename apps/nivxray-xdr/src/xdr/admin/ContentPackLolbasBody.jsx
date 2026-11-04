@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const STAGES = [
@@ -233,7 +234,7 @@ function EntriesTab({ refresh, onToggle, onOpen, filters, setFilters }) {
         setRows(r?.data?.data?.entries || []);
         setTotal(r?.data?.data?.total ?? 0);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "list failed");
+        setErr(refusalText(e, "list failed"));
         setRows([]);
       } finally { setLoading(false); }
     })();
@@ -298,7 +299,7 @@ function EntriesTab({ refresh, onToggle, onOpen, filters, setFilters }) {
             <div>
               {r.enabled_for_tenant
                 ? <span style={{ color: "var(--mint)" }}>ENABLED</span>
-                : <span style={{ color: "#f87171" }}>DISABLED</span>}
+                : <span style={{ color: "var(--nx-critical)" }}>DISABLED</span>}
             </div>
             <div style={{ display: "flex", gap: 4 }}>
               <button className="btn ghost" title="View"
@@ -354,7 +355,7 @@ function EntryDetail({ name, onClose }) {
         const r = await api.get(`/xdr/lolbas/entries/${encodeURIComponent(name)}`);
         setD(r?.data?.data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setErr(refusalText(e, "load failed"));
       }
     })();
   }, [name]);
@@ -569,7 +570,7 @@ function MatchTester() {
       const r = await api.post("/xdr/lolbas/match", ev);
       setHits(r?.data?.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "match failed");
+      setErr(refusalText(e, "match failed"));
       setHits(null);
     } finally { setBusy(false); }
   };
@@ -663,7 +664,7 @@ export default function ContentPackLolbasBody() {
       }
       setRefresh((n) => n + 1);
     } catch (e) {
-      setSyncErr(e?.response?.data?.detail || e?.message || "sync failed");
+      setSyncErr(refusalText(e, "sync failed"));
     } finally { setSyncing(false); }
   };
 

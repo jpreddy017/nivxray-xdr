@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only verification of Lane B UI modernization. Verified: (1) MSS dashboard renders the compact intel status strip (xdr-intel-status-unavailable, data-state=TENANT_REQUIRED) and the old xdr-intelligence-panel-global panel is GONE; the strip is a link that navigates to /xdr/admin/intelligence-policy. (2) Admin Intelligence Policy page renders the tenant gate with server-resolved customer list (default + many), and after selecting 'default' the editor xdr-admin-intelligence-policy renders exactly 3 mode buttons, 4 status rows, reason input, Save/Cancel; Save is disabled initially and correctly enables when a different mode is chosen and re-disables when the original mode is re-selected; Advanced settings and Policy history toggles reveal xdr-intel-policy-advanced and xdr-intel-policy-history. (3) /xdr/admin/users-roles correctly shows xdr-admin-tenant-required (state TENANT_REQUIRED) with body absent before selection, and after selecting 'default' xdr-users-roles-body renders without any visible 403 error text. (4) MOST IMPORTANT — /xdr/incidents renders the Cortex workspace (xdr-incidents-cortex-page) on REAL data: cx-result-count shows 'Found 300 results', cx-queue lists 300 real rows with real INC numbers (INC000001378, INC000001376, INC000001377, ...), clicking a different row updates cx-hdr-id (INC000001378 -> INC000001376) and cx-detail; cx-stat-clusters, cx-stat-techniques, cx-tabs, cx-detail-facts all present; NONE of the forbidden fixture strings ('DESIGN-STATE PREVIEW','INC-2916','INC-2912','FIN-WS-014','a.rahman') appear anywhere. Honest-absence markers (NOT AVAILABLE, NOT OBSERVED, Unassigned) are present. (5) /xdr/incidents/_table loads without error and /xdr/incidents/<real id> still opens the full investigation detail page — route order is intact. (6) REGRESSION FINDING — the large xdr-intelligence-panel-incident IS absent from the incident detail Overview (good), BUT the replacement one-line context xdr-incident-intel-context is ALSO ABSENT from /xdr/incidents/:id Overview because XdrIncidentDetailPage.jsx renders its own inline Overview and never mounts IncidentOverviewV2 / IncidentIntelligenceContext.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "XdrIncidentDetailPage Overview",
+        "issue": "Regression requirement partially unmet: xdr-intelligence-panel-incident is correctly gone, but the replacement one-line context xdr-incident-intel-context is not rendered on /xdr/incidents/:id. XdrIncidentDetailPage.jsx (lines 274-301) implements its own inline Overview (Verdict cited / What was affected / ExecutiveTab) and never imports IncidentIntelligenceContext nor renders IncidentOverviewV2 where the component lives (IncidentOverviewV2.jsx:108). Grep confirms IncidentIntelligenceContext is only used inside IncidentOverviewV2, which is not wired into the live detail route.",
+        "selector": "[data-testid=\"xdr-incident-intel-context\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Wire IncidentIntelligenceContext into the live incident detail overview (either import it into XdrIncidentDetailPage.jsx after the 'What was affected' section, or switch the Overview tab body to <IncidentOverviewV2 incident={incident} />) so that /xdr/incidents/:id renders the one-line Intelligence / Narration / Source context as required by the regression check."
+  ],
+  "critical_code_review_comments": [
+    "XdrIncidentDetailPage.jsx duplicates Overview markup that already exists in IncidentOverviewV2.jsx — the V2 composition is orphaned. Either delete V2 or route the Overview tab to it to avoid drift.",
+    "Console shows GET /api/intelligence/policy/global -> 403 fired on multiple pages (login, dashboard, incident detail). Consider suppressing/short-circuiting this call when the caller has no tenant scope so it stops emitting error-level noise in the browser console."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "~95% (7 of 8 acceptance items fully pass; 1 partial)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only, per /app/memory/test_credentials.md)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Only remaining verification: after fix, load /xdr/incidents/<any real id> and confirm data-testid=xdr-incident-intel-context is present in the Overview tab and reads a single line containing Intelligence / Narration / Source. All other Lane B items were verified green on 2026-01 preview build; do NOT re-run backend authorization (A0.5 already 72/72 + 20 passed).",
+  "rca of the issue": "IncidentIntelligenceContext component exists and is imported only in /app/apps/nivxray-xdr/src/xdr/design/IncidentOverviewV2.jsx (line 23, rendered line 108). The routed detail page /app/apps/nivxray-xdr/src/xdr/pages/XdrIncidentDetailPage.jsx builds its Overview tab inline (lines 273-301) and never references IncidentOverviewV2 nor IncidentIntelligenceContext. Reproduction: log in, open any incident from /xdr/incidents, stay on Overview tab, query document.querySelectorAll('[data-testid=\"xdr-incident-intel-context\"]') -> length 0. Mitigation: add `<IncidentIntelligenceContext incidentId={incident.id} />` under the 'Verdict, cited' or 'What was affected' section in XdrIncidentDetailPage.jsx (or replace the inline Overview block with `<IncidentOverviewV2 incident={incident} />`)."
+}

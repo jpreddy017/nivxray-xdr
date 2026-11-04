@@ -1,0 +1,51 @@
+{
+  "summary": "Frontend-only targeted verification for iteration_117 (rail nav audit + retired row + admin overview footer + iteration_116 MEDIUM findings-row interaction fix + REG5 overlay round-trip). RESULTS: 41/42 rail rows PASS. Retired row PASS. Admin overview footer 3/3 PASS. Findings row interaction fix PASS on all reachable controls (a/b/d/e). REG5 overlay round-trip end-to-end PASS with 10 healthy /intelligence/overlays calls (8 GET 200 + 1 PUT 200 save + 1 DELETE 200 revert). ONE REAL DEFECT FOUND that violates the shell-regression rule declared in this iteration's request: clicking Assets \u2192 Vulnerability Exposure (xdr-nav-exposure \u2192 /xdr/exposure) throws a React error inside XdrExposurePage that unmounts XdrShell — xdr-sidebar and xdr-tenant-pill both go to visible=false and the page renders a black screen with body innerText length 0. This is not one of the intentional NOT_IMPLEMENTED asset pages listed in the request (identity/network/attack-paths/critical are the intentional ones — exposure is not). Two SUB-observations on findings chips: inv-findings-ent-<fid> and inv-findings-mitre-<fid> are not rendered on any of the 6 findings in inc_c312e0180ec742778b6b, so test (c) could not be exercised in the DOM even though the ENTITIES column carries text values; if those chips are supposed to be clickable with those testids on every finding that has entity/mitre data, the wiring is missing.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "XdrExposurePage (/xdr/exposure)",
+        "issue": "Clicking Assets \u2192 Vulnerability Exposure (xdr-nav-exposure) crashes the page: React error boundary triggers at XdrExposurePage.jsx:32, XdrShell is torn down, xdr-sidebar and xdr-tenant-pill become invisible, body renders empty (innerText length 0). This is a direct violation of the shell-regression rule stated in this iteration's request ('rail (xdr-sidebar) and tenant pill (xdr-tenant-pill) must stay mounted') and is not on the intentional NOT_IMPLEMENTED list (identity/network/attack-paths/critical) — /xdr/exposure is a real, active surface. Reproducible: sign in \u2192 expand Assets rail \u2192 click Vulnerability Exposure. Visible in the browser console as 'The above error occurred in the <div> component: at XdrExposurePage ...'. Directly navigating to /xdr/exposure crashes the same way.",
+        "selector": "[data-testid=xdr-nav-exposure] \u2192 /xdr/exposure",
+        "priority": "HIGH"
+      },
+      {
+        "component": "FindingsTab entity / MITRE chips",
+        "issue": "None of the 6 findings on /xdr/incidents/inc_c312e0180ec742778b6b?tab=activity expose an inv-findings-ent-<fid> or inv-findings-mitre-<fid> chip in the DOM (0 results for either selector across the whole findings-table), even though the ENTITIES column displays entity strings (rule:EDR-LNX-002, process:bash, commandline:*, lolbin:Bash.exe, incident:inc_...). The iteration_117 spec requires those chips to open the pane on their respective tabs while staying on Activity — that acceptance path is unreachable because the chip elements themselves are not being rendered. Requirements (a) row body click, (b) inv-findings-ev-<fid>, (d) inv-findings-inspect-<fid>, (e) inv-findings-pivot-<fid> are all present and working correctly.",
+        "selector": "[data-testid^=inv-findings-ent-], [data-testid^=inv-findings-mitre-]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/_rail_audit_tmp.json",
+    "/app/test_reports/_rail_audit_tmp2.json",
+    "/app/test_reports/_iter117_tests.json",
+    "/app/test_reports/_iter117_tests_v2.json",
+    "/app/test_reports/_iter117_chips.json"
+  ],
+  "action_items": [
+    "HIGH: fix /xdr/exposure (XdrExposurePage.jsx) so it does not throw and unmount XdrShell. The console error stack points at XdrExposurePage.jsx:32; likely a render-time null read on `status`, `cves`, `assets`, `software` or `exposures` while the initial useEffect fetches. The rule that xdr-sidebar+xdr-tenant-pill stay mounted across the sweep must hold on every route the rail exposes.",
+    "MEDIUM: render inv-findings-ent-<fid> and inv-findings-mitre-<fid> chips in FindingsTab.jsx for each finding whose entities/mitre bucket is non-empty (all 6 findings in inc_c312e0180ec742778b6b carry entity text). Today only inv-findings-ev-<fid>, inv-findings-inspect-<fid> and inv-findings-pivot-<fid> are wired; the entity+MITRE requirements of iteration_117 (c) cannot be exercised without them."
+  ],
+  "critical_code_review_comments": [
+    "XdrShell NAV is correct per this iteration: (a) Administration children are Integrations \u00b7 Response Policies \u00b7 Response Strategies \u00b7 API/Webhooks \u00b7 Platform Health \u00b7 Documentation — no 'Detection Rules' row (retired as requested); (b) Hunting child now goes directly to /xdr/admin/telemetry-studio labelled 'Environment Activity \u00b7 Telemetry Studio'; (c) App.jsx installs Route /xdr/admin/detection-rules \u2192 Navigate to /xdr/admin/detection-registry so any external deep link redirects cleanly.",
+    "PlatformOverviewBody.jsx footer LinkOuts point at /xdr/data-sources, /xdr/admin/detection-registry and /xdr/intelligence/iocs — all three navigate correctly and do NOT bounce to /xdr/control-center.",
+    "FindingsTab.jsx correctly separates the four pane-open surfaces (row body \u2192 details, ev-chip \u2192 evidence, inspect \u2192 summary) from the single navigator (pivot \u2192 tab=evidence). The pivot button is properly disabled=true for the 2 findings without an evidence ref (fnd_50a82ed6ddcbba4f6781, fnd_21f96ddb4840f8de5dd2), enabled for the 4 findings that carry cev references. The URL search-param ?tab=activity is preserved on every non-pivot control.",
+    "REG5 overlay path is healthy end-to-end: 8 GET, 1 PUT (summary), 1 DELETE (revert) all 200; the ovr-badge-analyst appears after save, reverts back to ovr-badge-machine after revert; SYSTEM assessment stays visible on Summary tab after save; browser 'revert reason' prompt is honoured.",
+    "XdrExposurePage.jsx: crashes the shell on mount. Add an ErrorBoundary and/or defensive null checks on the four API-driven pieces of state so an unavailable /api/xdr/cve/* surface does not tear down the rail."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "n/a (frontend-only per request)",
+    "frontend": "RAIL AUDIT: 41/42 rows PASS (Vulnerability Exposure FAILS — shell unmount). RETIRED ROW: PASS (rail has no detection-rules row; /xdr/admin/detection-rules redirects to /xdr/admin/detection-registry; body renders 15k chars; no 'Unknown admin section'). ADMIN FOOTER: 3/3 PASS (Manage Data Sources \u2192 /xdr/data-sources; Manage Detection Registry \u2192 /xdr/admin/detection-registry; View IOC Intelligence \u2192 /xdr/intelligence/iocs). FINDINGS ROW INTERACTION (iter_116 MEDIUM): (a) row body PASS · (b) evidence chip PASS · (c) NOT REACHABLE — ent/mitre chips not rendered · (d) inspect PASS · (e) pivot PASS with proper disabled=true on 2 no-evidence findings. REG5 OVERLAY ROUND TRIP: PASS end-to-end (edit \u2192 save \u2192 ANALYST_EDITED badge \u2192 summary still shows system \u2192 revert with prompt \u2192 back to machine-only badges). SHELL REGRESSION: PASS on every route EXCEPT /xdr/exposure (see bug). No 'destroy is not a function' in console. xdr-scope-navigator-error never appeared. Overall: ~90%."
+  },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Rail audit was executed row-by-row with >=3s pacing (per CF 429 warning). All 42 rail rows land on the expected path and mark themselves active EXCEPT xdr-nav-exposure which crashes XdrShell — retest that route first after fix. The iter_116 findings-row fix is real: on ?tab=activity the row body/ev-chip/inspect/pivot all behave as spec'd (only pivot navigates, and it's disabled when no evidence ref). REG5 overlay end-to-end works and all overlay HTTPs are 200. The two open items after this run are (1) HIGH: /xdr/exposure shell unmount; (2) MEDIUM: entity+MITRE chips missing from FindingsTab. Cloudflare 429s occasionally hit rapid navigation — a single retry with a fresh goto and a scroll_into_view_if_needed cleared them for the View IOC Intelligence link on this run.",
+  "rca of the issue": "XdrExposurePage /xdr/exposure crash: React error boundary trace names the child of XdrShell as XdrExposurePage (XdrExposurePage.jsx:32:31). The page reads /api/xdr/cve/status + /cves + /assets + /software + /exposures; if any of those return a shape other than the array/object the render code destructures, the render throws and — because XdrShell is rendered inside the page rather than around it via a route layout — the whole rail unmounts. Mitigation: (a) wrap the page body in an ErrorBoundary, (b) initialize the six pieces of state with safe defaults (arrays/null) and null-guard every access in the render, (c) surface the underlying API error to the analyst honestly ('NOT AVAILABLE') rather than throwing. FindingsTab ent/MITRE chips missing: the chip elements simply are not emitted for any finding — a code change to render <button data-testid={`inv-findings-ent-${fid}`}> and <button data-testid={`inv-findings-mitre-${fid}`}> next to the existing Evidence/Inspect/Pivot controls will cover iteration_117 (c)."
+}

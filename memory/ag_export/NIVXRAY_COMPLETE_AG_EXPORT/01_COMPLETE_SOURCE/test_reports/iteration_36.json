@@ -1,0 +1,58 @@
+{
+  "summary": "Iter36: verified 4-feature batch (contradiction alert, Cmd+K ranking, corpus sparkline, locale sweep). Backend: 71/71 unit tests pass + both new API endpoints (rc5/parse w/ correlation block, rc5/golden/history) return schema-correct payloads. Frontend: palette+sparkline+verdict panels all wired correctly; found ONE ranking bug in Cmd+K where '>run battery' outranks '>run benchmark' (contradicts the spec).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "QuickOpenPalette · scoreMatch",
+        "issue": "Fuzzy ranking bug: typing '>run' surfaces '>run battery' ABOVE '>run benchmark'. Both labels start-with 'run ', so both hit the startsWith branch and get 700 + n.length*4 − (h.length−n.length)*0.1. Because 'run battery' (11 chars) is shorter than 'run benchmark' (13 chars), the length penalty gives battery a slightly higher score (711.2 vs 711.0). Spec requires benchmark first. Recommend: (a) remove the length penalty for startsWith matches, (b) OR tie-break on the command's original index in buildCommands so the natural order (benchmark defined before battery) is preserved, (c) OR boost commands whose action-verb has fewer characters after the prefix in a deterministic way (e.g. alphabetical).",
+        "selector": "[data-testid='quick-open-row-action']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_passing": [
+    "Backend pytest tests/test_locale_corpus_sweep.py + test_entity_classifier.py + test_correlation_engine.py = 71 passed / 0 failed (locale 62, entity 33 combined w/ correlation dupes counted once)",
+    "POST /api/rc5/parse admin JWT — response contains 'correlation' key with schema_version, temporal_spans, dependency_chains, contradictions (empty list here), stats — regression-safe",
+    "GET /api/rc5/golden/history?limit=7 admin JWT — returns list of 7 rows each with pass_rate, passed, total, ts, run_id fields; sparkline consumes these",
+    "Cmd+K palette (Ctrl+K) opens with data-testid quick-open-palette, ESC closes it",
+    "Query '>ref' correctly puts '>refresh corpus' at the TOP (only match)",
+    "Query '>ru' or any command mode filters+ranks (works generally, only the ties above misorder)",
+    "CorpusHealthPill (data-testid=corpus-health-pill, data-gate='pass') pulses green when gate ok",
+    "Hover shows data-testid=corpus-health-tooltip with headline 'Golden gate PASSING · 88/88 · 100.0% pass'",
+    "Sparkline data-testid=corpus-health-sparkline renders <svg> with 7-run rolling pass-rate line (min 93% / now 100% / max 100%)",
+    "Tooltip disappears cleanly on mouseleave",
+    "AnalystResults renders verdict-value, verdict-confidence, verdict-risk-score plus recovered-payload, chain-recipe, mitre, iocs, network, behavior testids (7 canonical panels intact)",
+    "verdict-contradiction-alert is GRACEFULLY HIDDEN when correlation.contradictions is empty (defensive Array.isArray+length>0 guard)"
+  ],
+  "not_verified": [
+    "Live rendering of the contradiction alert with real contradiction data — the seed corpus produces contradictions=[] for benign PowerShell samples, and Playwright route interception on /api/rc5/parse did not intercept the workspace's auto-investigate flow (it appears to use a different endpoint/chain). Code review confirms alert renders 'CORRELATION ALERT · N CONTRADICTION(S)' block inside the Verdict panel BEFORE the Correlation side-car (lines 298-343 of AnalystResults.jsx). Main agent should manually verify with a payload known to trigger contradictions, or add a fixture command line to the seed corpus."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_iter36_endpoints.py",
+    "/app/backend/tests/test_locale_corpus_sweep.py",
+    "/app/backend/tests/test_entity_classifier.py",
+    "/app/backend/tests/test_correlation_engine.py"
+  ],
+  "action_items": [
+    "FIX Cmd+K ranking so '>run benchmark' outranks '>run battery' when tied on prefix — see the scoreMatch ties analysis above (remove length penalty from the startsWith branch, or use stable sort with command-index tie-break).",
+    "OPTIONAL: expose a test-only route or fixture that reliably produces correlation.contradictions with N≥1 rows so QA can regression-test the red alert visually."
+  ],
+  "critical_code_review_comments": [
+    "QuickOpenPalette.jsx:159 — the -Math.max(0, h.length - n.length) * 0.1 penalty on the startsWith branch is causing the reported tie-break bug; recommend making the penalty 0 (or ≤ 0.01) so a stable sort holds original order.",
+    "CorpusHealthPill.jsx — beautifully implemented; SVG path calculation is clean, gracefully hides sparkline when history has <2 rows. No issues.",
+    "AnalystResults.jsx VerdictPanel — the contradiction alert is a pure additive block; numbers (verdict-value, verdict-confidence, verdict-risk-score) come from verdict prop and are not touched by the correlation prop. Zero verdict influence confirmed by code review."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter36_endpoints.py (new regression test)"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "90% (1 ranking-tie bug)" },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend login is slow (bcrypt ~20s cold — use timeout=90 for the first login, subsequent are fast). Use http://localhost:8001 for backend pytest to bypass the ingress 60s timeout on cold login. The preview URL is fine for browser/frontend tests. The `input` field on /api/rc5/parse (NOT `command_line`). Correlation block appears under key 'correlation' with contradictions/stats/temporal_spans/dependency_chains. Golden history is a plain JSON array of rows. Contradiction alert must be tested with a payload that triggers real contradictions — current seed corpus samples all return contradictions=[].",
+  "rca of the issue": "Cmd+K ranking bug — scoreMatch() line 159 subtracts a length-based penalty from the startsWith score. When two commands both start with the same word (e.g. 'run '), the shorter command wins by ~0.2 points, contradicting the spec's expected 'run benchmark' > 'run battery' order. Root cause: penalty was designed to favor tight matches, but it inadvertently ranks shorter labels above longer ones even when the prefix strength is identical. Fix: drop the length term from the startsWith branch, and add a stable secondary sort key (original command index) so ties preserve declaration order."
+}

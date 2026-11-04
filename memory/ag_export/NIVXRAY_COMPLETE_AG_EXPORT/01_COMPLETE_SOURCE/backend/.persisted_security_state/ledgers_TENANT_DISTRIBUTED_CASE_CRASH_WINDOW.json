@@ -1,0 +1,18 @@
+[
+  {
+    "tenant_id": "TENANT_DISTRIBUTED",
+    "case_id": "CASE_CRASH_WINDOW",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-crash",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "217e4b77dde1e4337df82a56631d481124b4847e0dc5e1ff584e4ec8892be843",
+    "payload": {
+      "v": 1
+    },
+    "timestamp": "2026-09-04T01:50:11.859430+00:00",
+    "verified": true
+  }
+]

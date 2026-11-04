@@ -1,0 +1,49 @@
+{
+  "summary": "R27.1 + R28 + R28.1 refinements validated end-to-end. Backend: 13/13 in-process pytest (test_ssot_persistence.py) + 9/9 live pytest against preview URL (new test_ssot_r28_live.py). Frontend: SSOT case restored via CasesDrawer → 0 /api/die/* calls, 0 r28_violation telemetry pings, compound version ribbon 'SSOT 1.0 · legacy · phase1 · R27 · no recomputation', ArtifactTracePanel renders with correct Artifact→Recognizer→Capability→Evidence rows, SSOT badge visible.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AcquisitionPlanPanel",
+        "issue": "Runtime crash `TypeError: Cannot read properties of undefined (reading 'toUpperCase')` at AcquisitionPlanPanel.jsx:178 when a restored SSOT's investigation_object.acquisition_plan contains any step without an `id` field. The panel's step.id.toUpperCase() should be defensively guarded (step?.id?.toUpperCase?.() || `STEP-${i}`) so a malformed/legacy SSOT can't take down the whole workspace and also block the sibling ArtifactTracePanel from rendering.",
+        "selector": "src/components/investigation/AcquisitionPlanPanel.jsx:178",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ssot_persistence.py",
+    "/app/backend/tests/test_ssot_r28_live.py",
+    "/app/test_reports/pytest/ssot_r28.xml",
+    "/app/test_reports/pytest/ssot_r28_live.xml"
+  ],
+  "action_items": [
+    "OPTIONAL — Defensively guard AcquisitionPlanPanel.jsx line 178: `step?.id?.toUpperCase?.() ?? \"STEP-\"+i`. Currently a malformed acquisition_plan entry (missing `id`) crashes the entire workspace during SSOT restore, which also prevents ArtifactTracePanel (rendered as sibling under the panel) from ever appearing. Reproducible by posting an SSOT with investigation_object.acquisition_plan = [{step:\"iocs\"}] to /api/cases/save and clicking OPEN.",
+    "OPTIONAL — The status ribbon container does not carry a stable data-testid (had to fall back to text probe for `OPENED` substring). Adding data-testid=\"workspace-status\" or \"status-ribbon\" would make regression tests robust."
+  ],
+  "critical_code_review_comments": [
+    "R28 · Restore is Rendering guard (frontend/src/lib/api.js:60-118) is correctly wired: request interceptor calls _r28_check(config.url); forbidden patterns match /die/*, /decode/*, /analyze/*, /ai/*, /troubleshoot/*; telemetry ping is non-blocking via fetch+keepalive. Live test confirms zero pings during a real SSOT restore.",
+    "R28.1 · services/ssot_store.py cleanly separates concerns: build_version_stamp / coerce_version / canonical_bytes / compute_checksum / store_ssot / load_ssot / project_artifact_trace. canonical_bytes scrubs persisted_at + pointer fields so content-hash is stable across saves — confirmed by dedupe test (two saves w/ same ssot → same investigation_id + checksum).",
+    "routers/ssot.py only imports load_ssot + project_artifact_trace (AST-verified by test_ssot_endpoint_does_not_touch_business_logic). No decoder, classifier, AI enricher, or preprocessor referenced. R28 contract honoured.",
+    "cases.py save→GET round-trip: ssot_source='immutable_store' when ssot_ref exists; artifact_trace populated at read time from the resolved SSOT; ssot_ref carries {id, checksum (sha256 hex), version (compound dict)}.",
+    "WorkspacePage.jsx L3486-3533 wraps SSOT hydration with beginRestoreMode/endRestoreMode + try/finally + setTimeout(endRestoreMode,0) so any state-effect-triggered fetches during the same tick are also gated. Confirmed no /die/* calls during live restore.",
+    "ArtifactTracePanel.jsx renders `null` when trace is empty (correct — no phantom panels on legacy cases) and shows the exact header specified by the contract: `▸ ARTIFACT TRACE · Artifact → Recognizer → Capability → Evidence`.",
+    "Non-blocker · WorkspacePage.jsx is 3667 lines (up from 3631 in iteration_68) — refactor into hooks (useCaseHydration, useAutoInvestigate) recommended for maintainability.",
+    "Non-blocker · CasesDrawer displays `🔒 SSOT v1.0` (bare schema version). Since backend now serves the compound stamp on the case doc's ssot_ref.version, the drawer could show the full stamp (or at least the baseline like `SSOT · R27`) to differentiate cases saved under different pipeline generations post-UAIE."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ssot_r28_live.py (new · 9 live regression tests for R27.1/R28/R28.1 against preview URL)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 in-process + 9/9 live = 22/22)",
+    "frontend": "100% on R28 contract (no /die/* during restore · 0 telemetry violations · compound version ribbon · ArtifactTracePanel renders · SSOT badge shown)"
+  },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test cases prefixed 'TEST_r28_*' created during pytest run and deleted at end (test_zzz_cleanup). One extra TEST_r28x_* case created during Playwright frontend run and deleted programmatically.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "R28/R28.1 backend contract fully covered by /app/backend/tests/test_ssot_persistence.py (13 tests, TestClient) and /app/backend/tests/test_ssot_r28_live.py (9 tests, live preview URL w/ admin JWT). Both are safe to run as a regression gate. Frontend R28 contract verified via Playwright: (a) programmatic SAVE via /api/cases/save then (b) open CasesDrawer via [data-testid=btn-open-cases] then (c) click [data-testid=btn-case-open-<id>] and (d) intercept requests. Zero /api/die/* requests during restore proves the guard. Note: AcquisitionPlanPanel step.id.toUpperCase() crashes on malformed acquisition_plan — file this defensively if it re-appears. The Save-from-UI flow (rather than programmatic API save) hit a 422 `body.confidence: Input should be a valid number, unable to parse string as a number` — worth a look — likely the frontend serializes an empty/string confidence when the AUTO INVESTIGATE hadn't returned a numeric value yet.",
+  "rca of the issue": "N/A — no R28 contract defect. Only a defensive-coding gap in AcquisitionPlanPanel (step.id.toUpperCase w/o optional chaining) which is orthogonal to the R28/R28.1 refinements."
+}

@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
+import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -86,25 +88,32 @@ function RevealModal({ plaintext, prefix, onClose, notice }) {
 }
 
 
-function AddKeyModal({ onClose, onCreated }) {
+function AddKeyModal({ onClose, onCreated, tenant }) {
   const [f, setF] = useState({ name: "", description: "", scopes: "",
-                                                      expires_at: "" });
+                                                      expires_at: "",
+                                                      tenant_id: tenant || "",
+                                                      confirm_tenant_id: "",
+                                                      allow_new_tenant: false });
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState(null);
+  const tenantOk = f.tenant_id.trim() !== ""
+                          && f.tenant_id.trim() === f.confirm_tenant_id.trim();
   const submit = async () => {
     setBusy(true); setErr(null);
     try {
       const scopes = f.scopes.split(/[\s,]+/).map((s) => s.trim())
                                         .filter(Boolean);
+      const tenant = f.tenant_id.trim();
       const body = { name: f.name, description: f.description || null,
-                              scopes };
+                              scopes, confirm_tenant_id: f.confirm_tenant_id.trim(),
+                              allow_new_tenant: f.allow_new_tenant };
       if (f.expires_at) body.expires_at = f.expires_at;
-      const r = await api.post("/xdr/api-keys", body);
+      const r = await api.post("/xdr/api-keys", body,
+                                            { headers: { "X-Tenant-Id": tenant } });
       onCreated?.(r?.data);
       onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -141,19 +150,43 @@ function AddKeyModal({ onClose, onCreated }) {
                      style={inp}
                      placeholder="lolbas.sync audit.read" />
         </label>
+        <label style={lbl}>Tenant ID this key will be bound to
+          <input value={f.tenant_id} data-testid="xdr-api-key-add-tenant"
+                     onChange={(e) => setF({ ...f, tenant_id: e.target.value })}
+                     style={inp} placeholder="nivx-prod-1" />
+        </label>
+        <label style={lbl}>Confirm tenant ID (type it again)
+          <input value={f.confirm_tenant_id}
+                     data-testid="xdr-api-key-add-tenant-confirm"
+                     onChange={(e) => setF({ ...f, confirm_tenant_id: e.target.value })}
+                     style={inp} placeholder="nivx-prod-1" />
+        </label>
+        {f.tenant_id.trim() && !tenantOk && (
+          <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
+                   data-testid="xdr-api-key-add-tenant-mismatch">
+            tenant confirmation does not match
+          </div>
+        )}
+        <label style={{ ...lbl, display: "flex", alignItems: "center",
+                            gap: 6, flexDirection: "row" }}>
+          <input type="checkbox" checked={f.allow_new_tenant}
+                     data-testid="xdr-api-key-add-allow-new-tenant"
+                     onChange={(e) => setF({ ...f, allow_new_tenant: e.target.checked })} />
+          This is the first credential for a brand-new tenant
+        </label>
         <label style={lbl}>Expires at (ISO-8601 UTC · empty = never)
           <input value={f.expires_at}
                      data-testid="xdr-api-key-add-expires"
                      onChange={(e) => setF({ ...f, expires_at: e.target.value })}
                      style={inp} placeholder="2026-12-31T23:59:59Z" />
         </label>
-        {err && <div style={{ color: "#f87171", fontSize: 11 }}
+        {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                                 data-testid="xdr-api-key-add-error">{err}</div>}
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
           <span style={{ flex: 1 }} />
           <button className="btn ghost" onClick={onClose}
                        style={{ padding: "3px 10px", fontSize: 11 }}>Cancel</button>
-          <button className="btn" disabled={busy || !f.name}
+          <button className="btn" disabled={busy || !f.name || !tenantOk}
                        data-testid="xdr-api-key-add-submit"
                        onClick={submit}
                        style={{ padding: "3px 10px", fontSize: 11 }}>
@@ -173,11 +206,19 @@ export default function ApiKeysBody() {
   const [reveal, setReveal] = useState(null);   // {plaintext, prefix, notice}
   const [tick, setTick] = useState(0);
   const [lastAudit, setLastAudit] = useState(null);
+  // Tenant comes from the EXISTING authoritative tenant contract
+  // (`lib/tenant`), never from a literal here. This was `useState("default")`;
+  // the registry has no `default` tenant, so in production every load answered
+  // a structured `TENANT_NOT_FOUND` — the same defect that blanked
+  // /xdr/admin/collectors. No hardcoded fallback, no implicit substitution.
+  const [tenant, setTenant] = useState(() => activeTenant() || "");
+  // No tenant selected ⇒ no header ⇒ the backend answers TENANT_REQUIRED.
+  const hdrs = () => (tenant ? { headers: { "X-Tenant-Id": tenant } } : {});
 
   const load = async () => {
     setState({ loading: true, err: null });
     try {
-      const r = await api.get("/xdr/api-keys");
+      const r = await api.get("/xdr/api-keys", hdrs());
       const j = r?.data;
       if (j && j.ok === false) {
         setRows([]);
@@ -190,17 +231,15 @@ export default function ApiKeysBody() {
     } catch (e) {
       setRows([]);
       setState({ loading: false,
-                      err: e?.response?.data?.detail?.reason
-                              || e?.response?.data?.detail
-                              || e?.message || "fetch failed" });
+                      err: refusalText(e, "fetch failed")});
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tick]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tick, tenant]);
 
   const rotate = async (k) => {
     try {
-      const r = await api.post(`/xdr/api-keys/${k.id}/rotate`);
+      const r = await api.post(`/xdr/api-keys/${k.id}/rotate`, null, hdrs());
       setReveal({ plaintext: r?.data?.data?.plaintext,
                           prefix:    r?.data?.data?.prefix,
                           notice:    r?.data?.data?.reveal_notice
@@ -208,27 +247,27 @@ export default function ApiKeysBody() {
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
-      alert(e?.response?.data?.detail?.reason || e?.message || "rotate failed");
+      alert(refusalText(e, "rotate failed"));
     }
   };
   const revoke = async (k) => {
     if (!window.confirm(`Revoke API key '${k.name}'?  This cannot be undone.`)) return;
     try {
-      const r = await api.post(`/xdr/api-keys/${k.id}/revoke`);
+      const r = await api.post(`/xdr/api-keys/${k.id}/revoke`, null, hdrs());
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
-      alert(e?.response?.data?.detail?.reason || e?.message || "revoke failed");
+      alert(refusalText(e, "revoke failed"));
     }
   };
   const remove = async (k) => {
     if (!window.confirm(`Delete API key '${k.name}'?`)) return;
     try {
-      const r = await api.delete(`/xdr/api-keys/${k.id}`);
+      const r = await api.delete(`/xdr/api-keys/${k.id}`, hdrs());
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
-      alert(e?.response?.data?.detail?.reason || e?.message || "delete failed");
+      alert(refusalText(e, "delete failed"));
     }
   };
 
@@ -256,6 +295,20 @@ export default function ApiKeysBody() {
         stats={heroStats}
         testid="ak-hero"
         actions={<>
+          <label style={{ display: "flex", alignItems: "center", gap: 5,
+                              fontSize: 10.5, color: "var(--faint)",
+                              fontFamily: "var(--mono)" }}>
+            TENANT
+            <input value={tenant} data-testid="xdr-api-key-tenant-context"
+                       onChange={(e) => {
+                         const next = e.target.value.trim();
+                         setTenant(next);
+                         setActiveTenant(next || null);
+                       }}
+                       placeholder="authoritative tenant"
+                       style={{ ...inp, display: "inline-block", width: 150,
+                                       marginTop: 0, padding: "3px 6px" }} />
+          </label>
           <button className="btn" onClick={() => setAddOpen(true)}
                        data-testid="xdr-api-key-add-btn"
                        style={{ padding: "3px 10px", fontSize: 11 }}>
@@ -299,7 +352,7 @@ export default function ApiKeysBody() {
         <div data-testid="xdr-api-key-empty"
                  style={{ padding: 10, fontSize: 11, color: "var(--faint)",
                                  fontFamily: "var(--mono)" }}>
-          NO API KEYS PROVISIONED FOR THIS TENANT YET
+          NO API KEYS PROVISIONED FOR TENANT '{tenant}' YET
         </div>
       )}
       {rows.length > 0 && (
@@ -353,7 +406,7 @@ export default function ApiKeysBody() {
                 <button className="btn ghost" title="Delete"
                              data-testid={`xdr-api-key-delete-${r.id}`}
                              onClick={() => remove(r)}
-                             style={{ ...iconBtn, color: "#f87171" }}>
+                             style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                   <Trash2 size={11} />
                 </button>
               </div>
@@ -371,7 +424,11 @@ export default function ApiKeysBody() {
 
       {addOpen && (
         <AddKeyModal onClose={() => setAddOpen(false)}
+                              tenant={tenant}
                               onCreated={(res) => {
+                                // Follow the key: switch the surface to the tenant it
+                                // was actually bound to, so the list shows it at once.
+                                if (res?.data?.tenant_id) setTenant(res.data.tenant_id);
                                 setReveal({
                                   plaintext: res?.data?.plaintext,
                                   prefix:    res?.data?.prefix,

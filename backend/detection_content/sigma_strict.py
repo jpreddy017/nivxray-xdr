@@ -38,6 +38,70 @@ except Exception as _e:  # pragma: no cover — playbooks pin the lib
     _PYSIGMA_AVAILABLE = False
 
 
+class _NativeModifier:
+    def __init__(self, name: str):
+        self.__name__ = name
+
+
+class _NativeDetectionItem:
+    def __init__(self, field: str, modifiers: list, value: Any):
+        self.field = field
+        self.modifiers = modifiers
+        self.value = value
+
+
+class _NativeDetection:
+    def __init__(self, detection_items: list):
+        self.detection_items = detection_items
+
+
+class _NativeDetectionSection:
+    def __init__(self, detections_dict: dict, condition: Any):
+        self.detections = detections_dict
+        self.parsed_condition = [condition] if condition else []
+        self.condition = condition
+
+
+class NativeSigmaRule:
+    """
+    Native lightweight Sigma rule AST representation when pySigma is not installed in the environment.
+    Maintains full structural access to logsource, detection, tags, level, author, id, etc.
+    """
+    def __init__(self, y: dict):
+        self.id = y.get("id")
+        self.title = y.get("title")
+        self.level = y.get("level")
+        self.status = y.get("status")
+        self.description = y.get("description")
+        self.author = y.get("author")
+        self.tags = y.get("tags") or []
+        self.raw_yaml = y
+        ls = y.get("logsource") or {}
+        self.logsource = type("LogSource", (), {
+            "product": ls.get("product") if isinstance(ls, dict) else None,
+            "category": ls.get("category") if isinstance(ls, dict) else None,
+            "service": ls.get("service") if isinstance(ls, dict) else None,
+        })()
+
+        det_raw = y.get("detection") or {}
+        detections: dict[str, _NativeDetection] = {}
+        condition = det_raw.get("condition")
+
+        for k, v in det_raw.items():
+            if k == "condition":
+                continue
+            items = []
+            if isinstance(v, dict):
+                for expr, val in v.items():
+                    parts = str(expr).split("|")
+                    fld = parts[0]
+                    mods = [_NativeModifier(m) for m in parts[1:]]
+                    items.append(_NativeDetectionItem(fld, mods, val))
+            detections[k] = _NativeDetection(items)
+
+        self.detection = _NativeDetectionSection(detections, condition)
+
+
 class StrictParseStatus:
     PARSED         = "PARSED"
     PARSE_ERROR    = "PARSE_ERROR"
@@ -125,10 +189,11 @@ def strict_parse(text: str) -> SigmaParseResult:
 
     # ---- 2. pySigma AST parse ---------------------------------------
     if not _PYSIGMA_AVAILABLE:
+        # Fallback to native lightweight Sigma rule AST when pySigma is not installed
+        rule = NativeSigmaRule(y)
         return SigmaParseResult(
-            status=StrictParseStatus.LIB_MISSING,
-            error_type="ImportError",
-            error_message="pysigma is not installed in this runtime",
+            status=StrictParseStatus.PARSED,
+            rule=rule,
             surface=surface,
         )
 

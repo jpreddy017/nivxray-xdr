@@ -1,0 +1,42 @@
+{
+  "summary": "P0-3 Blindness/Staleness Detection + Linux Sensor Recovery review. Backend: 10/11 pytest tests pass. Frontend: all acceptance criteria pass — freshness banner, endpoint chip with data-delivery-state/basis, statement, endpoint statement, thresholds line with literal derivation formula, window control with 1/24/72/168/720h buttons, counts change on widening (89→551 in-window on live device), EVIDENCE_OUTSIDE_WINDOW renders with heading + most-recent timestamp + real out-of-window counts (3 procs / 40 obs), overview banner present, and ENDPOINT_NOT_RESOLVED banner renders on process-tree, response and detections for forged identifier. Regression pages load unaffected. One backend gap: for the never-delivered endpoint (BLIND_NO_DELIVERY), the returned row does not include an addressed_by.resolved_via == ENROLMENT_REGISTRY_DIRECT field required by the acceptance criteria — the row has no addressed_by key at all. State and basis are correct; only the addressing provenance is missing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/edr/telemetry/freshness?endpoint=ep_a01197382b9aeb861045",
+        "issue": "BLIND_NO_DELIVERY row is missing the addressed_by field entirely. Acceptance requires addressed_by.resolved_via == 'ENROLMENT_REGISTRY_DIRECT' to prove the enrolment-registry fallback path. State=BLIND_NO_DELIVERY and basis=NEVER_DELIVERED are correct. Fix in backend/services/edr/telemetry_freshness.py::_rows() — the enrolment-registry fallback branch must attach an addressed_by object like it does for the live-endpoint branch."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/edr/test_iter107_p0_3_freshness_review.py",
+    "/app/test_reports/pytest/iter107_freshness.xml"
+  ],
+  "action_items": [
+    "In backend/services/edr/telemetry_freshness.py::_rows(), when the endpoint is resolved via the enrolment-registry-direct fallback (never-delivered rows), populate row['addressed_by'] = {'resolved_via': 'ENROLMENT_REGISTRY_DIRECT', ...} so the ep_a01197382b9aeb861045 acceptance case passes."
+  ],
+  "critical_code_review_comments": [
+    "Backend correctly enforces heartbeat authentication (POST /api/edr/agent/heartbeat returns 401/403 unauthenticated).",
+    "Tenant isolation for analyst@nivx-live is honest: no leakage of ep_2d57cbe6f80152062109 or the agent-env hostname in the response body when analyst queries dev_42e8c6dc74b9.",
+    "Forged identifier response is well formed: state=ENDPOINT_NOT_RESOLVED, endpoints=[], and the fleet-block scope discriminator is FLEET_WIDE_NOT_THE_SUPPLIED_IDENTIFIER as required.",
+    "Thresholds formula is rendered verbatim by the UI ('stale_after_s = max(report_interval_s × 3, 60) · blind_after_s = max(report_interval_s × 20, 900)') — no browser-side computation observed.",
+    "cadence_basis=DECLARED_BY_SENSOR + report_interval_s=15 verified for the live Linux sensor.",
+    "Only gap is the missing addressed_by object on enrolment-registry-direct rows (see minor issue)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/edr/test_iter107_p0_3_freshness_review.py (new)"
+  ],
+  "success_rate": {"backend": "91% (10/11)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK ; analyst@nivx-live.com / NivxLive!Analyst2026",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The single outstanding gap is addressed_by.resolved_via on the never-delivered endpoint row. Everything else in the P0-3 acceptance list passes. Live Linux sensor is delivering under supervisor; counts on dev_42e8c6dc74b9 grow between calls — do not assert on exact counts. Frontend test-ids used: edr-freshness-banner, edr-freshness-endpoint-chip, edr-freshness-statement, edr-freshness-endpoint-statement, edr-freshness-thresholds, edr-processtree-window-control, edr-processtree-window-{1,24,72,168,720}, edr-processtree-window-counts, edr-processtree-outside-window, edr-{processtree,response,endpoint-detections}-not-resolved.",
+  "rca of the issue": "The enrolment-registry fallback branch in telemetry_freshness._rows() constructs a synthetic row for endpoints that have enrolled but never delivered. That branch does not currently attach an 'addressed_by' object to the row, whereas the live-endpoint branch does. Because the query for a never-delivered endpoint goes exclusively through the fallback branch, the response omits addressed_by entirely — even though the underlying resolution truly is ENROLMENT_REGISTRY_DIRECT. Mitigation: mirror the addressed_by dict construction from the live branch in the fallback branch, using resolved_via='ENROLMENT_REGISTRY_DIRECT' and echoing the supplied identifier."
+}

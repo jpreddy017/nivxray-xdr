@@ -1,0 +1,34 @@
+{
+  "id": "openssl-enc-chacha20-2",
+  "category": "cmd-crypto",
+  "algorithm": "OpenSSL:ChaCha20",
+  "command_line": "openssl enc -chacha20 -d -K deadbeef -iv cafebabe -in x.enc -out x.plain",
+  "stage_ladder": [
+    {
+      "name": "openssl-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "chacha20-decrypt",
+      "recoverable": false,
+      "reason": "OpenSSL runtime primitive \u2014 key + algorithm surfaced but not executed."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "openssl.exe",
+    "openssl"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_confidence_min": 0.6,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

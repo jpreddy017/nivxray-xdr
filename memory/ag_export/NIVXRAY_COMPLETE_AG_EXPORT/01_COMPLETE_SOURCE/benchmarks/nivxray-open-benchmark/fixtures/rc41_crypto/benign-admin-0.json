@@ -1,0 +1,23 @@
+{
+  "id": "benign-admin-0",
+  "category": "benign",
+  "algorithm": "OpenSSL:AES-CBC",
+  "command_line": "openssl enc -aes-256-cbc -in backup.tgz -out backup.tgz.enc -k $env:BACKUP_KEY",
+  "stage_ladder": [
+    {
+      "name": "plain-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "n/a",
+  "expected_plaintext": "openssl enc -aes-256-cbc -in backup.tgz -out backup.tgz.enc -k $env:BACKUP_KEY",
+  "expected_iocs": [],
+  "expected_lolbins": [],
+  "expected_mitre": [],
+  "expected_verdict": "benign",
+  "expected_confidence_min": 0.0,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

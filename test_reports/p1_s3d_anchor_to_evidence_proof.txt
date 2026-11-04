@@ -1,0 +1,26 @@
+PASS · causal anchors render 2 anchors
+PASS · an evidence-backed anchor states how many records cite it 2 actionable · '1 supporting record'
+PASS · an anchor with no citation offers NO evidence action 0 uncited · ''
+PASS · actionable anchors + uncited anchors account for every anchor 2+0 vs 2
+PASS · the hand-off lands on Evidence focused on that anchor url=tab=evidence&focus=ent_process_a5fb93a39897
+PASS · Evidence opens a focused anchor section (not a new screen) sections=1
+PASS · the citing records resolve for an evidence-backed anchor count_block=1 unmatched=0
+PASS · multiple evidence is represented truthfully, none chosen as 'the' evidence '1 recorded evidence item cites this anchor. Every one of them is listed — none is chosen a'
+PASS · every citing record is listed 1 row(s)
+PASS · the provenance chain is shown 'Provenance chain\nevent tf_487f2c73b75943aa → canonical evt_c972032f8eb510ad → normalizer sysmon-norm'
+PASS · the shared inspector is reachable for the cited reference 
+PASS · the incident evidence table is still present underneath 
+PASS · an unmapped reference gets an explicit truthful state 'REFERENCE NOT MATCHED\nNo recorded evidence cites this reference\nNothin'
+PASS · no nearest-match fallback is offered 
+PASS · an absent citation is not a benign finding 
+PASS · no anchor evidence action without causal analysis 
+PASS · another tenant's incident exposes no citing records 
+PASS · tab still renders · overview 7830 chars
+PASS · tab still renders · story 8442 chars
+PASS · tab still renders · timeline 1996 chars
+PASS · tab still renders · evidence 3111 chars
+PASS · tab still renders · detections 1986 chars
+PASS · tab still renders · response 1621 chars
+PASS · tab still renders · activity 10936 chars
+
+S3-D DOM PROOF · 24 PASS · 0 FAIL

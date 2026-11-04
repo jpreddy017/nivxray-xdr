@@ -1,0 +1,19 @@
+[
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_RESTART_TEST",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-srv",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "15915ba6cd1022772822e40ec754a1b1c55cee04ca520fc5a903589893bf6959",
+    "payload": {
+      "state_hash": "82b4c4106303ea7588a2be34d50a1579655eb5b088fbc8388d07f2c3ad7c98b6",
+      "version": 1
+    },
+    "timestamp": "2026-09-04T01:50:10.243468+00:00",
+    "verified": true
+  }
+]

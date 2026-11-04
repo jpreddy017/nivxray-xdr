@@ -215,3 +215,4 @@ xlsxwriter==3.2.9
 yarl==1.24.2
 zipp==4.1.0
 zstandard==0.25.0
+prometheus_client==0.26.0

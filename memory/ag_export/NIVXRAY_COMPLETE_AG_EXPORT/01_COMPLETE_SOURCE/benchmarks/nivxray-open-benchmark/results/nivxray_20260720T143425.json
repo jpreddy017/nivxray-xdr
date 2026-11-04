@@ -1,0 +1,2409 @@
+{
+  "engine": "nivxray",
+  "total": 300,
+  "passed": 296,
+  "rate": 98.66666666666667,
+  "duration_s": 148,
+  "results": [
+    {
+      "id": "batch-envvar-0",
+      "cat": "batch-envvar",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 174
+    },
+    {
+      "id": "batch-envvar-2",
+      "cat": "batch-envvar",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 182
+    },
+    {
+      "id": "batch-envvar-4",
+      "cat": "batch-envvar",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 182
+    },
+    {
+      "id": "batch-envvar-cascade-0",
+      "cat": "batch-envvar",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 932
+    },
+    {
+      "id": "ps-encoded-0-mut1",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1413
+    },
+    {
+      "id": "ps-encoded-0-mut3",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 6438
+    },
+    {
+      "id": "ps-encoded-0-mut5",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1477
+    },
+    {
+      "id": "ps-encoded-0",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 950
+    },
+    {
+      "id": "ps-encoded-1-mut0",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1350
+    },
+    {
+      "id": "ps-encoded-1-mut2",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 894
+    },
+    {
+      "id": "ps-encoded-1-mut4",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 885
+    },
+    {
+      "id": "ps-encoded-2-mut1",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 983
+    },
+    {
+      "id": "ps-encoded-2-mut3",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 836
+    },
+    {
+      "id": "ps-encoded-2-mut5",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 843
+    },
+    {
+      "id": "ps-encoded-2",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 858
+    },
+    {
+      "id": "ps-encoded-3-mut0",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 285
+    },
+    {
+      "id": "ps-encoded-3-mut2",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 206
+    },
+    {
+      "id": "ps-encoded-3-mut4",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 205
+    },
+    {
+      "id": "ps-encoded-4-mut1",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 206
+    },
+    {
+      "id": "ps-encoded-4-mut3",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 203
+    },
+    {
+      "id": "ps-encoded-4-mut5",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 205
+    },
+    {
+      "id": "ps-encoded-4",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 202
+    },
+    {
+      "id": "ps-encoded-5-mut0",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "ps-encoded-5-mut2",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "ps-encoded-5-mut4",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "ps-encoded-6-mut1",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 274
+    },
+    {
+      "id": "ps-encoded-6-mut3",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 209
+    },
+    {
+      "id": "ps-encoded-6-mut5",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 210
+    },
+    {
+      "id": "ps-encoded-6",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 215
+    },
+    {
+      "id": "ps-encoded-7-mut0",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 208
+    },
+    {
+      "id": "ps-encoded-7-mut2",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 204
+    },
+    {
+      "id": "ps-encoded-7-mut4",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 206
+    },
+    {
+      "id": "ps-encoded-8-mut1",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 203
+    },
+    {
+      "id": "ps-encoded-8-mut3",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 203
+    },
+    {
+      "id": "ps-encoded-8-mut5",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 204
+    },
+    {
+      "id": "ps-encoded-8",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 203
+    },
+    {
+      "id": "ps-encoded-9-mut0",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1058
+    },
+    {
+      "id": "ps-encoded-9-mut2",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 893
+    },
+    {
+      "id": "ps-encoded-9-mut4",
+      "cat": "ps-encoded",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 879
+    },
+    {
+      "id": "ps-hex-csv-0-mut1",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 480
+    },
+    {
+      "id": "ps-hex-csv-0-mut3",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "ps-hex-csv-0-mut5",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-hex-csv-0",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 185
+    },
+    {
+      "id": "ps-hex-csv-1-mut0",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 185
+    },
+    {
+      "id": "ps-hex-csv-1-mut2",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-hex-csv-1-mut4",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-hex-csv-10-mut1",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 993
+    },
+    {
+      "id": "ps-hex-csv-10-mut3",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 987
+    },
+    {
+      "id": "ps-hex-csv-10-mut5",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 904
+    },
+    {
+      "id": "ps-hex-csv-10",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 856
+    },
+    {
+      "id": "ps-hex-csv-2-mut1",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-hex-csv-2-mut3",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-hex-csv-2-mut5",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-hex-csv-2",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-hex-csv-3-mut0",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1050
+    },
+    {
+      "id": "ps-hex-csv-3-mut2",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 862
+    },
+    {
+      "id": "ps-hex-csv-3-mut4",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 936
+    },
+    {
+      "id": "ps-hex-csv-4-mut1",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 290
+    },
+    {
+      "id": "ps-hex-csv-4-mut3",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 205
+    },
+    {
+      "id": "ps-hex-csv-4-mut5",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 198
+    },
+    {
+      "id": "ps-hex-csv-4",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-hex-csv-5-mut0",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 205
+    },
+    {
+      "id": "ps-hex-csv-5-mut2",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 206
+    },
+    {
+      "id": "ps-hex-csv-5-mut4",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 198
+    },
+    {
+      "id": "ps-hex-csv-6-mut1",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 202
+    },
+    {
+      "id": "ps-hex-csv-6-mut3",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 202
+    },
+    {
+      "id": "ps-hex-csv-6-mut5",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 199
+    },
+    {
+      "id": "ps-hex-csv-6",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 213
+    },
+    {
+      "id": "ps-hex-csv-7-mut0",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 280
+    },
+    {
+      "id": "ps-hex-csv-7-mut2",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "ps-hex-csv-7-mut4",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-hex-csv-8-mut1",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 196
+    },
+    {
+      "id": "ps-hex-csv-8-mut3",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-hex-csv-8-mut5",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-hex-csv-8",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-hex-csv-9-mut0",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-hex-csv-9-mut2",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-hex-csv-9-mut4",
+      "cat": "ps-hex-csv",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-regex-swap-0-mut0",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-regex-swap-0-mut2",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 275
+    },
+    {
+      "id": "ps-regex-swap-0-mut4",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-regex-swap-1-mut1",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-regex-swap-1-mut3",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-regex-swap-1-mut5",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-regex-swap-1",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-regex-swap-2-mut0",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-regex-swap-2-mut2",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-regex-swap-2-mut4",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-regex-swap-3-mut1",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-regex-swap-3-mut3",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-regex-swap-3-mut5",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-regex-swap-3",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 264
+    },
+    {
+      "id": "ps-regex-swap-4-mut0",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "ps-regex-swap-4-mut2",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-regex-swap-4-mut4",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-regex-swap-5-mut1",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-regex-swap-5-mut3",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-regex-swap-5-mut5",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-regex-swap-5",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-regex-swap-6-mut0",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-regex-swap-6-mut2",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "ps-regex-swap-6-mut4",
+      "cat": "ps-regex-swap",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-reverse-0-mut0",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-reverse-0-mut2",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 282
+    },
+    {
+      "id": "ps-reverse-0-mut4",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 196
+    },
+    {
+      "id": "ps-reverse-1-mut1",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 193
+    },
+    {
+      "id": "ps-reverse-1-mut3",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "ps-reverse-1-mut5",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "ps-reverse-1",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-reverse-2-mut0",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-reverse-2-mut2",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-reverse-2-mut4",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-reverse-3-mut1",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "ps-reverse-3-mut3",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 262
+    },
+    {
+      "id": "ps-reverse-3-mut5",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-reverse-3",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-reverse-4-mut0",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 193
+    },
+    {
+      "id": "ps-reverse-4-mut2",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 193
+    },
+    {
+      "id": "ps-reverse-4-mut4",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-reverse-5-mut1",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-reverse-5-mut3",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-reverse-5-mut5",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-reverse-5",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-reverse-6-mut0",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-reverse-6-mut2",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-reverse-6-mut4",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 254
+    },
+    {
+      "id": "ps-reverse-7-mut1",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-reverse-7-mut3",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-reverse-7-mut5",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-reverse-7",
+      "cat": "ps-reverse",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-ascii-0-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-xor-ascii-0-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-0-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-1-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-xor-ascii-1-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-xor-ascii-1-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 256
+    },
+    {
+      "id": "ps-xor-ascii-1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-ascii-2-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 889
+    },
+    {
+      "id": "ps-xor-ascii-2-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 797
+    },
+    {
+      "id": "ps-xor-ascii-2-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 803
+    },
+    {
+      "id": "ps-xor-ascii-3-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-3-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 193
+    },
+    {
+      "id": "ps-xor-ascii-3-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-4-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "ps-xor-ascii-4-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-xor-ascii-4-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 265
+    },
+    {
+      "id": "ps-xor-ascii-5-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-5-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-xor-ascii-5-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "ps-xor-ascii-5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-xor-ascii-6-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1021
+    },
+    {
+      "id": "ps-xor-ascii-6-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 932
+    },
+    {
+      "id": "ps-xor-ascii-6-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1003
+    },
+    {
+      "id": "ps-xor-ascii-7-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 872
+    },
+    {
+      "id": "ps-xor-ascii-7-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 932
+    },
+    {
+      "id": "ps-xor-ascii-7-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1497
+    },
+    {
+      "id": "ps-xor-ascii-7",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 882
+    },
+    {
+      "id": "ps-xor-ascii-8-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "ps-xor-ascii-8-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-xor-ascii-8-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "ps-xor-ascii-9-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-ascii-9-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-ascii-9-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-xor-ascii-9",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-xor-intarray-0-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-intarray-0-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 185
+    },
+    {
+      "id": "ps-xor-intarray-0-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 260
+    },
+    {
+      "id": "ps-xor-intarray-0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-intarray-1-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 185
+    },
+    {
+      "id": "ps-xor-intarray-1-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 184
+    },
+    {
+      "id": "ps-xor-intarray-1-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 185
+    },
+    {
+      "id": "ps-xor-intarray-2-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 835
+    },
+    {
+      "id": "ps-xor-intarray-2-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 812
+    },
+    {
+      "id": "ps-xor-intarray-2-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 816
+    },
+    {
+      "id": "ps-xor-intarray-2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1018
+    },
+    {
+      "id": "ps-xor-intarray-3-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-xor-intarray-3-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-intarray-3-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 271
+    },
+    {
+      "id": "ps-xor-intarray-4-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-intarray-4-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-intarray-4-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-xor-intarray-4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-xor-utf8short-0-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-xor-utf8short-0-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-utf8short-0-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-utf8short-1-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 184
+    },
+    {
+      "id": "ps-xor-utf8short-1-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-utf8short-1-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 186
+    },
+    {
+      "id": "ps-xor-utf8short-1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 252
+    },
+    {
+      "id": "ps-xor-utf8short-2-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 871
+    },
+    {
+      "id": "ps-xor-utf8short-2-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 822
+    },
+    {
+      "id": "ps-xor-utf8short-2-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 799
+    },
+    {
+      "id": "ps-xor-utf8short-3-mut1",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-utf8short-3-mut3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-utf8short-3-mut5",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "ps-xor-utf8short-3",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "ps-xor-utf8short-4-mut0",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 188
+    },
+    {
+      "id": "ps-xor-utf8short-4-mut2",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "ps-xor-utf8short-4-mut4",
+      "cat": "ps-xor-inline",
+      "algo": "-",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 263
+    },
+    {
+      "id": "3des-inline-ps-1",
+      "cat": "ps-crypto",
+      "algo": "3DES",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "3des-inline-ps-3",
+      "cat": "ps-crypto",
+      "algo": "3DES",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 196
+    },
+    {
+      "id": "aes-cbc-inline-ps-0",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 202
+    },
+    {
+      "id": "aes-cbc-inline-ps-1",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 201
+    },
+    {
+      "id": "aes-cbc-inline-ps-2",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 201
+    },
+    {
+      "id": "aes-cbc-inline-ps-3",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 201
+    },
+    {
+      "id": "aes-cbc-inline-ps-4",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 200
+    },
+    {
+      "id": "aes-gcm-inline-ps-0",
+      "cat": "ps-crypto",
+      "algo": "AES-GCM",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 198
+    },
+    {
+      "id": "aes-gcm-inline-ps-1",
+      "cat": "ps-crypto",
+      "algo": "AES-GCM",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 198
+    },
+    {
+      "id": "aes-gcm-inline-ps-2",
+      "cat": "ps-crypto",
+      "algo": "AES-GCM",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 267
+    },
+    {
+      "id": "aes-gcm-inline-ps-3",
+      "cat": "ps-crypto",
+      "algo": "AES-GCM",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "aes-gcm-inline-ps-4",
+      "cat": "ps-crypto",
+      "algo": "AES-GCM",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "b64-rc4-inline-0",
+      "cat": "ps-crypto",
+      "algo": "Base64+RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 914
+    },
+    {
+      "id": "b64-rc4-inline-1",
+      "cat": "ps-crypto",
+      "algo": "Base64+RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 950
+    },
+    {
+      "id": "b64-rc4-inline-2",
+      "cat": "ps-crypto",
+      "algo": "Base64+RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 738
+    },
+    {
+      "id": "benign-admin-0",
+      "cat": "benign",
+      "algo": "OpenSSL:AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1042
+    },
+    {
+      "id": "benign-admin-1",
+      "cat": "benign",
+      "algo": "GPG-asymmetric",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 130
+    },
+    {
+      "id": "benign-admin-2",
+      "cat": "benign",
+      "algo": "Key-generation",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 181
+    },
+    {
+      "id": "benign-admin-3",
+      "cat": "benign",
+      "algo": "certutil-encode",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 5321
+    },
+    {
+      "id": "benign-admin-4",
+      "cat": "benign",
+      "algo": "defender-config",
+      "passed": false,
+      "reason": "no-keyword-hit",
+      "latency_ms": 131
+    },
+    {
+      "id": "benign-admin-5",
+      "cat": "benign",
+      "algo": "Get-Process",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 9914
+    },
+    {
+      "id": "benign-admin-6",
+      "cat": "benign",
+      "algo": "Compress-Archive",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 3008
+    },
+    {
+      "id": "benign-admin-7",
+      "cat": "benign",
+      "algo": "net-user-add",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 199
+    },
+    {
+      "id": "benign-admin-8",
+      "cat": "benign",
+      "algo": "schtasks-benign",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 7120
+    },
+    {
+      "id": "benign-admin-9",
+      "cat": "benign",
+      "algo": "robocopy",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 128
+    },
+    {
+      "id": "c2-derived-key-0",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 933
+    },
+    {
+      "id": "c2-derived-key-1",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1761
+    },
+    {
+      "id": "c2-derived-key-2",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 822
+    },
+    {
+      "id": "chacha20-ps-0",
+      "cat": "ps-crypto",
+      "algo": "ChaCha20-Poly1305",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 200
+    },
+    {
+      "id": "chacha20-ps-1",
+      "cat": "ps-crypto",
+      "algo": "ChaCha20-Poly1305",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 200
+    },
+    {
+      "id": "chacha20-ps-2",
+      "cat": "ps-crypto",
+      "algo": "ChaCha20-Poly1305",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 198
+    },
+    {
+      "id": "custom-hex-wrapper-rc4-0",
+      "cat": "ps-crypto",
+      "algo": "CustomHex+RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 791
+    },
+    {
+      "id": "custom-hex-wrapper-rc4-1",
+      "cat": "ps-crypto",
+      "algo": "CustomHex+RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 268
+    },
+    {
+      "id": "des-inline-ps-0",
+      "cat": "ps-crypto",
+      "algo": "DES",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "des-inline-ps-2",
+      "cat": "ps-crypto",
+      "algo": "DES",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 239
+    },
+    {
+      "id": "gpg-symmetric-0",
+      "cat": "cmd-crypto",
+      "algo": "GPG-symmetric",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1034
+    },
+    {
+      "id": "gpg-symmetric-1",
+      "cat": "cmd-crypto",
+      "algo": "GPG-symmetric",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1012
+    },
+    {
+      "id": "gpg-symmetric-2",
+      "cat": "cmd-crypto",
+      "algo": "GPG-symmetric",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1021
+    },
+    {
+      "id": "hex-xor-multi-0",
+      "cat": "ps-crypto",
+      "algo": "Hex+XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 205
+    },
+    {
+      "id": "hex-xor-multi-1",
+      "cat": "ps-crypto",
+      "algo": "Hex+XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 203
+    },
+    {
+      "id": "hex-xor-multi-2",
+      "cat": "ps-crypto",
+      "algo": "Hex+XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 218
+    },
+    {
+      "id": "machineguid-key-0",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 206
+    },
+    {
+      "id": "machineguid-key-1",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 204
+    },
+    {
+      "id": "machineguid-key-2",
+      "cat": "ps-crypto",
+      "algo": "AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 273
+    },
+    {
+      "id": "multistage-downloader-0",
+      "cat": "ps-crypto-multistage",
+      "algo": "Base64+GZip+AES-CBC (C2 key)",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 808
+    },
+    {
+      "id": "multistage-downloader-1",
+      "cat": "ps-crypto-multistage",
+      "algo": "Base64+GZip+AES-CBC (C2 key)",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 823
+    },
+    {
+      "id": "multistage-downloader-2",
+      "cat": "ps-crypto-multistage",
+      "algo": "Base64+GZip+AES-CBC (C2 key)",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 758
+    },
+    {
+      "id": "multistage-downloader-3",
+      "cat": "ps-crypto-multistage",
+      "algo": "Base64+GZip+AES-CBC (C2 key)",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 763
+    },
+    {
+      "id": "openssl-enc-aes-128-cbc-1",
+      "cat": "cmd-crypto",
+      "algo": "OpenSSL:AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1042
+    },
+    {
+      "id": "openssl-enc-aes-256-cbc-0",
+      "cat": "cmd-crypto",
+      "algo": "OpenSSL:AES-CBC",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1052
+    },
+    {
+      "id": "openssl-enc-chacha20-2",
+      "cat": "cmd-crypto",
+      "algo": "OpenSSL:ChaCha20",
+      "passed": false,
+      "reason": "no-keyword-hit",
+      "latency_ms": 1032
+    },
+    {
+      "id": "openssl-enc-des3-3",
+      "cat": "cmd-crypto",
+      "algo": "OpenSSL:3DES",
+      "passed": false,
+      "reason": "no-keyword-hit",
+      "latency_ms": 1024
+    },
+    {
+      "id": "openssl-enc-rc4-4",
+      "cat": "cmd-crypto",
+      "algo": "OpenSSL:RC4",
+      "passed": false,
+      "reason": "no-keyword-hit",
+      "latency_ms": 1026
+    },
+    {
+      "id": "rc4-dpapi-ps-0",
+      "cat": "ps-crypto",
+      "algo": "RC4+DPAPI",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 209
+    },
+    {
+      "id": "rc4-dpapi-ps-1",
+      "cat": "ps-crypto",
+      "algo": "RC4+DPAPI",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 279
+    },
+    {
+      "id": "rc4-dpapi-ps-2",
+      "cat": "ps-crypto",
+      "algo": "RC4+DPAPI",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 201
+    },
+    {
+      "id": "rc4-inline-ps-0",
+      "cat": "ps-crypto",
+      "algo": "RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1000
+    },
+    {
+      "id": "rc4-inline-ps-1",
+      "cat": "ps-crypto",
+      "algo": "RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 912
+    },
+    {
+      "id": "rc4-inline-ps-2",
+      "cat": "ps-crypto",
+      "algo": "RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 853
+    },
+    {
+      "id": "rc4-inline-ps-3",
+      "cat": "ps-crypto",
+      "algo": "RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 200
+    },
+    {
+      "id": "rc4-inline-ps-4",
+      "cat": "ps-crypto",
+      "algo": "RC4",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 198
+    },
+    {
+      "id": "rijndael-managed-ps-0",
+      "cat": "ps-crypto",
+      "algo": "RijndaelManaged",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "rijndael-managed-ps-1",
+      "cat": "ps-crypto",
+      "algo": "RijndaelManaged",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "rijndael-managed-ps-2",
+      "cat": "ps-crypto",
+      "algo": "RijndaelManaged",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "rijndael-managed-ps-3",
+      "cat": "ps-crypto",
+      "algo": "RijndaelManaged",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "xor-fill-0",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1006
+    },
+    {
+      "id": "xor-fill-1",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "xor-fill-10",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 833
+    },
+    {
+      "id": "xor-fill-11",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 996
+    },
+    {
+      "id": "xor-fill-12",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 1341
+    },
+    {
+      "id": "xor-fill-13",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "xor-fill-14",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 187
+    },
+    {
+      "id": "xor-fill-15",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "xor-fill-16",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "xor-fill-17",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 193
+    },
+    {
+      "id": "xor-fill-18",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 200
+    },
+    {
+      "id": "xor-fill-19",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 946
+    },
+    {
+      "id": "xor-fill-2",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 980
+    },
+    {
+      "id": "xor-fill-20",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 872
+    },
+    {
+      "id": "xor-fill-21",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 919
+    },
+    {
+      "id": "xor-fill-22",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 199
+    },
+    {
+      "id": "xor-fill-23",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "xor-fill-3",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 189
+    },
+    {
+      "id": "xor-fill-4",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 909
+    },
+    {
+      "id": "xor-fill-5",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 190
+    },
+    {
+      "id": "xor-fill-6",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 192
+    },
+    {
+      "id": "xor-fill-7",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 262
+    },
+    {
+      "id": "xor-fill-8",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 2323
+    },
+    {
+      "id": "xor-fill-9",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 853
+    },
+    {
+      "id": "xor-multi-0",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 848
+    },
+    {
+      "id": "xor-multi-1",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 197
+    },
+    {
+      "id": "xor-multi-2",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 194
+    },
+    {
+      "id": "xor-multi-3",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 195
+    },
+    {
+      "id": "xor-multi-4",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 191
+    },
+    {
+      "id": "xor-multi-5",
+      "cat": "ps-crypto",
+      "algo": "XOR-multi",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 199
+    },
+    {
+      "id": "xor-single-0",
+      "cat": "ps-crypto",
+      "algo": "XOR-single",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 196
+    },
+    {
+      "id": "xor-single-1",
+      "cat": "ps-crypto",
+      "algo": "XOR-single",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 203
+    },
+    {
+      "id": "xor-single-2",
+      "cat": "ps-crypto",
+      "algo": "XOR-single",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 291
+    },
+    {
+      "id": "xor-single-3",
+      "cat": "ps-crypto",
+      "algo": "XOR-single",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 227
+    },
+    {
+      "id": "xor-single-4",
+      "cat": "ps-crypto",
+      "algo": "XOR-single",
+      "passed": true,
+      "reason": "",
+      "latency_ms": 211
+    }
+  ]
+}

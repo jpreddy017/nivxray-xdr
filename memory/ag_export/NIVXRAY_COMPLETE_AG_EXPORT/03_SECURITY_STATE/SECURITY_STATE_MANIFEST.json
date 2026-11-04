@@ -1,0 +1,1783 @@
+{
+  "category": "03_SECURITY_STATE",
+  "title": "Causal Security State Machine & Security Ledger Architecture",
+  "description": "Next-generation causal security computing layer replacing probability-based risk scores with deterministic security states.",
+  "file_count": 197,
+  "total_bytes": 1982247,
+  "total_lines": 33855,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/contracts.py",
+      "size_bytes": 23206,
+      "sha256": "9d084a1d8d76cbe0559f8979af30f26ad2249e0081b73169755cb3387340def5",
+      "lines_of_code": 502,
+      "last_modified": "2026-09-04 20:18:59",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/detection_bridge.py",
+      "size_bytes": 7510,
+      "sha256": "f6ddf6d67dac263fead8508de49ced356b93822a637f2e336dfc726a796d6a7a",
+      "lines_of_code": 176,
+      "last_modified": "2026-09-04 20:49:44",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/__init__.py",
+      "size_bytes": 287,
+      "sha256": "bb3a36d25b62e8496206eb178cd7317e052075d50d15b9b8347442dbcae68425",
+      "lines_of_code": 8,
+      "last_modified": "2026-09-04 01:17:06",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/adapters/ssot_adapter.py",
+      "size_bytes": 5679,
+      "sha256": "f2f20366e6b27a46aada69be0137f549ff3d195fed9d25534e520afeaf049f16",
+      "lines_of_code": 138,
+      "last_modified": "2026-09-04 02:09:42",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/adapters/__init__.py",
+      "size_bytes": 123,
+      "sha256": "4127914d5641f09e4c9f6919f28d04d190190f1315c93f2ee94be8b930bcd331",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:19:39",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/attack_state/machine.py",
+      "size_bytes": 6902,
+      "sha256": "db5618340eb4083f0a7fe665f917dfdd30103dba468f5370be33a683ddac95fc",
+      "lines_of_code": 158,
+      "last_modified": "2026-09-04 01:18:08",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/attack_state/__init__.py",
+      "size_bytes": 150,
+      "sha256": "79c5b8d299d5d174dea425f6a28612d4a4a7ed96d4cced15f4ca476bea6c2273",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:18:11",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/benchmarks/benchmark.py",
+      "size_bytes": 5160,
+      "sha256": "40691b78afaef1461960cebe61233bed58ac3aa65b76a9cba7d246a5b736b8d1",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:27:59",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/benchmarks/__init__.py",
+      "size_bytes": 102,
+      "sha256": "cd431c4a32d519591a3b47f8af98989c23aa3571254fa69b22705df980900a8c",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:28:03",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/capability/engine.py",
+      "size_bytes": 16067,
+      "sha256": "ed656b2e3928ca9a63d8fa689b99dc1cb51ccdd5bfb90e08ae0065898df4283e",
+      "lines_of_code": 351,
+      "last_modified": "2026-09-04 06:31:32",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/capability/__init__.py",
+      "size_bytes": 303,
+      "sha256": "1f6063cc7acba2943da05bddda7d30ac19d252387edf6bac95b9bc6f7eab8222",
+      "lines_of_code": 14,
+      "last_modified": "2026-09-04 06:22:18",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/causal/engine.py",
+      "size_bytes": 30055,
+      "sha256": "9f37adc81d378bde004e43dbe0c57109e825a82ea5ae6eea42f19df8ec495fbb",
+      "lines_of_code": 539,
+      "last_modified": "2026-09-04 06:32:28",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/causal/__init__.py",
+      "size_bytes": 281,
+      "sha256": "577108affa820773ac70148d5bf63aefa3d0efcd2b8b5608c113ce52a7c69ba3",
+      "lines_of_code": 16,
+      "last_modified": "2026-09-04 01:17:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/counterfactual/engine.py",
+      "size_bytes": 22711,
+      "sha256": "be29a7ab8c12da00ee6c86bec2e89997fa189b530e13b0b9129d57ffb3fead4f",
+      "lines_of_code": 434,
+      "last_modified": "2026-09-04 07:20:05",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/counterfactual/__init__.py",
+      "size_bytes": 225,
+      "sha256": "e9ed13b1af40ad5ff78462b26245a379ef318e36ad59a7547c11e37ae42c6db1",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 01:18:33",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/hydration/case_hydrator.py",
+      "size_bytes": 12949,
+      "sha256": "cfac47089d826afcb37118f3b239c1b2e05326b19f964f0e166bc47e7c73dbaf",
+      "lines_of_code": 287,
+      "last_modified": "2026-09-04 06:33:27",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/hydration/provenance.py",
+      "size_bytes": 6962,
+      "sha256": "43091200b0946b3a43f5e4e68206c9c5bd47716bff4f05cd075b46a328053ed0",
+      "lines_of_code": 163,
+      "last_modified": "2026-09-04 05:43:40",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/hydration/__init__.py",
+      "size_bytes": 293,
+      "sha256": "6866f9612156971594681f9896e778072d06fd9f4e5e8df530ab54cf76ef31e0",
+      "lines_of_code": 9,
+      "last_modified": "2026-09-04 05:43:32",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/impact/engine.py",
+      "size_bytes": 7310,
+      "sha256": "e4e51ce882d8fcaffeb63562d984ab0322e09baa3e2e836f010e30be31073b30",
+      "lines_of_code": 174,
+      "last_modified": "2026-09-04 07:04:26",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/impact/__init__.py",
+      "size_bytes": 155,
+      "sha256": "5b900120c94b9e220640d5a9119e1a0403a6a90f92de8089870347cb8d2a9662",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:18:42",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/intervention/optimizer.py",
+      "size_bytes": 6264,
+      "sha256": "ad82e61729c07751c924bec721155501b58d0650a05cc129ca8c75ef48180a26",
+      "lines_of_code": 157,
+      "last_modified": "2026-09-04 07:04:41",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/intervention/__init__.py",
+      "size_bytes": 180,
+      "sha256": "3cfa4476ddc971aae43a119c3be69f754f3f2d126e2312afd60901015dc1f887",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:18:52",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/ledger/ledger.py",
+      "size_bytes": 3350,
+      "sha256": "dca25829c3ee573846dda5a708820ba7d5cbce2a450ab59e45614fcfc7a96c60",
+      "lines_of_code": 103,
+      "last_modified": "2026-09-04 01:19:15",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/ledger/__init__.py",
+      "size_bytes": 125,
+      "sha256": "ad51c7ce43bc670320be2f8bd42008bfd9858c53e5173ab6b2f3ba029e836552",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:19:17",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/model/security_state.py",
+      "size_bytes": 4967,
+      "sha256": "daffe6bbaf023cc02a36092a3c1a0fbe4bab23c3c78f0820b211021ab38feb85",
+      "lines_of_code": 138,
+      "last_modified": "2026-09-04 01:17:19",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/model/__init__.py",
+      "size_bytes": 278,
+      "sha256": "fe51d3f97452363d5663eee155b8b243fa5ca799ceee07496ab00bc255f5b043",
+      "lines_of_code": 14,
+      "last_modified": "2026-09-04 01:17:21",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/orchestration/engine.py",
+      "size_bytes": 10419,
+      "sha256": "3e95124f9a5224c3b41eae25e4b9bd48ae80aaa09316615989ba9a6f5f08ec74",
+      "lines_of_code": 215,
+      "last_modified": "2026-09-04 07:41:04",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/orchestration/library.py",
+      "size_bytes": 29239,
+      "sha256": "6641cdff4535f326e825c7dd3c6cd6b464faf5175128c60d56b66c60fa1c8644",
+      "lines_of_code": 701,
+      "last_modified": "2026-09-04 07:40:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/orchestration/models.py",
+      "size_bytes": 4050,
+      "sha256": "bb431e3f0057049043e7cb5d15e03732e0a5d62f63014af0b2c02254506d577c",
+      "lines_of_code": 131,
+      "last_modified": "2026-09-04 07:40:28",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/orchestration/__init__.py",
+      "size_bytes": 725,
+      "sha256": "8d4a5bac1a4878a6c63bd13c86d107fb12dade576a45ac3434ed4125149b25e8",
+      "lines_of_code": 36,
+      "last_modified": "2026-09-04 07:41:09",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/persistence/models.py",
+      "size_bytes": 2313,
+      "sha256": "2f41bc15aa404db8bd199d54cdc56ba66342b093a831eb54ddc65b871575597c",
+      "lines_of_code": 69,
+      "last_modified": "2026-09-04 02:20:13",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/persistence/repository.py",
+      "size_bytes": 20591,
+      "sha256": "a9b4e85117e76b4d291bf1f83f09607598c82e6db0b82150c758807787625162",
+      "lines_of_code": 421,
+      "last_modified": "2026-09-04 02:22:12",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/persistence/__init__.py",
+      "size_bytes": 301,
+      "sha256": "f64131edd6568f38c3326c697253f461b020748cc5d26dc8bf8231ef26a94ab1",
+      "lines_of_code": 9,
+      "last_modified": "2026-09-04 02:17:01",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/progression/engine.py",
+      "size_bytes": 23335,
+      "sha256": "01f2128a1088713250640dc35ec9fc5147fbd27aa73df5e7f6dfa028b20762a7",
+      "lines_of_code": 404,
+      "last_modified": "2026-09-04 06:47:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/progression/__init__.py",
+      "size_bytes": 175,
+      "sha256": "e47ee8099e5d8d79b7becc106b847bfa79f5476869f68c88674546da94e255ba",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 06:31:38",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/reachability/engine.py",
+      "size_bytes": 27937,
+      "sha256": "6c2e59eded16070c36e1a6244f00f4efd855cf6d39f213f68eb72598f353aab7",
+      "lines_of_code": 569,
+      "last_modified": "2026-09-04 07:08:08",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/reachability/__init__.py",
+      "size_bytes": 277,
+      "sha256": "b7dadf137d371edd24b6aaff2e801bfc1ea76aea4c56f4c9a933712b119851b1",
+      "lines_of_code": 14,
+      "last_modified": "2026-09-04 01:18:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/response_safety/safety_gate.py",
+      "size_bytes": 4171,
+      "sha256": "61b497e5b33be2de75887d06f4d4c563c18b4c68045d28f088b717a778adf78d",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 01:18:59",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/response_safety/verification.py",
+      "size_bytes": 5697,
+      "sha256": "b6785bb6bf02b3c0813fd897c524c4831d339e1c32e3f53d14b7dcf978148e06",
+      "lines_of_code": 141,
+      "last_modified": "2026-09-04 01:19:05",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/response_safety/__init__.py",
+      "size_bytes": 312,
+      "sha256": "5f507b69486a824e6c3242c5df68798c3b1807e9df24fcdf8fe19c4df7713647",
+      "lines_of_code": 10,
+      "last_modified": "2026-09-04 01:19:08",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/routers/router.py",
+      "size_bytes": 19110,
+      "sha256": "994b3dfd9c4a8c04239ba8ef1d2262ecbe0e7e05efcc169b910aa22e3e578126",
+      "lines_of_code": 468,
+      "last_modified": "2026-09-04 05:49:11",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/routers/__init__.py",
+      "size_bytes": 154,
+      "sha256": "a6e18d8587890298eae4a23348de881a6f4ab8eada442f1304bdc51d2f6fc50c",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 05:49:13",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/simulation/simulator.py",
+      "size_bytes": 5468,
+      "sha256": "6b52778ed5ae3949eefc69863f2f52a44b5a73f4ed5d1b1711982f1180d29b28",
+      "lines_of_code": 144,
+      "last_modified": "2026-09-04 01:19:24",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/simulation/__init__.py",
+      "size_bytes": 193,
+      "sha256": "4398b5e8522531c1b99165aa6c1aa850428b4057009f0955903785930ee2cbd3",
+      "lines_of_code": 8,
+      "last_modified": "2026-09-04 01:19:27",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/state_engine/engine.py",
+      "size_bytes": 19064,
+      "sha256": "d2ba8c988e31221f920d04679a4aae84c2230d6862cc395ca6af0352d8f5beca",
+      "lines_of_code": 379,
+      "last_modified": "2026-09-04 06:32:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/state_engine/__init__.py",
+      "size_bytes": 103,
+      "sha256": "27df0e8cd70b1dbb412674f31f2f4dcf344802b74f0ad2d785004409308211a9",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:17:39",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/adapter.py",
+      "size_bytes": 20540,
+      "sha256": "f2c81a0d6c3416e50621a910faf27f789e5d32e75becb3a573c8d09eda7dd360",
+      "lines_of_code": 469,
+      "last_modified": "2026-09-04 05:28:14",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/auth.py",
+      "size_bytes": 6860,
+      "sha256": "723d306edeb492b9ed7697f163e21b6df32da5f75b8631905081ea6161ec9d37",
+      "lines_of_code": 165,
+      "last_modified": "2026-09-04 05:27:57",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/coalescer.py",
+      "size_bytes": 5555,
+      "sha256": "00de0e2243d076668ad28fc63014ea11a59bc3187700bba4c51b46ab91639055",
+      "lines_of_code": 136,
+      "last_modified": "2026-09-04 05:16:41",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/dedup.py",
+      "size_bytes": 6327,
+      "sha256": "00a8a4fb688cebb216c9e52797d95bcabb74c661d7836559685d7b02e4e9bd30",
+      "lines_of_code": 173,
+      "last_modified": "2026-09-04 05:16:29",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/dlq.py",
+      "size_bytes": 6097,
+      "sha256": "b32b815f7199430f012197da5fa29991b6d386267dde2ee7d645d7561251663e",
+      "lines_of_code": 165,
+      "last_modified": "2026-09-04 05:16:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/fingerprint.py",
+      "size_bytes": 3571,
+      "sha256": "e43eec4893948faa42e4fcca16b401f49ba87455f7430a23dda7519438efaa7e",
+      "lines_of_code": 105,
+      "last_modified": "2026-09-04 05:16:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/models.py",
+      "size_bytes": 10236,
+      "sha256": "3a33b0d4f6320c4c726f6a0df90c7005af30621d7002bf5430f6b4e972aa6205",
+      "lines_of_code": 240,
+      "last_modified": "2026-09-04 05:16:17",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/replay.py",
+      "size_bytes": 8735,
+      "sha256": "b7d701b2eebd5317585b87edc757a0f54bb03dfe2f4bc74bd32c3b845ff16c09",
+      "lines_of_code": 202,
+      "last_modified": "2026-09-04 05:30:24",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/watermark.py",
+      "size_bytes": 2944,
+      "sha256": "0081d3d7a55af146cb63b288cb1a9267a8c77503d65bc034661f7eda1e4dce75",
+      "lines_of_code": 75,
+      "last_modified": "2026-09-04 05:16:33",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/streaming/__init__.py",
+      "size_bytes": 1137,
+      "sha256": "5358668f7046eae29d76ca4776f9ce8e20b906a62c1a545b5bf108455edd4a62",
+      "lines_of_code": 38,
+      "last_modified": "2026-09-04 05:17:15",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/api_endpoint_audit.py",
+      "size_bytes": 6496,
+      "sha256": "35b3e535c8832f9a45dd8ae5566a3710c3dc3a5eeb66b24a273794309f2d0298",
+      "lines_of_code": 159,
+      "last_modified": "2026-09-04 05:33:14",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase2c_real_replay_runner.py",
+      "size_bytes": 17614,
+      "sha256": "1dc3a40ed1f4706c2c9ce6e281196ce7dc39aa916e69df75e69c477d2d23d887",
+      "lines_of_code": 312,
+      "last_modified": "2026-09-04 02:14:54",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase2_audit_runner.py",
+      "size_bytes": 22265,
+      "sha256": "2ae617f71ec275bad21ba0167d9c318a30a3b14f13d420c6fc13b9f0846a0963",
+      "lines_of_code": 464,
+      "last_modified": "2026-09-04 02:00:08",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase3b_distributed_runner.py",
+      "size_bytes": 15463,
+      "sha256": "8d663f019c68f2a80bc21051aa7b0a36c585ace10e0f546ec7c41b5e9da0b5e0",
+      "lines_of_code": 271,
+      "last_modified": "2026-09-04 02:26:33",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase3_persistence_runner.py",
+      "size_bytes": 14153,
+      "sha256": "a295fcbc8101a63df95b9af71992b8d2fe53315b6def32e46de04a49e8855fab",
+      "lines_of_code": 250,
+      "last_modified": "2026-09-04 02:26:24",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase4c1_adversarial_runner.py",
+      "size_bytes": 2580,
+      "sha256": "2368f0a5a29997304d880dc30c2c00c0980b875925d4ba7aa72e394913e3f7d4",
+      "lines_of_code": 62,
+      "last_modified": "2026-09-04 05:45:50",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase4c1_adversarial_tests.py",
+      "size_bytes": 31218,
+      "sha256": "661a0942a7bb4a8fd5f29d040007a3a23cd17a7b980726ddcee9ebd28438821c",
+      "lines_of_code": 591,
+      "last_modified": "2026-09-04 05:31:22",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase4c_streaming_runner.py",
+      "size_bytes": 8057,
+      "sha256": "2acfef7d78681f6b21313126156b6929003c17f452d731c5d19d1f9b11dd1f42",
+      "lines_of_code": 191,
+      "last_modified": "2026-09-04 05:22:29",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase4c_streaming_tests.py",
+      "size_bytes": 27227,
+      "sha256": "04daed44230183416e763e331b1b527c2cbc903a9499688c6cd9a8fe36a2ba74",
+      "lines_of_code": 558,
+      "last_modified": "2026-09-04 05:20:39",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase5_shadow_runner.py",
+      "size_bytes": 3209,
+      "sha256": "7163bd30bfbf4a6b970c4eddeb68de0eaff8dcd6bf31b60c7a6b286421e7447a",
+      "lines_of_code": 70,
+      "last_modified": "2026-09-04 05:45:44",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase5_shadow_tests.py",
+      "size_bytes": 18218,
+      "sha256": "5703e3ebc33d60c157f721303a2aeaadfaf898b6516f8cfca4e7ca0761fe5718",
+      "lines_of_code": 403,
+      "last_modified": "2026-09-04 05:49:21",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase6b_causal_rules_runner.py",
+      "size_bytes": 3421,
+      "sha256": "6d3ee7eb77a68704b09220f2209c598535ed8a323e23e6eef968a5d6ff1395e6",
+      "lines_of_code": 78,
+      "last_modified": "2026-09-04 06:21:57",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase6b_causal_rules_tests.py",
+      "size_bytes": 17729,
+      "sha256": "e843a5ec671a0bc087dbee291a18245eb1dc75db26ca57535c85d7d870cd0aae",
+      "lines_of_code": 396,
+      "last_modified": "2026-09-04 06:23:05",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase7_enterprise_intelligence_runner.py",
+      "size_bytes": 2290,
+      "sha256": "05048a6a5ba5fbcd6620c79f401e0d525223b8f77d341fd46daa3c6f275e862a",
+      "lines_of_code": 65,
+      "last_modified": "2026-09-04 06:45:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase7_enterprise_intelligence_tests.py",
+      "size_bytes": 19447,
+      "sha256": "2f6ebc9911e8f78c9af92ab80dd5a3b024a1c53cc6e133a1b3a4154dc3d33a7b",
+      "lines_of_code": 409,
+      "last_modified": "2026-09-04 06:45:44",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase8_counterfactual_reachability_runner.py",
+      "size_bytes": 2333,
+      "sha256": "fa2ff0c24746a11e09bb74513733af11e79173fe385714e48a467efdd3dd5320",
+      "lines_of_code": 65,
+      "last_modified": "2026-09-04 07:05:23",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/phase8_counterfactual_reachability_tests.py",
+      "size_bytes": 23155,
+      "sha256": "a92d97d4a380cd980979217fe21083362258618e0b9e2e61790a75af43b01fd5",
+      "lines_of_code": 447,
+      "last_modified": "2026-09-04 07:11:10",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/run_tests.py",
+      "size_bytes": 4372,
+      "sha256": "ef0629523e5b3917d031d930c5fe9a34d5a3c022b1007fa0c3382943205f7466",
+      "lines_of_code": 101,
+      "last_modified": "2026-09-04 07:10:26",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/test_security_state_suite.py",
+      "size_bytes": 13153,
+      "sha256": "f6f00cb24d2e2a5208287d6115d63fd312c1267db1a446994c03be613037d254",
+      "lines_of_code": 267,
+      "last_modified": "2026-09-04 01:25:03",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/tests/__init__.py",
+      "size_bytes": 40,
+      "sha256": "7e60c3447eab08b5824818a90e9e93f08782edcc6222aa6bc8a24d8fb8c4f726",
+      "lines_of_code": 1,
+      "last_modified": "2026-09-04 01:20:28",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/transitions/engine.py",
+      "size_bytes": 4087,
+      "sha256": "936580257214a16b6a9a05defe9bd2d7e2aba95fcc2186e3b338646a41459d46",
+      "lines_of_code": 120,
+      "last_modified": "2026-09-04 01:17:26",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/transitions/__init__.py",
+      "size_bytes": 148,
+      "sha256": "0aa28553511215c53593f53f7276f86405df7ba3169f0dd2bb205a5c041d54a6",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:17:28",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/validation/corpus.py",
+      "size_bytes": 8106,
+      "sha256": "73d5b4d051487f4509c5dc34b31d9c290f7e6ee96db24b4fea89a1999a089f42",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-04 01:26:47",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/validation/runner.py",
+      "size_bytes": 4334,
+      "sha256": "5b000869f2b49ba87e1dc7b87a15493dd8afbe74120b1e7fd2b64e6cc909d351",
+      "lines_of_code": 100,
+      "last_modified": "2026-09-04 01:26:52",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/validation/__init__.py",
+      "size_bytes": 162,
+      "sha256": "d3c2e70720a9a3b0796c1b3560943ac2e225614e204bccabf4dd6c66861004f4",
+      "lines_of_code": 5,
+      "last_modified": "2026-09-04 01:26:55",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ARCHITECTURE_DELTA.md",
+      "size_bytes": 7637,
+      "sha256": "52c59c561e45c66d215338403e2fe3a16953f1445b66541b0a98449cb28072fb",
+      "lines_of_code": 88,
+      "last_modified": "2026-09-04 01:16:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ARTIFACT_ROUTING_MATRIX.md",
+      "size_bytes": 4478,
+      "sha256": "0163e65c835c28fa4aa8c6790b620b704185e9e97b091e5e1403038244e126ae",
+      "lines_of_code": 51,
+      "last_modified": "2026-09-04 08:40:12",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ATTACK_STATE_MACHINE.md",
+      "size_bytes": 1299,
+      "sha256": "a2ba233f4c16288c30d372d2a80328b70793807537e897a2490071f133b8464e",
+      "lines_of_code": 54,
+      "last_modified": "2026-09-04 01:28:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CANONICAL_ENGINE_RECONCILIATION.md",
+      "size_bytes": 17443,
+      "sha256": "72c4396ef920851d80bc7b99149a586a62933f28459381d833564c2c9084a19d",
+      "lines_of_code": 223,
+      "last_modified": "2026-09-04 22:30:40",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CAUSAL_SECURITY_MODEL.md",
+      "size_bytes": 2011,
+      "sha256": "ea14b069a3ec6c2a68a54ee08b4c9d84df8419bf8676937f0d25d3bbf024d01a",
+      "lines_of_code": 40,
+      "last_modified": "2026-09-04 01:28:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_ACQUISITION_ARCHITECTURE.md",
+      "size_bytes": 12004,
+      "sha256": "77582e37f6ef9b47581e48ea3b555810e68d19f6cfdca6ee77068c67e4c149c5",
+      "lines_of_code": 224,
+      "last_modified": "2026-09-04 19:48:39",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_CURRENT_STATE_TRUTH.md",
+      "size_bytes": 21171,
+      "sha256": "9ca6f01e103de5eb8ee174411d389f416f85cf97974bf427737df15df7f2dce0",
+      "lines_of_code": 185,
+      "last_modified": "2026-09-04 19:47:18",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_ENGINE_COMPATIBILITY_MATRIX.md",
+      "size_bytes": 11306,
+      "sha256": "4fc2b53ba1b77c1620593bf05e1e731dc54e878055c7f9a7235980ed1d963a72",
+      "lines_of_code": 88,
+      "last_modified": "2026-09-04 19:48:22",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_GAP_MATRIX.md",
+      "size_bytes": 19308,
+      "sha256": "963cc46af906c456729335d35e7512367800463fee15fe0f873bdd124469399d",
+      "lines_of_code": 158,
+      "last_modified": "2026-09-04 19:47:42",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_PROVENANCE_AND_LICENSE_MODEL.md",
+      "size_bytes": 3733,
+      "sha256": "54021d5f88e7f6ba96f7b337184089b150484170bf004c362840b684862150cf",
+      "lines_of_code": 82,
+      "last_modified": "2026-09-04 21:51:00",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_SOURCE_LICENSE_MATRIX.md",
+      "size_bytes": 11485,
+      "sha256": "c9f2f402debfb3ec87f5b41ffa4da7f35b5c33da8d87711e5ad8d80ff5ff28ff",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 19:48:00",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_TRANSLATION_ARCHITECTURE.md",
+      "size_bytes": 4655,
+      "sha256": "d1ee12a23a81320d362ed7faff58a75a1880cc09fc118128b1af03e6495ba46c",
+      "lines_of_code": 90,
+      "last_modified": "2026-09-04 21:50:53",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_TRANSLATION_SPECIFICATION.md",
+      "size_bytes": 21372,
+      "sha256": "a82960dd3f0eae74b967b495675384f3265c72c6f11e94baf42bc543eeb4a9f4",
+      "lines_of_code": 290,
+      "last_modified": "2026-09-04 19:49:05",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CORRELATION_CONTENT_ARCHITECTURE.md",
+      "size_bytes": 5144,
+      "sha256": "36390c8d6558a6155a97447b6613a607580ed9430e4e1df95ac29e16cd04c9a8",
+      "lines_of_code": 71,
+      "last_modified": "2026-09-04 07:45:34",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/COUNTERFACTUAL_MODEL.md",
+      "size_bytes": 2805,
+      "sha256": "85127c34ae1218150fe348e9b729cc2b5e208a004fd8d14eed48a73c69dc81d2",
+      "lines_of_code": 40,
+      "last_modified": "2026-09-04 01:28:43",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_BROWSER_E2E_PROOF.md",
+      "size_bytes": 10672,
+      "sha256": "f25c49c45adef1696148d1e3bfe91ab2c4773ea2c0333198831ae85ecf883aab",
+      "lines_of_code": 210,
+      "last_modified": "2026-09-04 19:41:54",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_COVERAGE_MATRIX.md",
+      "size_bytes": 10490,
+      "sha256": "eed3e0012e9ba19c04c84a0d0f42444e04c57ad624903e77dccefc764c4977de",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-04 08:12:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_FINAL_TRUTH_MATRIX.md",
+      "size_bytes": 19166,
+      "sha256": "84dfddf3a4b5500e2ee0ebcc42b1803836d97be05820a8f34ba41dc97dc21864",
+      "lines_of_code": 289,
+      "last_modified": "2026-09-04 19:42:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_RUNTIME_UI_VERIFICATION.md",
+      "size_bytes": 21027,
+      "sha256": "5b8ace13a7d0ccbf426a591019d139401c874189d7065ffbdf4d4aeb14796f69",
+      "lines_of_code": 369,
+      "last_modified": "2026-09-04 19:42:36",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_TRUTH_AUDIT.md",
+      "size_bytes": 11635,
+      "sha256": "0621ebd60e337876fba24ed72cd15ca06a467b8e22cf06f9ce07832cb9ef5b3d",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 08:11:55",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_VALIDATION_REPORT.md",
+      "size_bytes": 5338,
+      "sha256": "c0e3046bb7e540878c5c3e2e4c404cba9970569513dd889edb3fc671d13c7a78",
+      "lines_of_code": 59,
+      "last_modified": "2026-09-04 08:40:38",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_VISIBILITY_IMPLEMENTATION.md",
+      "size_bytes": 8952,
+      "sha256": "be176a48bdfdc7404a73e5dab5d074489cec439fb2ef26e9631df11c281c9cb3",
+      "lines_of_code": 155,
+      "last_modified": "2026-09-04 08:12:07",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODE_EVIDENCE_SCHEMA.md",
+      "size_bytes": 4944,
+      "sha256": "c92e8759c41cb3f6909336c7d16b95e7182d640affd4365bfd5460ba07f132b0",
+      "lines_of_code": 138,
+      "last_modified": "2026-09-04 08:40:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DEOBFUSCATION_RECURSION_MODEL.md",
+      "size_bytes": 3754,
+      "sha256": "00bbf4989c8f02bca72ab70de2b0bb19f5448928c20a7912fffa5efce63ccf99",
+      "lines_of_code": 74,
+      "last_modified": "2026-09-04 08:40:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DETECTION_CORRELATION_RESPONSE_FLOW.md",
+      "size_bytes": 4612,
+      "sha256": "f445436d5a1fd4b70503aeca33cd52af737b3182300bde717856f7e3247195d2",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 21:51:42",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DETECTION_COVERAGE_MATRIX.md",
+      "size_bytes": 6889,
+      "sha256": "58c8da6c9992ef5b0787ac9a53afd9316a4ad92434139c357de00a7dc4a794be",
+      "lines_of_code": 77,
+      "last_modified": "2026-09-04 07:45:24",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DETECTION_DEDUPLICATION_MODEL.md",
+      "size_bytes": 4445,
+      "sha256": "e28538b8d4ee12b1d1d4873335e0bf34c96eb7e19bb621084bea9b26b3816b7a",
+      "lines_of_code": 74,
+      "last_modified": "2026-09-04 21:51:23",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DETECTION_ENGINE_BINDING_GAP.md",
+      "size_bytes": 6082,
+      "sha256": "bae01cd8dbf76992c037c79e6a21e93a7fc018e5b690e3b1ce3c0f7f4a6929e9",
+      "lines_of_code": 100,
+      "last_modified": "2026-09-04 07:45:12",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DETECTION_QUALITY_GATE.md",
+      "size_bytes": 4458,
+      "sha256": "9ba3d6a6107dc8ff39d3987d69da154fc3126a715236cc7a2ff3bc09c6dd967c",
+      "lines_of_code": 82,
+      "last_modified": "2026-09-04 21:51:16",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DETECTION_TO_SECURITY_STATE_FLOW.md",
+      "size_bytes": 3787,
+      "sha256": "de0bbb3d27f9df270db9eb2a106e2957fab09f9582173cba89fadc4127c54f8f",
+      "lines_of_code": 88,
+      "last_modified": "2026-09-04 21:51:31",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENGINE_BOUNDARIES.md",
+      "size_bytes": 8457,
+      "sha256": "1997154d7696c931a6b3115882dd5c0e61622c83d8e4e381ad8fc6ebed4fac08",
+      "lines_of_code": 179,
+      "last_modified": "2026-09-04 01:16:30",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_ACQUISITION_ARCHITECTURE.md",
+      "size_bytes": 8671,
+      "sha256": "e3d67e5e2b62dbb596fd2598a1003dee1bccad413a75bb9d412e081ca97d735e",
+      "lines_of_code": 140,
+      "last_modified": "2026-09-04 21:50:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_EXPANSION_REPORT.md",
+      "size_bytes": 13761,
+      "sha256": "3ce431ebeb173cf3596a3d6354bab11a21e18eb600590c8b8d685b6763f842bf",
+      "lines_of_code": 204,
+      "last_modified": "2026-09-04 22:31:00",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_TRUTH_AUDIT.md",
+      "size_bytes": 34058,
+      "sha256": "30d46315734cd2afd5c805d1b6c25b7c8e833947d32a50f0e8c149a7efd489af",
+      "lines_of_code": 453,
+      "last_modified": "2026-09-04 23:37:56",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_COVERAGE_TAXONOMY_AUDIT.md",
+      "size_bytes": 19590,
+      "sha256": "ea8ea166fbe1ba0618babc096e624f488a128263a99e2967f9204d2a9c5b4831",
+      "lines_of_code": 205,
+      "last_modified": "2026-09-04 19:49:32",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_DETECTION_CONTENT_FLOW.md",
+      "size_bytes": 3986,
+      "sha256": "885716eb21245336d61192a58fe592874dbe33d53aca8cafd47c867514c265eb",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-04 21:50:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_DETECTION_COVERAGE_MATRIX.md",
+      "size_bytes": 5934,
+      "sha256": "674ca0c0e86688276740b0479af4311c274d41ce058779f4b90b0cd6ccd3ab7f",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 21:50:39",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/IMPACT_MODEL.md",
+      "size_bytes": 1201,
+      "sha256": "af214b742db90800517d7ac4349ca68945f5e25f21f06329f942a47cedc4e890",
+      "lines_of_code": 24,
+      "last_modified": "2026-09-04 01:28:46",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/IMPLEMENTATION_PLAN.md",
+      "size_bytes": 6765,
+      "sha256": "cd26296eacc015c481a09d7845ec78bb91126c62726d3e068968ca1b9dde8d95",
+      "lines_of_code": 136,
+      "last_modified": "2026-09-04 01:16:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INDEPENDENT_VERIFICATION_REPORT.md",
+      "size_bytes": 8455,
+      "sha256": "a364e88ca1f7927596f64fea0c3c09882398437ab1fbb211f137806c25163ce1",
+      "lines_of_code": 86,
+      "last_modified": "2026-09-04 02:00:38",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INDUSTRY_CONTENT_SOURCE_MATRIX.md",
+      "size_bytes": 3872,
+      "sha256": "19d733caf34f2c8301805544a884d33bc2aa7f6537af8a45ddd2da37bdae6b99",
+      "lines_of_code": 65,
+      "last_modified": "2026-09-04 21:51:52",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INDUSTRY_DETECTION_AND_RESPONSE_PARITY_MATRIX.md",
+      "size_bytes": 5717,
+      "sha256": "41adcda4924b7d6897a3909af85bd3170f5dcc4e4de39d1dbf76eb34e60d94b2",
+      "lines_of_code": 60,
+      "last_modified": "2026-09-04 07:46:05",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INDUSTRY_GAP_AND_INNOVATION_ANALYSIS.md",
+      "size_bytes": 20559,
+      "sha256": "c8a59f78b5f725dc57368cfeb14dd99ae325630e441c14c2f61a4518f83bbdc2",
+      "lines_of_code": 230,
+      "last_modified": "2026-09-04 06:52:38",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INTEGRATION_CONTRACTS.md",
+      "size_bytes": 6862,
+      "sha256": "84ffe5757468667330500620167743d78a1722470285eab852c2824456c8716a",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:16:40",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INTERVENTION_MODEL.md",
+      "size_bytes": 1185,
+      "sha256": "11f17142bbc4ba8909ab1b7a641a8bef94459f0350b91df04f3e125cb727312b",
+      "lines_of_code": 31,
+      "last_modified": "2026-09-04 01:28:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/KNOWN_LIMITATIONS.md",
+      "size_bytes": 3005,
+      "sha256": "12fde44694fde4f7bb998eb94465999bc10355a0fa8422adaf0dd55bfb3cdaa2",
+      "lines_of_code": 41,
+      "last_modified": "2026-09-04 01:29:28",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_ATTACK_CHAIN_UX_MATRIX.md",
+      "size_bytes": 14242,
+      "sha256": "71ac58606214a21184b97ae56f9fdac1ac3ed40966bb9d4238c9421b7dc612d2",
+      "lines_of_code": 146,
+      "last_modified": "2026-09-05 09:45:54",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_EXHAUSTIVE_UIUX_PARITY_MATRIX.md",
+      "size_bytes": 15007,
+      "sha256": "673728abe5ea1a1789e9d99f41e3f4555fee892050f9db8f0d569762b27d11d7",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-05 09:45:12",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_INDUSTRY_BENCHMARK.md",
+      "size_bytes": 22729,
+      "sha256": "58437909953f9a112fb15145c8ef7b51297a7922520d4b3d87e0c586ddcecdbc",
+      "lines_of_code": 278,
+      "last_modified": "2026-09-05 00:22:07",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_TARGET_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md",
+      "size_bytes": 37535,
+      "sha256": "6a5d5e1eede259730394e33de83bdca1d5add9bc2fda35e61e03745667786de1",
+      "lines_of_code": 474,
+      "last_modified": "2026-09-05 00:23:39",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_TRUTH_AUDIT.md",
+      "size_bytes": 39647,
+      "sha256": "60e7d1186bba61558721d2b87cd159929b4a4a5e1906ec33c7cedf2b0fdfd84d",
+      "lines_of_code": 482,
+      "last_modified": "2026-09-05 00:20:15",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXRAY_SECURITY_STATE_ARCHITECTURE.md",
+      "size_bytes": 18313,
+      "sha256": "1e4fca06beb5f85b165bd50d8a9d8d1a134abe57a6bef4fa6de2d45cb8e767d6",
+      "lines_of_code": 206,
+      "last_modified": "2026-09-04 01:16:13",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXRAY_XDR_PRODUCT_UI_AUDIT.md",
+      "size_bytes": 21322,
+      "sha256": "508b8d10e25517735e6000e94452e3fada8a102c1edfee9e92b5e9b5980a6602",
+      "lines_of_code": 259,
+      "last_modified": "2026-09-04 23:59:59",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXRAY_XDR_SECURITY_STATE_ARCHITECTURE_DIAGRAMS.md",
+      "size_bytes": 18706,
+      "sha256": "7edf16bdf0b79c4a1e963f8a84d6cfe957b655447327fa68a29830548fd48f69",
+      "lines_of_code": 352,
+      "last_modified": "2026-09-04 07:32:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PERFORMANCE_REPORT.md",
+      "size_bytes": 2186,
+      "sha256": "3cda03b8fce7e4463649c5a6a8f165c8743993708e25c8f5c300eefd232171cd",
+      "lines_of_code": 35,
+      "last_modified": "2026-09-04 01:29:23",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2B_VERIFICATION.md",
+      "size_bytes": 15950,
+      "sha256": "2699927e8f929ce8057decf972113cf3ec6611b644c25960c0f69d09a4ad1e28",
+      "lines_of_code": 211,
+      "last_modified": "2026-09-04 02:08:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2C_REAL_REPLAY_VERIFICATION.md",
+      "size_bytes": 11722,
+      "sha256": "a39a00134b748967bf8eaedca9c14ba06735c1725632eba4fcd16dd7881cb8e0",
+      "lines_of_code": 197,
+      "last_modified": "2026-09-04 02:15:11",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_1_ADVERSARIAL_VALIDATION.md",
+      "size_bytes": 7238,
+      "sha256": "55bff67d50733d17d23eb7b76fcea3595600742c8d808e8be5d94f3a4fe5bc37",
+      "lines_of_code": 103,
+      "last_modified": "2026-09-04 21:00:06",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_1_REGRESSION_REPORT.md",
+      "size_bytes": 4869,
+      "sha256": "d01e4c4f3e879112567aed2de4acdd78f5e766fd51534866bcbb1f36682e18cd",
+      "lines_of_code": 71,
+      "last_modified": "2026-09-04 21:00:31",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_1_SCALE_MICROBENCHMARK.md",
+      "size_bytes": 4571,
+      "sha256": "7c9ddb718536581e4c9367108d7767d7b42d0e3d925654653fcea8992fb8007b",
+      "lines_of_code": 66,
+      "last_modified": "2026-09-04 21:00:55",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_1_TENANT_ISOLATION_REPORT.md",
+      "size_bytes": 4829,
+      "sha256": "caa7f86144302650d122631c0601b0a2c3678c34b9ffd5482873563c14aef18f",
+      "lines_of_code": 69,
+      "last_modified": "2026-09-04 21:00:41",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_1_TRANSLATION_FIDELITY_MATRIX.md",
+      "size_bytes": 8638,
+      "sha256": "b6724bc6d959f6a08ab8c4933fa00b74b759921a9123051f9233ccb74c8e9dce",
+      "lines_of_code": 82,
+      "last_modified": "2026-09-04 21:00:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_CONTENT_RUNTIME_VALIDATION.md",
+      "size_bytes": 10004,
+      "sha256": "9cfdb837e55921989e785b8038d5d18aaa3616983447fa31f8cf5fe3e028f676",
+      "lines_of_code": 122,
+      "last_modified": "2026-09-04 20:02:37",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_DEDUPLICATION_VALIDATION.md",
+      "size_bytes": 4847,
+      "sha256": "15c6d12b98bf200f96884d3045d6a79023947eb0ed2aca4215330931f79a6781",
+      "lines_of_code": 78,
+      "last_modified": "2026-09-04 20:02:25",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_IMPLEMENTATION_REPORT.md",
+      "size_bytes": 9915,
+      "sha256": "481e5a0fdf4385e3af2d56e39db0832306730b7e4bae7e81d894316fe8c7d5bf",
+      "lines_of_code": 95,
+      "last_modified": "2026-09-04 20:02:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_TELEMETRY_NORMALIZATION_REPORT.md",
+      "size_bytes": 8201,
+      "sha256": "3d6f9fa6e149d88f3eb9ccd4c1d4d3eb17a78531d6496a05cde6f1a64da1f724",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-04 20:02:05",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE2_TRANSLATION_COMPATIBILITY_REPORT.md",
+      "size_bytes": 6451,
+      "sha256": "81cd433bfc5147df00d91def915551d679b00f9524c82757e859bf815e743034",
+      "lines_of_code": 108,
+      "last_modified": "2026-09-04 20:02:15",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE3B_DISTRIBUTED_VERIFICATION.md",
+      "size_bytes": 9244,
+      "sha256": "1fe238b4b1a635668dc2bf0979d42a4386c6f4fcc4e06b59149295033cad674e",
+      "lines_of_code": 137,
+      "last_modified": "2026-09-04 02:24:12",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE3_PERSISTENCE_VERIFICATION.md",
+      "size_bytes": 9743,
+      "sha256": "8774745972f6d97bcedd6d9bd76fa8a78a4d85d45bf8f8e7bb02a39f07678e29",
+      "lines_of_code": 204,
+      "last_modified": "2026-09-04 02:18:35",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4B_CONTRACT_REVIEW.md",
+      "size_bytes": 18457,
+      "sha256": "369da525a19b06fd7a9981d18aa08c3869d8939d15698434220098d591e5a7a5",
+      "lines_of_code": 289,
+      "last_modified": "2026-09-04 02:27:47",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4C1_ADVERSARIAL_STREAMING_AUDIT.md",
+      "size_bytes": 14268,
+      "sha256": "3850a501066095b9c7bd53f39305500a9fabccf06f3e86d88038283087e13ba2",
+      "lines_of_code": 151,
+      "last_modified": "2026-09-04 05:37:36",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4C_REPLAY_VERIFICATION.md",
+      "size_bytes": 6950,
+      "sha256": "7dae21ef6f2a48c43e7feb7e50e332797b38854c3ec2c1e15d3c3866fc6cb6c3",
+      "lines_of_code": 84,
+      "last_modified": "2026-09-04 05:24:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4C_SHADOW_MODE.md",
+      "size_bytes": 6005,
+      "sha256": "676e1a4d54d3838da5134856ab0cf02663e943b989c6f026fe15eb795ca8e039",
+      "lines_of_code": 97,
+      "last_modified": "2026-09-04 05:24:37",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4C_STREAMING_IMPLEMENTATION.md",
+      "size_bytes": 14326,
+      "sha256": "0180cca1729c7f8fd99414d05db7c787c1356d8bce2247f5a79d89ecd6936005",
+      "lines_of_code": 198,
+      "last_modified": "2026-09-04 05:24:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4_STREAMING_ARCHITECTURE.md",
+      "size_bytes": 18153,
+      "sha256": "b69180b35fc6f1f6c0f310e855b3881ad43759d81c6226b405e3fdfcc39c24f5",
+      "lines_of_code": 228,
+      "last_modified": "2026-09-04 02:25:38",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4_STREAMING_CONTRACT.md",
+      "size_bytes": 10494,
+      "sha256": "4c20918d593f275faeab4fd24140d227bdc5f7d9a09710d89e782678c621d4bf",
+      "lines_of_code": 315,
+      "last_modified": "2026-09-04 02:25:53",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4_STREAMING_THREAT_MODEL.md",
+      "size_bytes": 11186,
+      "sha256": "a5020d913c4e8e39809cbf7f73ba3b3ba85e2facc2734c5aca5be72549d4d8f6",
+      "lines_of_code": 188,
+      "last_modified": "2026-09-04 02:26:06",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE5_SHADOW_INTEGRATION_REPORT.md",
+      "size_bytes": 18370,
+      "sha256": "a43531a637f8700ab8274ab24c4fd591e9b0ba9646c97cb4825f067a6510aacd",
+      "lines_of_code": 230,
+      "last_modified": "2026-09-04 06:11:00",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE6B_HANDOFF.md",
+      "size_bytes": 7165,
+      "sha256": "8cb36033ceb0401667f6274f997febb4ea7f7f20ec87243601e24f0c384dc874",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-04 06:25:13",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE6B_IMPLEMENTATION_REPORT.md",
+      "size_bytes": 11102,
+      "sha256": "edd1ccbf7d54fceac9f16b736c8ec312e065694fec6bbbc2e782efae15eaf64b",
+      "lines_of_code": 144,
+      "last_modified": "2026-09-04 06:24:53",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE6B_VALIDATION_REPORT.md",
+      "size_bytes": 8387,
+      "sha256": "e1c7072f1dcfb7d4388dc6eaa92f4fb3f279c3f290da27acc772bd4e958f3662",
+      "lines_of_code": 112,
+      "last_modified": "2026-09-04 06:25:03",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE7_HANDOFF.md",
+      "size_bytes": 6200,
+      "sha256": "56ac08a86557ac9e101ac9bc8d66061420ab1eaca2b6173248627b6f042a2d7a",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-04 06:46:17",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE7_IMPLEMENTATION_REPORT.md",
+      "size_bytes": 10115,
+      "sha256": "39dbf3b44e284d56e7f7dce081d0577cdad5c2efa36b2161ad824dbd88b71d93",
+      "lines_of_code": 150,
+      "last_modified": "2026-09-04 06:45:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE7_VALIDATION_REPORT.md",
+      "size_bytes": 7589,
+      "sha256": "2c32941b2ea84100cc114e70f76fd119fe05d15aa35b84b64deb64cc000d2e48",
+      "lines_of_code": 92,
+      "last_modified": "2026-09-04 06:46:10",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_ARCHITECTURE.md",
+      "size_bytes": 43010,
+      "sha256": "be56035c3ab47717c8d61e5c1979c93720ede2384dd21265f8b03799867503ed",
+      "lines_of_code": 819,
+      "last_modified": "2026-09-04 07:20:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_ARCHITECTURE_DECISIONS.md",
+      "size_bytes": 17165,
+      "sha256": "32b4178d83a25416037aaaa549f62f51c1cc67b25c87bdb5c9709d709a4f4bb3",
+      "lines_of_code": 261,
+      "last_modified": "2026-09-04 07:21:01",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_COMPONENT_BOUNDARIES.md",
+      "size_bytes": 12701,
+      "sha256": "b54cd31da6e96df354c98e5c31a56e066fc36d60853b94435b0eea1255de6e50",
+      "lines_of_code": 210,
+      "last_modified": "2026-09-04 07:14:16",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_DATA_FLOW.md",
+      "size_bytes": 16961,
+      "sha256": "81349ebbe2ac6803874d28eee445bc6c24b68a0fd7aa44c6c5e9ea0006242286",
+      "lines_of_code": 445,
+      "last_modified": "2026-09-04 07:21:14",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_HANDOFF.md",
+      "size_bytes": 6865,
+      "sha256": "30915d3d30035a8b12916d1ef444b48b5a34ff9ba758d005b9addb224afd1156",
+      "lines_of_code": 85,
+      "last_modified": "2026-09-04 07:11:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_IMPLEMENTATION_REPORT.md",
+      "size_bytes": 9211,
+      "sha256": "1c3737036a1c8f4fc48da3af3d994d5da3489c6e87ae26113d2c7f97e1cd8f98",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 07:11:05",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_VALIDATION_REPORT.md",
+      "size_bytes": 9148,
+      "sha256": "641a889eba06a6bac59c5f0d8f3e0c80094286bfa0f3e8c5e87df52ec26f2cf7",
+      "lines_of_code": 99,
+      "last_modified": "2026-09-04 07:21:23",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PLAYBOOK_ORCHESTRATION_ARCHITECTURE.md",
+      "size_bytes": 7606,
+      "sha256": "f77ad492e15df95c0d587770dbb491aea09d2a645bc7d4f5f0b3d41eefe3baf2",
+      "lines_of_code": 91,
+      "last_modified": "2026-09-04 07:45:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/REACHABILITY_MODEL.md",
+      "size_bytes": 1391,
+      "sha256": "4f29d165707fe65d6c9e8a58fc7e7c067bf64063b550322d8e0890e6cf00cc3c",
+      "lines_of_code": 28,
+      "last_modified": "2026-09-04 01:28:39",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/REPLAY_SPECIFICATION.md",
+      "size_bytes": 1750,
+      "sha256": "9e2ce7472da1eedfb61d22e8c7ec2edc50c46ea0f57bb4795df22b291e271280",
+      "lines_of_code": 33,
+      "last_modified": "2026-09-04 01:29:14",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/RESPONSE_SAFETY_MODEL.md",
+      "size_bytes": 1446,
+      "sha256": "bf1a9eff3c8d91960d43a591781769b56439aa291db5496c7960ddb4ea66b178",
+      "lines_of_code": 30,
+      "last_modified": "2026-09-04 01:28:54",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/RULES_PLAYBOOKS_TRUTH_DISCOVERY.md",
+      "size_bytes": 23311,
+      "sha256": "a4995926636d3999a1f999aaf0cae763e88ea65e6c26633cbe596b25aba9249e",
+      "lines_of_code": 214,
+      "last_modified": "2026-09-04 07:32:59",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/RULE_CORRELATION_PLAYBOOK_DATA_FLOW.md",
+      "size_bytes": 2897,
+      "sha256": "4f308b90991bf62d51dbb4d4161395b38ad4a53b389927b8d85163a177437368",
+      "lines_of_code": 62,
+      "last_modified": "2026-09-04 07:45:55",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/RULE_PLAYBOOK_VALIDATION_REPORT.md",
+      "size_bytes": 11392,
+      "sha256": "a1ecca730321900184e0fff57ca6ca62b570929219264f03bafa81b37077db7c",
+      "lines_of_code": 136,
+      "last_modified": "2026-09-04 07:46:17",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/SECURITY_STATE_LEDGER.md",
+      "size_bytes": 1502,
+      "sha256": "cf3f52c41e69e03e0e0431cbd42c7ea5d71bedc2bd5688501e1bfd2a1206f4d5",
+      "lines_of_code": 36,
+      "last_modified": "2026-09-04 01:28:58",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/SECURITY_STATE_MODEL.md",
+      "size_bytes": 4401,
+      "sha256": "34f1c2176cdbac9045aeb17e84823a2ddabece08363a4dc384cf3fc586ea0205",
+      "lines_of_code": 100,
+      "last_modified": "2026-09-04 01:28:16",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/SHELLCODE_ANALYSIS_ARCHITECTURE.md",
+      "size_bytes": 6754,
+      "sha256": "dae7bc63fd51d5e69c314249971e9eca43196c899785881ed39aac10abb21f1c",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 08:39:41",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/SHELLCODE_AND_UNIVERSAL_CONTENT_AUDIT.md",
+      "size_bytes": 29987,
+      "sha256": "3eb043d96fba002a55d608d860dcc5433ec4d2dbdc2ad72fdb59475fc6ea0ad6",
+      "lines_of_code": 403,
+      "last_modified": "2026-09-04 08:31:04",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/SHELLCODE_DEOBFUSCATION_TRUTH_MATRIX.md",
+      "size_bytes": 5593,
+      "sha256": "1432c73f3134b87b2a825724818a88e51c6c4dcb0f4cd37ec62893ed787ecc0e",
+      "lines_of_code": 53,
+      "last_modified": "2026-09-04 08:39:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/THREAT_MODEL.md",
+      "size_bytes": 2656,
+      "sha256": "8cb5924d77500408cace7aba0da518469bec034884d10a86b723b5f1d8fa9c5d",
+      "lines_of_code": 44,
+      "last_modified": "2026-09-04 01:29:19",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/TRUSTED_CAPABILITY_ABUSE.md",
+      "size_bytes": 2201,
+      "sha256": "52a8af2c8e784280be379f25c9e7c6ab952b4b77c1089305666c970e35be0ac0",
+      "lines_of_code": 43,
+      "last_modified": "2026-09-04 01:28:26",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UI_INDEPENDENT_AUDIT.md",
+      "size_bytes": 11041,
+      "sha256": "6f90b76d1fbb810f85bceabd70aadc40f7afcc1d9e33197932ddc66c5be6554c",
+      "lines_of_code": 148,
+      "last_modified": "2026-09-04 02:05:24",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_CONTENT_ANALYSIS_ARCHITECTURE.md",
+      "size_bytes": 7809,
+      "sha256": "6ee15045f8a06469b1959b826f2a43f10013f50363aa5b12253cf65e8af75da8",
+      "lines_of_code": 120,
+      "last_modified": "2026-09-04 08:39:30",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_CONTENT_INTELLIGENCE_ARCHITECTURE.md",
+      "size_bytes": 6382,
+      "sha256": "9ad39795c1e9aa139d9f684b019808731df59bb9b999d3b41d495d6e8de9d368",
+      "lines_of_code": 102,
+      "last_modified": "2026-09-04 18:30:56",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_CONTENT_INTELLIGENCE_DATA_FLOW.md",
+      "size_bytes": 4653,
+      "sha256": "9e68df6a0ab4b158fc21251d9a8af41aa70a3e6dcc2f9dbbeafe09249e14a921",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 18:31:07",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_CONTENT_INTELLIGENCE_VALIDATION_REPORT.md",
+      "size_bytes": 6447,
+      "sha256": "12a47498ed6d52bfb61e4cb659254f4a31284776705ebb5275f1ea11ef2ce2f9",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 18:31:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_DECODER_COVERAGE_MATRIX.md",
+      "size_bytes": 11018,
+      "sha256": "5782c00a74b9b384c03aae7d42ffeb3e398368c7e8ca7817b5c29c32b20fdf98",
+      "lines_of_code": 109,
+      "last_modified": "2026-09-04 08:40:03",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/VALIDATION_STRATEGY.md",
+      "size_bytes": 2268,
+      "sha256": "f6f671cc71316f4566a7fedea29ed43cb1a86ff9f0666c474dc85b36015ce6f6",
+      "lines_of_code": 30,
+      "last_modified": "2026-09-04 01:29:02",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/YARA_CONTENT_ARCHITECTURE.md",
+      "size_bytes": 3920,
+      "sha256": "ffe22f21878ef51f7c3eab7a83555cbf4a198b52ae79213f8a4b2d919b523f21",
+      "lines_of_code": 106,
+      "last_modified": "2026-09-04 21:51:08",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    }
+  ]
+}

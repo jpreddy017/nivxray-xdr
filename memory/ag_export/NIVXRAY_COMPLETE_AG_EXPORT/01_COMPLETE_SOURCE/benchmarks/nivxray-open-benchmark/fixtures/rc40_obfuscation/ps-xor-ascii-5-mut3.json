@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-ascii-5-mut3",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('z'); $b=[byte[]](10,21,13,31,8,9,18,31,22,22,90,87,13,90,18,19,30,30,31,20); $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])}); IEX $d\n# comment-3",
+  "expected_keywords": [
+    "powershell"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

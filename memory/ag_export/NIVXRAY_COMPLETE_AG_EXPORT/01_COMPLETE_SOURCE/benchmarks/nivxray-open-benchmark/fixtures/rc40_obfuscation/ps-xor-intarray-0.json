@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-intarray-0",
+  "category": "ps-xor-inline",
+  "command_line": "$key=(65,75,69,89); $b=[byte[]](34,38,33,121,110,40,101,46,41,36,36,52,40); $out = for($i=0;$i -lt $b.Length;$i++){ [char]($b[$i] -bxor $key[$i%$key.Length]) }",
+  "expected_keywords": [
+    "whoami"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

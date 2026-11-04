@@ -84,10 +84,42 @@ _PRODUCT_CATEGORY_TO_EVIDENCE: dict[tuple[str, str], list[str]] = {
         ["file.artifact", "canonical.evidence"],
     ("windows", "network_connection"):
         ["network.artifact", "canonical.evidence"],
+    ("windows", "security"):
+        ["security.event", "canonical.evidence", "auth.event"],
+    ("windows", "registry"):
+        ["file.artifact", "canonical.evidence"],
+    ("windows", "service"):
+        ["process.artifact", "canonical.evidence"],
+    ("windows", "scheduled_task"):
+        ["process.artifact", "canonical.evidence"],
+    ("active_directory", "kerberos"):
+        ["identity.artifact", "canonical.evidence", "auth.event"],
+    ("active_directory", "ad_cs"):
+        ["identity.artifact", "canonical.evidence"],
+    ("active_directory", "directory_service"):
+        ["identity.artifact", "canonical.evidence"],
+    ("cloud", "iam"):
+        ["cloud.artifact", "identity.artifact", "canonical.evidence"],
+    ("cloud", "audit"):
+        ["cloud.artifact", "canonical.evidence"],
+    ("cloud", "storage"):
+        ["cloud.artifact", "canonical.evidence"],
     ("linux", "process_creation"):
         ["process.artifact", "canonical.evidence", "process_event"],
+    ("linux", "auditd"):
+        ["process.artifact", "canonical.evidence", "security.event"],
+    ("linux", "network_connection"):
+        ["network.artifact", "canonical.evidence"],
     ("macos", "process_creation"):
         ["process.artifact", "canonical.evidence", "process_event"],
+    ("container", "k8s_audit"):
+        ["cloud.artifact", "canonical.evidence"],
+    ("container", "runtime"):
+        ["process.artifact", "canonical.evidence"],
+    ("vmware", "esxi"):
+        ["process.artifact", "canonical.evidence", "security.event"],
+    ("email", "m365"):
+        ["cloud.artifact", "canonical.evidence"],
 }
 _DEFAULT_EVIDENCE_TYPES = ["canonical.evidence"]
 
@@ -97,7 +129,7 @@ def _rule_surface(rule_like: Any) -> tuple[str, str, list[str], str]:
     Return (product, category, required_fields, rule_id) from either
     a SigmaRule (pysigma) or a dict surface fallback.
     """
-    if _PYSIGMA_AVAILABLE and isinstance(rule_like, SigmaRule):
+    if (_PYSIGMA_AVAILABLE and isinstance(rule_like, SigmaRule)) or hasattr(rule_like, "logsource"):
         ls = getattr(rule_like, "logsource", None)
         product  = (getattr(ls, "product",  None) or "").lower() if ls else ""
         category = (getattr(ls, "category", None) or "").lower() if ls else ""

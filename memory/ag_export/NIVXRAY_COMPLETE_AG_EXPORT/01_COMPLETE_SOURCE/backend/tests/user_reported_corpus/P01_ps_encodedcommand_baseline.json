@@ -1,0 +1,11 @@
+{
+  "id": "P01",
+  "label": "PS -EncodedCommand baseline (ARB screenshot)",
+  "reported_at": "2026-08-05",
+  "input": "powershell.exe -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACIAVABoAGkAcwAgAGMAbwBtAGUAcwAgAGYAcgBvAG0AIABhAG4AIABlAG4AYwBvAGQAZQBkACAAUABTACAAYwBvAG0AbQBhAG4AZAAhACIA",
+  "expected_terminal_state": "recovered",
+  "expected_decoded_output": "Write-Host \"This comes from an encoded PS command!\"",
+  "min_confidence": 50,
+  "expected_chain_contains": ["decoder-powershell-encoded-command"],
+  "notes": "Original ARB report — sync/async parity."
+}

@@ -18,7 +18,7 @@ export function NxEmpty({
 }) {
   return (
     <div
-      className={`nx-empty ${compact ? "nx-empty--compact" : ""} ${className}`}
+      className={`nx-empty nx-empty--noicon ${compact ? "nx-empty--compact" : ""} ${className}`}
       role="status"
       {...rest}
     >

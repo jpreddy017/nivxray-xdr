@@ -1,0 +1,1081 @@
+{
+  "category": "09_UBAE",
+  "title": "User & Behavioral Analytics Engine (UBAE) & Entity 360",
+  "description": "Behavioral baseline profiling, identity parsing, anomaly detection, and entity resolution.",
+  "file_count": 119,
+  "total_bytes": 896959,
+  "total_lines": 20424,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/BEHAVIOR_GRAPH_SCHEMA.md",
+      "size_bytes": 6934,
+      "sha256": "f4797cfaed37df146362ffce4763c9b5b8f55512afddedecf3c57a6d83cdfc3f",
+      "lines_of_code": 161,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/xdr/design/Entity.jsx",
+      "size_bytes": 1778,
+      "sha256": "df90d31fe37258e6c64d18bb5077dc7127e77ff4f581aa1881cf4eb37c7270fa",
+      "lines_of_code": 63,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/behavioral_correlation_corpus.py",
+      "size_bytes": 12883,
+      "sha256": "7aef74b54078f8369a9c623efd5ff274de91cb2b7279f3faac6830246feeadc7",
+      "lines_of_code": 215,
+      "last_modified": "2026-09-04 22:20:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/behavioral_translator.py",
+      "size_bytes": 4701,
+      "sha256": "54ea05011e190e23566ff0671fc283988dc7d554dbc1bbecb3913259b7fa240e",
+      "lines_of_code": 118,
+      "last_modified": "2026-09-04 21:25:52",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/engine/entity_classifier.py",
+      "size_bytes": 13953,
+      "sha256": "11801b1d1471113de78e0c1df51ae8920816a57a12dc4e77f9a2ac0f0089de15",
+      "lines_of_code": 352,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/engine/detectors/behavior_extractor.py",
+      "size_bytes": 13680,
+      "sha256": "620d618fe0d7b0120009d980d9a691e8ebc2bfd21e0400b7abf24ba52ae84e48",
+      "lines_of_code": 286,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/entity_resolution.py",
+      "size_bytes": 14019,
+      "sha256": "2d09275a61ae50cf74be968a64f683b4e39628c85f59ad514ef7d325211d3bc5",
+      "lines_of_code": 365,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/identity_parser.py",
+      "size_bytes": 6320,
+      "sha256": "7351649d569b5cefe187d6c54144d75230bb07b32809aa27c6d06dc9959704d5",
+      "lines_of_code": 201,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/routers/behavioral.py",
+      "size_bytes": 13085,
+      "sha256": "c0386e5ec5c96baabf6e30178c9ecb5faac5f4b7246db466e71033e8f1e5655a",
+      "lines_of_code": 329,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/routers/behavior_provenance.py",
+      "size_bytes": 10146,
+      "sha256": "bce33676de0f4063111ddafbe94674655de474af2cbbe31f9131ce50e99e6b8a",
+      "lines_of_code": 249,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/routers/behavior_registry.py",
+      "size_bytes": 1067,
+      "sha256": "a9b8a6e2c986e4fbc304329e17bf800f3ded378f671b025d6843e09da4df13f3",
+      "lines_of_code": 39,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/behavioral/evtx_reader.py",
+      "size_bytes": 6207,
+      "sha256": "e766431eff88a35980e3ba778a50c5d079ccb75b94683d4ea887701b754a001b",
+      "lines_of_code": 163,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/behavioral/sysmon_adapter.py",
+      "size_bytes": 23952,
+      "sha256": "85e0662cb4939a2bd566b28ea8f1b995799ba89e869af63acd6d97b72412587d",
+      "lines_of_code": 539,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/behavioral/__init__.py",
+      "size_bytes": 382,
+      "sha256": "fbe99999202fae25bbfe5ed4800f26527b85cfb5f6b2033ddf3d26c31eadfd08",
+      "lines_of_code": 8,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/die/behavior_explainer.py",
+      "size_bytes": 11961,
+      "sha256": "cc6f3e46ed001619a12f11fc138fce0e5cb76b24641fda924c6b252f9491770e",
+      "lines_of_code": 195,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/ida/behaviors.py",
+      "size_bytes": 24148,
+      "sha256": "5f887fea2f201cfd757c13cb243b237fc45e5ee0e418661c5481eae1240db7a3",
+      "lines_of_code": 512,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/ida/behavior_registry.py",
+      "size_bytes": 12964,
+      "sha256": "7b8540c6d40fcc75e8010e1585b49d543dfd666516d3c815ecc9eb4e149809ab",
+      "lines_of_code": 252,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/investigator/capabilities/network_identity_file.py",
+      "size_bytes": 20363,
+      "sha256": "b49dd676b1b2b87809c2c022260f959420205dd80d87317a74e5d59027a75012",
+      "lines_of_code": 467,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/knowledge/behavior_registry.py",
+      "size_bytes": 28504,
+      "sha256": "ab1335acd5ecc56ff90fd0b692f3b3b8923b22effd422e92ae266911ca392890",
+      "lines_of_code": 532,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/reasoning/behavior_extractor.py",
+      "size_bytes": 27007,
+      "sha256": "8a036b75360d32c9a69a048a72de3fcfa41063e2fe2c74a0ad5e4d30f82c0b1f",
+      "lines_of_code": 585,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/artifact.py",
+      "size_bytes": 2613,
+      "sha256": "f591e56da20af7e5d0e994546ec68a73ee7b38860b2b38b38f311ee1d33dd37c",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/behavior_extractor.py",
+      "size_bytes": 8489,
+      "sha256": "d1eeb481797caea9d342bc5dfa5a7a9edda646a2eaff9bcd2794094bf65e5990",
+      "lines_of_code": 201,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/capability.py",
+      "size_bytes": 4023,
+      "sha256": "03de3852b59f71036f5854b6557104b060f7503a49e20a7888521ccce30fac2a",
+      "lines_of_code": 91,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/capability_adapter.py",
+      "size_bytes": 11455,
+      "sha256": "5e088c0a451a5332b2506b252c2b080661ec4ef54f034e714e4e31ce0d8caecb",
+      "lines_of_code": 265,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/capability_profiles.py",
+      "size_bytes": 2177,
+      "sha256": "b325e64483dcefd73588644e0543543900dcc67fdc7304064a631bb83507da4d",
+      "lines_of_code": 66,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/contract.py",
+      "size_bytes": 14126,
+      "sha256": "7e53117d4d2508d1ae3e8326ae9d04d528c1dab54c8227e351dbb9e0d3d0dfde",
+      "lines_of_code": 291,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/discovery_report.py",
+      "size_bytes": 13542,
+      "sha256": "02971535789370fe0e8108c84f386d2d8634a4383575a459158847735e4ebc9d",
+      "lines_of_code": 301,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/evidence.py",
+      "size_bytes": 2357,
+      "sha256": "a4670fe2f992335feae29001b008b728c7db0d4c46c7ed6d693fcad44a8f4c87",
+      "lines_of_code": 60,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/ledger.py",
+      "size_bytes": 5740,
+      "sha256": "f257fb9db3a9243a93abee8ad0bebbc0d3dc9fd6070d3275a072db8c4ef8110f",
+      "lines_of_code": 136,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/legacy_ssot_adapter.py",
+      "size_bytes": 6084,
+      "sha256": "4e8e18362c20f06054bb8ea476979d15b3dde6fee2e8d02e6043a911200b6da1",
+      "lines_of_code": 137,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/lifecycle.py",
+      "size_bytes": 7649,
+      "sha256": "62c16206b6f414d8988607c28f51f91b66134fa6c20442c7e47d0d386c22bcec",
+      "lines_of_code": 197,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/migration_gate.py",
+      "size_bytes": 19989,
+      "sha256": "d30f916d675a31e669898b175c41d0d599743dc540caf6cb8bea54967ac380c5",
+      "lines_of_code": 420,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/orchestrator.py",
+      "size_bytes": 55513,
+      "sha256": "48908c5c228ee03d355d503370f82a73d42570df98f659d949d28506b19769ee",
+      "lines_of_code": 1035,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/planner.py",
+      "size_bytes": 4644,
+      "sha256": "f7f815417dc6e622f6b47acabc2ab6b02e905ac64f0fcc6620bfeb9eab5bffdc",
+      "lines_of_code": 118,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/planner_v2.py",
+      "size_bytes": 4806,
+      "sha256": "1f2023271031d08b58e2c9a9ae3d258b6d094bdf0e6db6442a03e4defa9f89d5",
+      "lines_of_code": 120,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/provenance.py",
+      "size_bytes": 13476,
+      "sha256": "719182eff6d2814c2551a3ab86f0d6d9d1602a13434ac1fe19eacb9e4095c66f",
+      "lines_of_code": 305,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/qa.py",
+      "size_bytes": 14031,
+      "sha256": "beae2d5af512041c6fa63aadf36dedc1f6df75d59cec46ce1b5a6edb7eabdb2a",
+      "lines_of_code": 305,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/recognizer.py",
+      "size_bytes": 1373,
+      "sha256": "982aa1772c20cf632d278be7c62f8f250f952dc27940234f0bf5a77538a86353",
+      "lines_of_code": 43,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/retirement_ledger.py",
+      "size_bytes": 3694,
+      "sha256": "6aefd163038c84ce18616d94c8ae04f760d83c297479ad2b5479592f32e2acfe",
+      "lines_of_code": 101,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/ssot_projector.py",
+      "size_bytes": 23208,
+      "sha256": "ee80f66ceda9a2c0d7a7d5d11bff3092f6a313f1e2568ad3a6dd749a7e8a668b",
+      "lines_of_code": 558,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/termination.py",
+      "size_bytes": 6283,
+      "sha256": "cf64482db45bc1bdd8f68e3abee9431cd0e2b1e4dfe03685a2421c2da67fed64",
+      "lines_of_code": 123,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/transformer_op_adapter.py",
+      "size_bytes": 10456,
+      "sha256": "8c04a29dcd29ff81439161d3bdc8a5d60771b280c1daebac579e1d8ed57c702b",
+      "lines_of_code": 256,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/__init__.py",
+      "size_bytes": 1755,
+      "sha256": "bd1cb2fc1ee47383f9da7dedd5a496d3e4666490d0790ba6a80435e8693de7d8",
+      "lines_of_code": 36,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/commandline.py",
+      "size_bytes": 2710,
+      "sha256": "59798bb9fed02f97ca44b48801c4a40851d88b574c48a22a22fdee59edfa1e7a",
+      "lines_of_code": 78,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/docx.py",
+      "size_bytes": 5256,
+      "sha256": "32c3243470931f00b60e898157a0f1903e192a447cf4247d8c26fcbbbb78045b",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/eml.py",
+      "size_bytes": 4852,
+      "sha256": "9156db31575a812c3d882140f8a668bc7af4156059d652d02fa9a9baeb29f91f",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/html.py",
+      "size_bytes": 2944,
+      "sha256": "ade5d84d4a4b54bfbc3d16149246889c7b8c81f20173d432f8cf7545bea8f168",
+      "lines_of_code": 73,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/json_adapter.py",
+      "size_bytes": 4454,
+      "sha256": "661e0af857e560eadc300868b1b55de417b15241765af4a663895bf1114d8dbc",
+      "lines_of_code": 106,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/pdf.py",
+      "size_bytes": 3182,
+      "sha256": "54bf3f7cc67b5f86c680c70af7e1a385bbe3a919756186347949405a895e00f1",
+      "lines_of_code": 82,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/plain_text.py",
+      "size_bytes": 1622,
+      "sha256": "9c0d31e773e2647ab82bb8ecf2dc128a664cd3462fea0462f4b0b2f1ff638bec",
+      "lines_of_code": 46,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/url.py",
+      "size_bytes": 2745,
+      "sha256": "7aa65c880c9f8be733860e9c82df1b4ee607f79256113077509ca25f492d8ec4",
+      "lines_of_code": 77,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/zip_archive.py",
+      "size_bytes": 2844,
+      "sha256": "9e47c3bba84d6fcec97ac702572fa2a6748e0c8547774dcc1d57a5a93c9b4f1a",
+      "lines_of_code": 72,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/_base.py",
+      "size_bytes": 5930,
+      "sha256": "c784d8cbaf1eb0a51eb1893f42e9157b9827fb5e68d46a99c843d15fc30ca577",
+      "lines_of_code": 144,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/_registry.py",
+      "size_bytes": 817,
+      "sha256": "5873fac322c8d148201425bac9b7e9611f6347d7a6dd87a7bac601857de15185",
+      "lines_of_code": 16,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/adapters/__init__.py",
+      "size_bytes": 1360,
+      "sha256": "8095612066cc6cea42a1f20fa72f6f18a5a91023c43c45431829a80d36792548",
+      "lines_of_code": 31,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/_shared.py",
+      "size_bytes": 2824,
+      "sha256": "ff1ec69cf84334e1cfcbbaeac92d722d2b3a3acfa88ecd4bcf425bfcc59503b1",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/__init__.py",
+      "size_bytes": 6682,
+      "sha256": "c356aae641e6b828861e2fd9e70c88dd9d33806f88e50b6cd4c86eded356549b",
+      "lines_of_code": 132,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/analyzer_magic_byte_retyper/__init__.py",
+      "size_bytes": 7287,
+      "sha256": "f8f85b8cc2ac8342164b25f0a36d4723241fe50e4836700bc2314c369a97b205",
+      "lines_of_code": 179,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/base64_bare/__init__.py",
+      "size_bytes": 5046,
+      "sha256": "a861e058709a47cd0319d38b66cd6ca5c1f831cc0956c467aef7bbac4d450aa8",
+      "lines_of_code": 124,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/base64_frombase64string/__init__.py",
+      "size_bytes": 4068,
+      "sha256": "2c39deaed9a036e8c9d2bfa160cd010cbd5ea60f0e078833678ac6e0652659ce",
+      "lines_of_code": 106,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/crypto_aes_cbc/__init__.py",
+      "size_bytes": 793,
+      "sha256": "b27c65a90d371ddaec97d2c0693f1e246f26c4d76859d4ed4db0fc955ad818b5",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/crypto_rc4/__init__.py",
+      "size_bytes": 812,
+      "sha256": "eee8baadd9d18b9048a472c7d4b98d5c87ceca67e7232cd946e051b38a705803",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/crypto_shape_detector/__init__.py",
+      "size_bytes": 1193,
+      "sha256": "ffdb4017ee3953d7aec402653775fa9f74c94a4c52135f5b3bf002c08a354a4e",
+      "lines_of_code": 28,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/cs_beacon_config_parser/__init__.py",
+      "size_bytes": 8983,
+      "sha256": "77ef3c85fed5b61be37e4f220b5836481e6dcf14b5994b7cb4431e3b57ba4460",
+      "lines_of_code": 217,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/extractor_binary_configuration/__init__.py",
+      "size_bytes": 5758,
+      "sha256": "1aff6135b20735b305394d374bdf19126c5cdce255f04e5debe410be82aaf061",
+      "lines_of_code": 149,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/family_universal_recognizer/__init__.py",
+      "size_bytes": 5004,
+      "sha256": "47468d45a4d400be7d7b1dc2a8712fe19ab779b38f17f94bf91eceeca1440774",
+      "lines_of_code": 142,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/gzip_inflate/__init__.py",
+      "size_bytes": 3729,
+      "sha256": "a3fa9a92d2a63d999dd07a9e78832c945621c762214678deed1566f1bccc3c5b",
+      "lines_of_code": 100,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_crypto_api_annotator/__init__.py",
+      "size_bytes": 1143,
+      "sha256": "15b64ff47e39daf93deb5b93144ce86589b9ae571b01977e2e90845d83b57849",
+      "lines_of_code": 31,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_encodedcommand_multilayer/__init__.py",
+      "size_bytes": 787,
+      "sha256": "2da6ef3298281c66045e58ee6204879cd5868cc1a985d622813a91469209b67a",
+      "lines_of_code": 21,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_hex_csv_inline/__init__.py",
+      "size_bytes": 833,
+      "sha256": "f7edd7e4113a8856e6c258ea7997aedc227c01135945f2fbf32e4761eb2905f8",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_normalize/__init__.py",
+      "size_bytes": 936,
+      "sha256": "f566bf0c818bb4c1495f98a1f1ae08d9a16a6aeb1ec8be128e50d01a6c07e92e",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_reverse_regex_swap/__init__.py",
+      "size_bytes": 661,
+      "sha256": "568cb3bde8bb26942e4662f0833a1188e5edaa295a1ddc8de4ea1a304e19bdaf",
+      "lines_of_code": 19,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_reverse_string/__init__.py",
+      "size_bytes": 680,
+      "sha256": "e61df564172551a97f8612694ea5ed6bc90d0c8dfe22da5cd6e420f35dfaf2a9",
+      "lines_of_code": 20,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_semantic_mini/__init__.py",
+      "size_bytes": 808,
+      "sha256": "a53373dd56c8587fb82fc1734ab7757ec07031deba8990b502e580e04771e913",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_ps_xor_inline_key/__init__.py",
+      "size_bytes": 704,
+      "sha256": "0336c742ea8a6f647f416fcfa143a1c77a6d68c44f08e72e8f6414e4229fd49e",
+      "lines_of_code": 20,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/op_rc4_inline_decrypt/__init__.py",
+      "size_bytes": 882,
+      "sha256": "51f9d73f81dcecedf621ab568a47185e3de2c16096ef4ef08a6ba513b06ea29f",
+      "lines_of_code": 25,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/pe_analyzer/__init__.py",
+      "size_bytes": 5670,
+      "sha256": "849a0f212f80b6f21ec18bbfc608fcbd985ed3b4290b5a4af3996a20cfc6cd77",
+      "lines_of_code": 148,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/pe_dotnet_recognizer/__init__.py",
+      "size_bytes": 8104,
+      "sha256": "2f5e773749757d85e4a14fe5e4ebb7e2f8ceb882f28f01e94d311fc255a9d4b5",
+      "lines_of_code": 207,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/pe_extractor/__init__.py",
+      "size_bytes": 6312,
+      "sha256": "43c3f9c20ff79d86585542744b067036e8b4ac4fe99b573b29e061ed6deca1ab",
+      "lines_of_code": 171,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/powershell_encoded_command/__init__.py",
+      "size_bytes": 1775,
+      "sha256": "1a486fa53a24bc59a2050aa84061e246dc0d5b0ab9f75062ca47d37ff997e835",
+      "lines_of_code": 60,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/promoter_configuration_iocs/__init__.py",
+      "size_bytes": 3675,
+      "sha256": "c023d2d14aef111fc0589972089302c98e91c461a30d9b088895564369d9b38e",
+      "lines_of_code": 111,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/ps_alias_normalizer/__init__.py",
+      "size_bytes": 484,
+      "sha256": "550c74724ffbdaa0b4e75097553683416a5dd516e6e966f61edc19220a6bfc50",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/ps_backtick_normalizer/__init__.py",
+      "size_bytes": 499,
+      "sha256": "ea5ed6a37942c6688f2e531e502754f46e7bdc5793840e84a8168a04740450df",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/ps_hex_escape/__init__.py",
+      "size_bytes": 462,
+      "sha256": "4f8d12219152894db78fb7c758ff3088586f95fe0ad172efcc921d648c137075",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/ps_reconstruct/__init__.py",
+      "size_bytes": 690,
+      "sha256": "64dcbfe08f7a75bcfbfe8bdb3f8d3fca963cc71f5fcd4901c68cc8aa70746ab7",
+      "lines_of_code": 17,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/repair_base64_strip_html_entities/__init__.py",
+      "size_bytes": 3510,
+      "sha256": "d2c64ead78d3e7d77f224584773cb2a15595a21038ee8b0984dd8776097f3025",
+      "lines_of_code": 93,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/repair_base64_surgical/__init__.py",
+      "size_bytes": 6028,
+      "sha256": "ff1c1770f1fec27559986a12f51f7835cd5270f61ca8c852418a2c4ee3ad8ec1",
+      "lines_of_code": 132,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/shellcode_analyzer/__init__.py",
+      "size_bytes": 7767,
+      "sha256": "bae14fdbc9a528454c7860ebd4aca50e40ed5f196f93bc70d69adebfea02bf36",
+      "lines_of_code": 184,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/shellcode_string_scan/__init__.py",
+      "size_bytes": 3231,
+      "sha256": "b0d16c06b9bcd221436db66c6b68d5540a29d793d08ece49db0bc69d68e5ce5b",
+      "lines_of_code": 100,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/transformer_byte_array_xor_loop/__init__.py",
+      "size_bytes": 6612,
+      "sha256": "c272806c41d56720f4099ebf4d237652d6644b8a9cdb40008fba0e8273b2465a",
+      "lines_of_code": 167,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/validator_base64_text/__init__.py",
+      "size_bytes": 7916,
+      "sha256": "6088493a0b72e62c0b9891462d9e4d051cd4fd5a841b472a0c82c10138910efd",
+      "lines_of_code": 190,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/validator_gzip_bytes/__init__.py",
+      "size_bytes": 5532,
+      "sha256": "5ec25cc554bf8fef2653fb769119cbf1fa49738a1fc42170eb5603e7cba10714",
+      "lines_of_code": 142,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/validator_pe_bytes/__init__.py",
+      "size_bytes": 2962,
+      "sha256": "738ecd639de1a37148bea42b19a21a36799d5864a6b2c227d07aaf2c4b956cf2",
+      "lines_of_code": 78,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/validator_shellcode_bytes/__init__.py",
+      "size_bytes": 2644,
+      "sha256": "675a402cacd9f2dc8dd3959636ca4e41ba40003eebe11b5e6f5e2b5beceba12f",
+      "lines_of_code": 69,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/xor_brute/__init__.py",
+      "size_bytes": 1171,
+      "sha256": "063961e57b240858606877ae6dc200bd7d7a73612bb97bd6023410b8dc994547",
+      "lines_of_code": 32,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/plugins/zlib_inflate/__init__.py",
+      "size_bytes": 3125,
+      "sha256": "bcd299e9d124354b8f35738db47a1338e8e052bf93d6a171fa46bf710e77b34a",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/retirement/v2.investigation.rte.transformations.ps_byte_array_xor_loop.json",
+      "size_bytes": 904,
+      "sha256": "afab5a27cbd610acda4dde0ae95380fc5a9986525f594fc1c5bed17bbd04b353",
+      "lines_of_code": 15,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_behavior_chain.py",
+      "size_bytes": 7450,
+      "sha256": "2642b3dc692e7f2088b17e901e0c488397e227e1584c059dab6c9685597e3959",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_behavior_graph.py",
+      "size_bytes": 6875,
+      "sha256": "53dbb71bcc74f9810745040bea9646adcc02e4972968b5173a8674a3b9684d9e",
+      "lines_of_code": 186,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_behavior_graph_schema_freeze.py",
+      "size_bytes": 5620,
+      "sha256": "12d25cb34c31769e104a83a8aaea527517e38db418a0eb77f14f716d2c3cbd75",
+      "lines_of_code": 152,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_behavior_registry_and_taxonomy.py",
+      "size_bytes": 3872,
+      "sha256": "d4aa46bdbd43c1f99b83ec6b58f95c88388c45c4361d52ba72c349103fbf4568",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_entity_classifier.py",
+      "size_bytes": 7845,
+      "sha256": "35ab12610d0a182f27828e6173b7e7b10b02da02282aeb6fcd29ad5b9b4ea81d",
+      "lines_of_code": 203,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_evidence_backed_behavior.py",
+      "size_bytes": 8536,
+      "sha256": "084f05fb32bf08ee06b390140172f6c45da24718ed14368db9a9626003aa73d8",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_ida_behavior_generation.py",
+      "size_bytes": 18214,
+      "sha256": "6b45eb14ac8c01fc3ab79b08c286af3800082b82bf9a03e20aa8e9d34992ec41",
+      "lines_of_code": 386,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_ida_behavior_projections.py",
+      "size_bytes": 5752,
+      "sha256": "ded49f0b577f590d9c7374818c1af530c1846ad592881a8532e94acd3c62537b",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_normalization_and_behaviors.py",
+      "size_bytes": 12998,
+      "sha256": "b98d5616b6e420c840254267200e43564d540b375dbe814e55172b70d0f34d2f",
+      "lines_of_code": 263,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/investigation/test_entity_resolution.py",
+      "size_bytes": 9324,
+      "sha256": "3bfb297cf1001eed7122fc11a5d6fd221968db86fb9d28973045ec935c240f28",
+      "lines_of_code": 254,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/investigation/test_identity_parser.py",
+      "size_bytes": 4638,
+      "sha256": "ac3042bc0f003a9c89a1f73de3546cd599bc3a86a37d734587dd382375af4029",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/parity/test_verdict_entity_negative.py",
+      "size_bytes": 7645,
+      "sha256": "9ca3fedcfbb30cf6010785de649820055d1103549d8771a8de7a578823bdf869",
+      "lines_of_code": 169,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/rc5/unit/behavior_extractor/test_behaviors.py",
+      "size_bytes": 12920,
+      "sha256": "dae08a751d251537dba5d83891a27e55c94e3f51f39c3822951f8e91a98d6564",
+      "lines_of_code": 319,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/rc5/unit/behavior_extractor/__init__.py",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines_of_code": 0,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/v2/investigation/behavior/builder.py",
+      "size_bytes": 13122,
+      "sha256": "e3537f247563c8d8330710db5cf5cae9b498b3976ef44318ce246291f0110ef6",
+      "lines_of_code": 328,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/v2/investigation/behavior/models.py",
+      "size_bytes": 8823,
+      "sha256": "5379b3dc216d856ff94bf873a9b93217cd38d095a7b9810f394f169c403c2d52",
+      "lines_of_code": 222,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/v2/investigation/behavior/__init__.py",
+      "size_bytes": 1502,
+      "sha256": "fe2ca603276ddb7d9f1c929b2801289be6e7f70571a400280d1cb0efa99e7896",
+      "lines_of_code": 47,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/v2/semantic/ps_behaviors.py",
+      "size_bytes": 36035,
+      "sha256": "4aeec9a60745457f383a12cd005fdc29b2bcc46c316b884e885e3bc71689f526",
+      "lines_of_code": 625,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/components/edr/EntityInventory.jsx",
+      "size_bytes": 5305,
+      "sha256": "b19f7f1537cee42d8eef4f07ff73c03064910d9206c03dc83245828bad4731f5",
+      "lines_of_code": 150,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/components/investigation/BehavioralTimeline.jsx",
+      "size_bytes": 27702,
+      "sha256": "8dcff1762844d492d3da5384360f9ae311078f6e39f9f63e1004c271a7f8b071",
+      "lines_of_code": 574,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010t-p2-ui-slice-behavioral-timeline.md",
+      "size_bytes": 4797,
+      "sha256": "6625da3f611c97115fa1cf7016c6ff86e14a97d54372233d8b18af74b09a4ec1",
+      "lines_of_code": 93,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0023-p2-behavioral-evidence-ingestion.md",
+      "size_bytes": 19045,
+      "sha256": "ea9292cf185416b17fd2400fe2c1e941090d236bafc8f4a9f663f16ae23fc4c1",
+      "lines_of_code": 361,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    }
+  ]
+}

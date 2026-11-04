@@ -1,0 +1,25 @@
+PASS · surface mounted count=1
+PASS · association state is ASSOCIATED → ASSOCIATED
+PASS · milestones render 1 milestone rows
+PASS · metric strip renders 
+PASS · attack stages render with evidence-placed vs NOT OBSERVED 14 stages · 2 placed · 12 not observed
+PASS · causal anchors render as entities 2 anchors · 2 entity refs
+PASS · relationships render, each classified 14 relationships · 6 evidence-cited · 22 derived
+PASS · milestone provenance is reachable detail rows=1
+PASS · no implementation vocabulary in the analyst surface leaks=[]
+PASS · unassociated incident states it explicitly count=1
+PASS · the statement carries the server's reason and the NOT BENIGN distinction text='CAUSAL ANALYSIS NOT AVAILABLE\nCausal analysis not available for this incident\nNo engine ob'
+PASS · no fabricated zero metrics on an unassociated incident 
+PASS · no milestone table on an unassociated incident 
+PASS · no attack stage strip on an unassociated incident 
+PASS · another tenant's incident exposes no causal analysis 
+PASS · another tenant's incident discloses no engine content 
+PASS · tab still renders · overview 5743 chars
+PASS · tab still renders · story 8298 chars
+PASS · tab still renders · timeline 1677 chars
+PASS · tab still renders · evidence 3111 chars
+PASS · tab still renders · detections 1986 chars
+PASS · tab still renders · response 1621 chars
+PASS · tab still renders · activity 10936 chars
+
+S3-A DOM PROOF · 23 PASS · 0 FAIL

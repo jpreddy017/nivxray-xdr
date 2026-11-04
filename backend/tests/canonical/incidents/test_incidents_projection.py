@@ -149,6 +149,21 @@ def test_detail_projection_includes_evidence_pointers():
     assert edr["status"] == "available"
     assert edr["deep_link"].startswith("/edr?")
     assert "incident_id=" in edr["deep_link"]
+    # PRODUCT NAMING · owner-locked. The endpoint product is NivXForge EDR.
+    # It is NOT "NivXRay EDR" and NOT "NivXRay XDR".
+    assert edr["label"] == "NivXForge EDR"
+    # PR-XDR-0 · a customer-facing deep_link that navigates a NivXRay XDR
+    # user must address a canonical /xdr/* route. `/threat-intel` is a
+    # base-app path that does not exist in the NivXRay XDR bundle.
+    ioc = next(p for p in detail["evidence_pointers"] if p["domain"] == "ioc")
+    if ioc["deep_link"] is not None:
+        assert ioc["deep_link"].startswith("/xdr/intelligence/iocs?")
+        assert "/threat-intel" not in ioc["deep_link"]
+    for p in detail["evidence_pointers"]:
+        if p["deep_link"]:
+            assert p["deep_link"].startswith(("/xdr/", "/edr")), (
+                f"pointer {p['domain']} deep_link leaves the product: "
+                f"{p['deep_link']}")
     # NDR / Identity / Cloud / Email / Application-API / Data Security
     # / CTEM are honestly reported as not_connected.
     for dom in ("ndr", "identity", "cloud", "email", "app_api",

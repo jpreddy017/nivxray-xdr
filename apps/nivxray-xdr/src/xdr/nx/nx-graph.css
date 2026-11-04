@@ -1,0 +1,42 @@
+/* nx-graph.css · deterministic graph surface. Tokens only. */
+
+.nx-graph {
+  overflow: auto;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: var(--nx-r-card);
+}
+.nx-graph-edge path {
+  fill: none;
+  stroke: var(--nx-bd-strong);
+  stroke-width: 1.4;
+}
+.nx-graph-edge[data-observed="false"] path {
+  stroke-dasharray: 4 3;
+  stroke: var(--nx-medium);
+}
+.nx-graph-edge text {
+  font: 500 9.5px var(--sans);
+  fill: var(--nx-muted);
+}
+.nx-graph-node {
+  display: flex; align-items: center; gap: 8px;
+  height: 100%; padding: 0 10px; cursor: pointer;
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-strong);
+  border-radius: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.nx-graph-node.is-hover {
+  border-color: var(--nx-purple);
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+.nx-graph-node-text { display: flex; flex-direction: column; min-width: 0; }
+.nx-graph-node-label {
+  font: 600 11.5px/1.3 var(--sans); color: var(--nx-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nx-graph-node-sub {
+  font: 500 9.5px/1.3 var(--sans); color: var(--nx-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
