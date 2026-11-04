@@ -307,6 +307,19 @@ async def process_one(
                 stage_timings=timings["stages"],
             ), lease_seconds=lease_seconds)
 
+        detection = result.get("detection") if isinstance(result, dict) else None
+        finding = detection.get("finding_plane") if isinstance(detection, dict) else None
+        stages = detection.get("stage_results") if isinstance(detection, dict) else None
+        if not (isinstance(result, dict) and result.get("canonicalized") is True
+                and result.get("parser_state") == "OK"
+                and isinstance(detection, dict) and detection.get("evaluated") is True
+                and isinstance(finding, dict) and finding.get("evaluation_state") in {
+                    "FINDINGS_PRESENT", "EVALUATED_NO_FINDING",
+                    "EVALUATION_SUPPRESSED_BY_EXCLUSION"}
+                and isinstance(stages, list) and stages
+                and all(isinstance(s, dict) and s.get("status") in {"EXECUTED", "NOT_CREATED"}
+                        for s in stages)):
+            raise RuntimeError("canonical/detection processing is incomplete; refusing DONE")
         completed = await mark_done(
             db,
             tenant_id=tenant_id,
@@ -556,3 +569,5 @@ async def stop_workers() -> None:
     finally:
         _supervisor_task = None
         _stop_event = None
+
+

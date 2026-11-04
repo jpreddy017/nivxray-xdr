@@ -398,3 +398,4 @@ def edr_scope(tenant_id: str, user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
             "tenant_ids": [tenant_id], "explicit_tenant": tenant_id,
             "role": scope.get("role")}
 
+

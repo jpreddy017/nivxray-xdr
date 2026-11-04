@@ -732,3 +732,4 @@ async def process_event_through_pipeline(db, raw_event: dict,
             "closed_loop":    loop if incident.get("created") else None,
             "framework":      framework if incident.get("created") else None}
 
+

@@ -24,6 +24,7 @@ from typing import Any, Dict, Optional
 from services.edr.file_identity import resolve_file_identity
 
 from fastapi import APIRouter, Depends, HTTPException
+from pymongo.errors import OperationFailure
 
 from deps import get_current_user
 from routers.edr_tenancy import edr_tenant
@@ -37,6 +38,20 @@ router = APIRouter(prefix="/edr", tags=["edr"])
 
 HOUR_MS = 3_600_000
 DAY_MS = 24 * HOUR_MS
+
+# A stored time this platform can prove is UTC, and therefore place by its own
+# characters. Anything else is placed by `observation_us`, never by substring.
+_UTC_ISO = (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):"
+            r"[0-5][0-9]:[0-5][0-9](\.[0-9]+)?(Z|\+00:00)$")
+_NOT_UTC = "__NOT_STRICT_UTC__"
+
+# MongoDB: QueryExceededMemoryLimitNoDiskUseAllowed. The grouping below is keyed
+# on an hour prefix inside a range of at most four calendar days, so its working
+# set is bounded at ~97 keys no matter how much history the endpoint has — this
+# should be unreachable. If it is ever raised, the honest answer is a refusal:
+# returning zeros would render as "nothing was retained", which is the one lie
+# this surface must never tell.
+_MEM_LIMIT_CODE = 292
 
 
 def _scope(user, tenant_id: str) -> Dict[str, Any]:
@@ -55,6 +70,38 @@ def _day_bounds(day: str) -> tuple[int, int]:
     if us is None:
         raise HTTPException(422, "day must be YYYY-MM-DD")
     return us // 1000, us // 1000 + DAY_MS
+
+
+async def _hour_buckets(_db, store: str, match: Dict[str, Any], tkey: str) -> list:
+    """Count the matched rows per UTC hour, IN THE STORE.
+
+    `allowDiskUse=False` is deliberate: this grouping must never spill. Its
+    working set is one key per distinct hour inside the widened range, so a
+    memory-limit error here would mean the engine disagreed with that bound —
+    in which case we refuse rather than under-report.
+    """
+    try:
+        return await _db[store].aggregate([
+            {"$match": match},
+            {"$group": {"_id": {"$cond": [
+                {"$and": [{"$eq": [{"$type": f"${tkey}"}, "string"]},
+                          {"$regexMatch": {"input": {"$ifNull": [f"${tkey}", ""]},
+                                           "regex": _UTC_ISO}}]},
+                {"$substrBytes": [f"${tkey}", 0, 13]},
+                _NOT_UTC]},
+                "n": {"$sum": 1}}},
+        ], allowDiskUse=False).to_list(None)
+    except OperationFailure as ex:
+        if ex.code == _MEM_LIMIT_CODE:
+            raise HTTPException(503, {
+                "state": "HOURS_UNAVAILABLE",
+                "reason": "STORE_SIDE_HOUR_GROUPING_EXCEEDED_MEMORY_LIMIT",
+                "store": store,
+                "meaning": ("The per-hour count could not be computed without "
+                            "spilling to disk. This is a REFUSAL, not an empty "
+                            "day: no claim is made about what was retained."),
+            }) from ex
+        raise
 
 
 @router.get("/endpoints/{endpoint_id}/trajectory/hours")
@@ -111,23 +158,51 @@ async def trajectory_hours(endpoint_id: str, day: str,
         if partition:
             match[partition] = tenant
         n = seen = 0
-        async for doc in _db[store].find(match, {"_id": 0, tkey.split(".")[0]: 1}) \
-                .sort(tkey, -1).limit(CAP):
-            seen += 1
-            cur: Any = doc
-            for part in tkey.split("."):
-                cur = cur.get(part) if isinstance(cur, dict) else None
-            us = observation_us(cur)
-            if us is None:
-                unplaceable += 1
+        # B6 · The hour bucket is computed BY THE STORE. The previous read sorted the
+        # matched rows by observation time and streamed up to CAP of them to Python
+        # purely to count them: `$or` across seven endpoint fields cannot be served by
+        # one index together with that sort, so every call paid a BLOCKING in-memory
+        # sort (measured: 122,836 keys examined for 30,707 rows, and six concurrent
+        # calls spilled the sort to disk and failed). Counting is an aggregate, so the
+        # store now does it. The MATCH is byte-for-byte the one above — same endpoint
+        # alias set, same tenant partition, same widened range — so authorisation,
+        # identity and historical visibility are unchanged.
+        #
+        # Only a value provably UTC is bucketed by its characters. Everything else
+        # still goes through `observation_us`, so a row this platform cannot place in
+        # time is never counted into an hour it cannot prove.
+        grouped = await _hour_buckets(_db, store, match, tkey)
+        odd = 0
+        for row in grouped:
+            seen += row["n"]
+            bucket = row["_id"]
+            if bucket == _NOT_UTC:
+                odd = row["n"]
                 continue
-            ms = us // 1000
-            if d0 <= ms < d1:
-                counts[(ms - d0) // HOUR_MS] += 1
-                n += 1
+            if bucket[:10] != day:
+                continue                              # the deliberately widened edge days
+            counts[int(bucket[11:13])] += row["n"]
+            n += row["n"]
+        if odd:
+            # Rare: the two offset representations plus the three known corrupt strings.
+            # Placed one at a time by the SAME ordering authority as before.
+            async for doc in _db[store].find(
+                    {**match, tkey: {"$gte": lo, "$lt": hi, "$not": {"$regex": _UTC_ISO}}},
+                    {"_id": 0, tkey.split(".")[0]: 1}).limit(CAP):
+                cur: Any = doc
+                for part in tkey.split("."):
+                    cur = cur.get(part) if isinstance(cur, dict) else None
+                us = observation_us(cur)
+                if us is None:
+                    unplaceable += 1
+                    continue
+                ms = us // 1000
+                if d0 <= ms < d1:
+                    counts[(ms - d0) // HOUR_MS] += 1
+                    n += 1
         per_store[store] = n
         scanned[store] = seen
-        truncated[store] = seen >= CAP
+        truncated[store] = odd >= CAP
     return {
         "day": day,
         "hours": counts,
@@ -307,3 +382,4 @@ async def trajectory_attack(endpoint_id: str,
                       "verdict on its own.")
     out["mock_data_reachable"] = False
     return out
+

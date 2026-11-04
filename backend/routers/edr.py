@@ -29,6 +29,7 @@ from services.edr import device_identity as dir_svc
 from services.edr import endpoint_query as eq
 from services.edr import observation_narrative as narrative_svc
 from services.edr import file_trajectory as file_traj_svc
+from services.edr import file_sightings as file_sightings_svc
 from services.edr.endpoint_health import resolve_endpoint_health
 from services.edr import telemetry_freshness as fresh_svc
 
@@ -882,6 +883,27 @@ async def file_trajectory(key: str, key_type: str = "name",
     artefact spread.
     """
     return file_traj_svc.fleet_trajectory(key_type, key, tenant_id=tenant_id)
+
+
+@router.get("/files/{sha256}/sightings")
+async def file_sightings(sha256: str, limit: int = 300,
+                         path_contains: str | None = None,
+                         raw_id: str | None = None,
+                         user=Depends(get_current_user),
+                         tenant_id: str = Depends(edr_tenant)):
+    """Where a SHA-256 has been seen across THIS customer's endpoints.
+
+    Keyed on the sensor-reported digest of the executed image
+    (`edr_raw_events.payload.sha256`), which — unlike
+    `artefacts.file[].sha256` — is actually populated on this substrate.
+
+    The customer is resolved by `edr_tenant` on the server. The hash is only
+    ever a key within that customer: it cannot widen the read.
+    """
+    return file_sightings_svc.sightings(sha256, tenant_id=tenant_id,
+                                        limit=limit,
+                                        path_contains=path_contains,
+                                        raw_id=raw_id)
 
 
 @router.get("/fleet-spread-index")
@@ -2118,4 +2140,5 @@ async def trajectory_focus(endpoint_id: str,
         "note": ("exact identifier match over the canonical projection — "
                  "no hostname, process-name or timestamp inference"),
     }
+
 

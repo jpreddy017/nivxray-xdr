@@ -291,6 +291,12 @@ from routers.edr_response import (agent as edr_resp_agent,
                                   router as edr_resp_router)
 api.include_router(edr_resp_router)
 api.include_router(edr_resp_agent)
+from routers.edr_forensics import (board_router as edr_board_router,
+                                   live as edr_live_query_router,
+                                   router as edr_forensics_router)
+api.include_router(edr_forensics_router)
+api.include_router(edr_live_query_router)
+api.include_router(edr_board_router)
 api.include_router(incident_summary_router)
 api.include_router(ops_router)
 api.include_router(analyze_router)
@@ -1200,3 +1206,4 @@ async def _shutdown():
     except Exception:  # noqa: BLE001
         pass
     client.close()
+

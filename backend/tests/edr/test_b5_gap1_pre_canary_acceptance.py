@@ -249,13 +249,33 @@ def test_pre_canary_partial_refusal_keeps_only_the_refused_event(env):
     stubborn = journal.next_undelivered(limit=60)[7]["payload"]
     backend.refuse_payloads.add(stubborn)
 
-    for _ in range(4):
+    limit = module.nvx_journal.limits()["max_delivery_attempts"]
+
+    # Below the explicit-rejection limit the refused event is still OWNED
+    # and still at the head: nothing about per-event acceptance changed.
+    for _ in range(limit - 1):
         module._drain_journal("http://api", fx.IDENTITY, {"token": "t"},
                               journal, 30, 5.0)
     assert len(backend.accepted) == 59
     assert journal.depth() == 1, (
         "exactly the refused event stays owned by the endpoint")
     assert journal.next_undelivered()[0]["payload"] == stubborn
+    assert backend.duplicates() == 0
+
+    # P0-F2: once the PLATFORM has explicitly rejected this specific event
+    # `limit` times, it stops blocking every newer event behind it. It is
+    # QUARANTINED, not lost: the row is retained, counted and reported.
+    module._drain_journal("http://api", fx.IDENTITY, {"token": "t"},
+                          journal, 30, 5.0)
+    assert journal.depth() == 0, "the queue head no longer blocks"
+    assert journal.quarantined() == 1, "the refused event is retained"
+    states = journal.health()["states"]
+    assert module.nvx_journal.DELIVERY_QUARANTINE in states, (
+        "quarantined evidence is REPORTED, never silently dropped")
+    assert journal.health()["delivery_quarantined"] == 1
+    rows = journal.counts_by_state()
+    assert rows.get(module.nvx_journal.REFUSED_UNACCEPTABLE) == 1
+    assert len(backend.accepted) == 59, "nothing new was accepted"
     assert backend.duplicates() == 0
 
 

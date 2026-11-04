@@ -697,15 +697,27 @@ SERVICE_CAPABILITIES: list[Capability] = [
          gap=GC.CONTROL_DRIVER_MISSING, driver=_A, wave="Wave 2"),
     _cap("backend.service.forensic_snapshot", Plane.BACKEND, "investigation",
          "Forensic snapshot",
-         "Point-in-time endpoint inventory: processes, files, network, "
-         "services, tasks, startup, users, PowerShell, USB, memory metadata.",
-         gap=GC.TELEMETRY_MISSING, wave="Wave 7"),
+         "On-demand PROCESS collection: the Linux sensor performs a fresh "
+         "/proc walk when it claims the job and returns pid, name and path "
+         "with capture start/finish in UTC. Files, network, services, tasks, "
+         "startup, users, PowerShell, USB and memory metadata are NOT "
+         "collected. Stored telemetry is never used to answer a snapshot.",
+         state=FS.REAL_ENDPOINT_VALIDATED,
+         gap=GC.NONE, wave="Wave 7",
+         note="POST/GET /api/edr/forensics/snapshots · "
+              "services/edr/forensic_snapshots.py · "
+              "tests/edr/test_forensic_snapshots.py"),
     _cap("backend.service.live_query", Plane.BACKEND, "investigation",
          "Live query",
-         "Ad-hoc real-time query against a live endpoint.",
-         gap=GC.TELEMETRY_MISSING,
-         note="Zero routes. The UI is an honest reserved page, not a mock.",
-         wave="Wave 7"),
+         "One read-only question against a live endpoint: which running "
+         "processes match an exact name now. The sensor walks /proc when it "
+         "claims the query and returns pid, name, path and collection time in "
+         "UTC. Matching is against /proc/<pid>/comm, which the kernel "
+         "truncates to 15 characters, and a truncated comparison says so. "
+         "Ad-hoc SQL-style queries over other artifacts are NOT supported.",
+         state=FS.REAL_ENDPOINT_VALIDATED, gap=GC.NONE, wave="Wave 7",
+         note="POST/GET /api/edr/live-query/queries · "
+              "services/edr/live_query.py · tests/edr/test_live_query.py"),
     _cap("backend.service.threat_intel", Plane.BACKEND, "investigation",
          "Threat intelligence enrichment",
          "Hash / IP / domain reputation enrichment.",
@@ -809,8 +821,14 @@ _EXPERIENCE = [
     ("file_intelligence", "File intelligence", FS.BACKEND_IMPLEMENTED, _N,
      _P, GC.TELEMETRY_MISSING, "/edr/files · EdrReservedPages.jsx",
      "Honest reserved surface — not a mock."),
-    ("file_trajectory_ui", "File trajectory UI", FS.BACKEND_IMPLEMENTED, _P,
-     _P, GC.TELEMETRY_MISSING, "XdrFleetFileTrajectoryPage.jsx", None),
+    ("file_trajectory_ui", "File trajectory UI", FS.REAL_ENDPOINT_VALIDATED,
+     _P, _P, GC.NONE,
+     "EdrFilesPage.jsx · GET /api/edr/files/{sha256}/sightings · "
+     "services/edr/file_sightings.py · tests/edr/test_file_sightings.py",
+     "SHA-256 keyed on edr_raw_events.payload.sha256 — the sensor's digest of "
+     "the executed image, verified against real preview telemetry (one digest "
+     "under 14 paths). Executed-image sightings only: file create/write/delete "
+     "are still not collected, so this is not file-system evidence."),
     ("fleet_file_trajectory_ui", "Fleet file trajectory UI",
      FS.BACKEND_IMPLEMENTED, _P, _P, GC.TELEMETRY_MISSING,
      "XdrFleetFileTrajectoryPage.jsx · GET /api/edr/fleet-spread-index",
@@ -818,7 +836,9 @@ _EXPERIENCE = [
     ("sha256_pivot_menu", "SHA-256 universal pivot menu", FS.NOT_IMPLEMENTED,
      _N, _A, GC.NONE, "docs/uiux/NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md:167",
      "Cisco baseline (14 pivots) plus the NivXRay extension (15) is "
-     "specified. Not built as a context menu."),
+     "specified. The trajectory context menu now carries ONE of them — View "
+     "File Trajectory, enabled only on an event that actually has a digest. "
+     "The menu as specified is not built."),
     ("network_ui", "Network investigation UI", FS.NOT_IMPLEMENTED, _A, _P,
      GC.UI_ONLY, "/edr/network · EdrReservedPages.jsx",
      "Honest reserved page. No network investigation backend."),
@@ -828,12 +848,21 @@ _EXPERIENCE = [
      "DESIGN-READY, API missing."),
     ("threat_hunting_ui", "Threat hunting UI", FS.NOT_IMPLEMENTED, _A, _P,
      GC.UI_ONLY, "/edr/hunting · EdrReservedPages.jsx", None),
-    ("forensics_ui", "Forensics UI", FS.NOT_IMPLEMENTED, _A, _P, GC.UI_ONLY,
-     "/edr/forensics · EdrReservedPages.jsx", None),
-    ("live_query_ui", "Live query UI", FS.NOT_IMPLEMENTED, _A, _P,
-     GC.UI_ONLY, "/edr/live-query · XdrReservedPage.jsx",
-     "Audit finding: UI-only, zero routes. Honestly declared "
-     "NOT_CONFIGURED on screen."),
+    ("forensics_ui", "Forensics UI", FS.REAL_ENDPOINT_VALIDATED, _P, _P,
+     GC.NONE,
+     "/edr/forensics · EdrForensicsPage.jsx · POST+GET "
+     "/api/edr/forensics/snapshots · Computer → Actions → Request forensic "
+     "snapshot (Menu.jsx)",
+     "Process collection only. Both entry points open ONE job id; queued, "
+     "running, completed-with-rows, completed-zero-rows, failed, "
+     "capability-unavailable and timed-out are distinguished on screen."),
+    ("live_query_ui", "Live query UI", FS.REAL_ENDPOINT_VALIDATED, _P, _P,
+     GC.NONE,
+     "/edr/live-query · EdrLiveQueryPage.jsx · POST+GET "
+     "/api/edr/live-query/queries · Computer → Actions → Live Query",
+     "One question: running processes matching an exact name. Both entry "
+     "points open ONE query id; matches, no-matches, failed, "
+     "capability-unavailable and timed-out are distinguished on screen."),
     ("malware_analysis_ui", "Malware analysis UI", FS.BACKEND_IMPLEMENTED,
      _P, _P, GC.NONE, "XdrInvestigationWorkspacePage.jsx", None),
     ("threat_intel_ui", "Threat intelligence UI", FS.BACKEND_IMPLEMENTED,
