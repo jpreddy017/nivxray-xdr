@@ -753,9 +753,10 @@ export default function XdrFleetFileTrajectoryPage() {
                         <tr>
                           <th style={{ width: 190 }}>Timestamp (UTC)</th>
                           <th>Endpoint</th>
-                          <th>Kind</th>
-                          <th>Actor</th>
-                          <th>Target</th>
+                          <th>Event</th>
+                          <th>Process</th>
+                          <th>Paths / target</th>
+                          <th>Event SHA-256</th>
                           <th>ATT&amp;CK</th>
                           <th>Disposition</th>
                         </tr>
@@ -775,11 +776,13 @@ export default function XdrFleetFileTrajectoryPage() {
                             </td>
                             <td className="mono" style={{ fontSize: 10 }}>{e.kind}</td>
                             <td className="mono" style={{ fontSize: 10 }}>
-                              {e.process || <Nope label="◇" />}
+                              {e.process || <Nope label="Unavailable from this source" />}
                             </td>
                             <td className="mono" style={{ fontSize: 10,
                                                           wordBreak: "break-all" }}>
-                              {e.target || (e.file_paths || [])[0] || <Nope label="◇" />}
+                              {[...new Set([e.target, ...(e.file_paths || [])].filter(Boolean))].join(" · ") || <Nope label="Unavailable from this source" />}
+                            </td>
+                            <td><Nope label="Unavailable from this source" />
                             </td>
                             <td className="mono" style={{ fontSize: 9.5, color: "var(--nx-high)" }}>
                               {(e.mitre || []).join(", ") || "◇"}
@@ -898,7 +901,7 @@ export default function XdrFleetFileTrajectoryPage() {
                               {e.hostname || e.device_iid || <Nope label="◇ UNBOUND" />}
                             </td>
                             <td className="mono" style={{ fontSize: 10 }}>
-                              {e.process || <Nope label="◇" />}
+                              {e.process || <Nope label="Unavailable from this source" />}
                             </td>
                             <td className="mono" style={{ fontSize: 10,
                                                           color: TELEMETRY_CYAN,
@@ -1062,3 +1065,4 @@ export default function XdrFleetFileTrajectoryPage() {
     </XdrShell>
   );
 }
+
