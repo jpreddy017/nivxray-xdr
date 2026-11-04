@@ -74,3 +74,19 @@ def test_freshness_states():
     assert coverage_status(dict(cp,worker_status='error'),now)['status']=='error'
     assert coverage_status(dict(cp,unresolved=1),now)['status']=='partial'
     assert coverage_status(dict(cp,caught_up_at_check=False),now)['status']=='catching_up'
+
+
+def test_reconcile_old_id_real_mongo(db):
+    tenant='index-test'
+    seed(db)
+    ensure_indexes(db[COLLECTION])
+    assert acquire(db,tenant,'replay')
+    batch(db,tenant,owner='replay')
+    old=ObjectId.from_datetime(datetime(2020,1,1,tzinfo=timezone.utc))
+    seed(db,oid=old)
+    assert batch(db,tenant,owner='replay') == (0,0)
+    batch(db,tenant,owner='replay',reconcile=True)
+    assert db[COLLECTION].count_documents({}) == 2
+    batch(db,tenant,owner='replay',reconcile=True)
+    assert db[COLLECTION].count_documents({}) == 2
+    assert db.v2_shadow_observations.count_documents({}) == 2
