@@ -29,6 +29,7 @@ from services.edr import device_identity as dir_svc
 from services.edr import endpoint_query as eq
 from services.edr import observation_narrative as narrative_svc
 from services.edr import file_trajectory as file_traj_svc
+from services.edr import file_sightings as file_sightings_svc
 from services.edr.endpoint_health import resolve_endpoint_health
 from services.edr import telemetry_freshness as fresh_svc
 
@@ -794,6 +795,48 @@ async def observation_narrative(device: str, event_iid: str,
 
 
 
+@router.get("/files/search")
+def global_file_search(key: str, time_start: int, time_end: int,
+                       key_type: str = "auto", endpoint_id: str | None = None,
+                       cursor: str = "", limit: int = 50,
+                       user=Depends(get_current_user),
+                       tenant_id: str = Depends(edr_tenant)):
+    from services.edr import global_file_index as index
+    from pymongo.errors import PyMongoError
+    scope = _tenant_scope(user, tenant_id)
+    try:
+        token = index.query_args(key, key_type, time_start, time_end)
+        coverage = sync_collection(index.CHECKPOINTS).find_one({"_id": tenant_id}, {"_id": 0})
+        if not coverage or not coverage.get("checked_at"):
+            raise HTTPException(status_code=503, detail="Global file index is not ready for this customer. Endpoint search remains available.")
+        result = index.search(sync_collection(index.COLLECTION), tenant_id, scope,
+                              eq.resolve_endpoint, token, time_start, time_end,
+                              endpoint_id, cursor, limit)
+        # Display the authoritative enrolled name after endpoint authorization.
+        for device in result.get("devices", []):
+            enrolled = sync_collection("edr_endpoints").find_one(
+                {"tenant_id": tenant_id, "endpoint_id": device["endpoint_id"]},
+                {"_id": 0, "hostname": 1}) or {}
+            if enrolled.get("hostname"):
+                device["hostname"] = enrolled["hostname"]
+        result["coverage"] = index.coverage_status(coverage)
+        result["note"] = "Counts cover indexed evidence, not current disk inventory. Same filenames do not prove identical content."
+        if endpoint_id and result.get("observations"):
+            from services.edr.file_context import enrich
+            res = eq.resolve_endpoint(endpoint_id, scope)
+            if not res:
+                raise PermissionError("Endpoint not authorized")
+            enrich(sync_collection("v2_shadow_observations"), res.predicate("v2_shadow_observations"),
+                   result["observations"], {"time_start": time_start, "time_end": time_end})
+        return result
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PyMongoError as exc:
+        raise HTTPException(status_code=503, detail="Global file search is temporarily unavailable; retry without interpreting this as no matches.") from exc
+
+
 @router.get("/endpoint-file-observations")
 def endpoint_file_observations(endpoint_id: str, time_start: int,
                                time_end: int, key_type: str = "path",
@@ -840,6 +883,27 @@ async def file_trajectory(key: str, key_type: str = "name",
     artefact spread.
     """
     return file_traj_svc.fleet_trajectory(key_type, key, tenant_id=tenant_id)
+
+
+@router.get("/files/{sha256}/sightings")
+async def file_sightings(sha256: str, limit: int = 300,
+                         path_contains: str | None = None,
+                         raw_id: str | None = None,
+                         user=Depends(get_current_user),
+                         tenant_id: str = Depends(edr_tenant)):
+    """Where a SHA-256 has been seen across THIS customer's endpoints.
+
+    Keyed on the sensor-reported digest of the executed image
+    (`edr_raw_events.payload.sha256`), which — unlike
+    `artefacts.file[].sha256` — is actually populated on this substrate.
+
+    The customer is resolved by `edr_tenant` on the server. The hash is only
+    ever a key within that customer: it cannot widen the read.
+    """
+    return file_sightings_svc.sightings(sha256, tenant_id=tenant_id,
+                                        limit=limit,
+                                        path_contains=path_contains,
+                                        raw_id=raw_id)
 
 
 @router.get("/fleet-spread-index")
@@ -2076,4 +2140,5 @@ async def trajectory_focus(endpoint_id: str,
         "note": ("exact identifier match over the canonical projection — "
                  "no hostname, process-name or timestamp inference"),
     }
+
 

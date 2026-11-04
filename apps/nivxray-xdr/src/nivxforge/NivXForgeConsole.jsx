@@ -180,7 +180,7 @@ export function IncidentContextBanner() {
             {inv.rule_ids?.length ? ` · ${inv.rule_ids.join(", ")}` : ""}
           </span></span>
       )}
-      {ctx.device && (
+      {ctx.device && ctx.device !== "__listed__" && (
         <span><span className="k">Device</span>
           <span className="v">{srv?.endpoint?.hostname || ctx.device}</span></span>
       )}

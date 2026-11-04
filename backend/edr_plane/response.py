@@ -31,7 +31,13 @@ from services.edr.endpoint_query import endpoint_predicate
 
 COLLECTION = "edr_response_commands"
 ENGINE_ID = "nivxray::edr_plane::response"
-ACTIONS = ("KILL_PROCESS", "ISOLATE_ENDPOINT", "RELEASE_ISOLATION")
+#: Read-only collection. It changes nothing on the endpoint, so it is
+#: permission-gated but never approval-gated, and it is never "verified":
+#: a collection's rows ARE its evidence, and a second read of /proc cannot
+#: prove what the first one saw.
+COLLECTION_ACTIONS = ("COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME")
+ACTIONS = ("KILL_PROCESS", "ISOLATE_ENDPOINT", "RELEASE_ISOLATION",
+           *COLLECTION_ACTIONS)
 TERMINAL = ("VERIFIED", "VERIFICATION_FAILED", "FAILED",
             "CAPABILITY_UNAVAILABLE", "REFUSED")
 
@@ -355,6 +361,22 @@ async def record_result(db, *, tenant_id: str, endpoint_id: str,
              "CAPABILITY_UNAVAILABLE": "CAPABILITY_UNAVAILABLE"}.get(outcome)
     if not state:
         raise ResponseError("UNKNOWN_OUTCOME", f"outcome {outcome!r}")
+    # A redelivered result must not 404 and must not overwrite the first
+    # one: a sensor that retries after a dropped response would otherwise
+    # lose the original capture, or be told its own command does not exist.
+    prior = await db[COLLECTION].find_one(
+        {"command_id": command_id, "tenant_id": tenant_id,
+         "endpoint_id": endpoint_id,
+         # The document is CREATED with `sensor_result: None`, so an
+         # `$exists` test here matched every command and swallowed the first
+         # real result. Only an actual reported outcome counts as prior.
+         "sensor_result.outcome": {"$exists": True}},
+        projection={"_id": 0})
+    if prior:
+        return {**prior, "idempotent_replay": True,
+                "honesty_note": ("this result was already recorded; the "
+                                 "ORIGINAL job and its result are returned "
+                                 "unchanged and nothing was overwritten")}
     doc = await db[COLLECTION].find_one_and_update(
         {"command_id": command_id, "tenant_id": tenant_id,
          "endpoint_id": endpoint_id, "state": "DISPATCHED"},

@@ -40,12 +40,13 @@ if (!["0", "1"].includes(process.env.NIVX_EDR_INTEGRATION_PREVIEW || "0")) {
 }
 const INTEGRATION = process.env.NIVX_EDR_INTEGRATION_PREVIEW === "1";
 if (INTEGRATION && (process.env.VERCEL_ENV !== "preview" || SCOPE !== "edr" ||
-    process.env.VERCEL_GIT_COMMIT_REF !== "validation/edr-preview-backend-2026-10-31" || CROSS_OK)) {
+    !["validation/edr-preview-backend-2026-10-31", "feature/edr-global-file-search-20261104", "review/edr-combined-acceptance-20261104"].includes(process.env.VERCEL_GIT_COMMIT_REF) || CROSS_OK)) {
   console.error("Integration build requires the designated EDR preview branch, preview target and no cross-product origins.");
   process.exit(1);
 }
 const EXPECTED_API = INTEGRATION
-  ? "https://greeting-app-5782.preview.emergentagent.com"
+  ? "https://greeting-app-5782.preview.emergentagent.com" +
+    (process.env.VERCEL_GIT_COMMIT_REF === "review/edr-combined-acceptance-20261104" ? "/candidate-api" : "")
   : process.env.XDR_GUARD_EXPECTED_API || "https://nivxray.nivxforge.com";
 
 // Origins that legitimately appear in the bundle (docs links, CDNs, schemas).

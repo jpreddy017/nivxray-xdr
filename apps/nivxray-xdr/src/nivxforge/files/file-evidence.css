@@ -102,3 +102,29 @@
 .ft-cluster-list { max-height: 240px; overflow: auto; }
 .ft-cluster-event { display: flex; gap: 14px; width: 100%; text-align: left; padding: 10px; background: var(--ft-surface); color: inherit; border: 0; border-bottom: 1px solid var(--ft-border); cursor: pointer; }
 .ft-time-event { font-size: 11px; font-weight: bold; }
+
+.global-files { margin: 16px 0 24px; padding: 20px; border: 1px solid var(--border, #a7b4c5); border-radius: 8px; }
+.global-files table { width: 100%; border-collapse: collapse; }
+.global-files th, .global-files td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border, #a7b4c5); }
+.global-endpoint { display: block; opacity: .7; margin-top: 4px; }
+
+/* Compact evidence context keeps the investigation timeline within reach. */
+.ft-investigation-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 16px 0; }
+.ft-investigation-summary section { min-width: 0; }
+.ft-investigation-summary h3 { font-size: 15px; border-bottom: 1px solid var(--ft-border); padding-bottom: 8px; margin-bottom: 8px; }
+.ft-investigation-summary dl { margin: 0; }
+.ft-investigation-summary dl > div { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 1.5fr); gap: 12px; padding: 5px 0; font-size: 13px; }
+.ft-investigation-summary dt, .ft-investigation-summary small { color: var(--muted); }
+.ft-investigation-summary dd { margin: 0; overflow-wrap: anywhere; text-align: right; }
+.ft-investigation-summary small { display: block; margin-top: 8px; font-size: 12px; }
+.ft-evidence .ft-disclosure { padding: 10px 14px; margin-bottom: 10px; }
+.ft-evidence .ft-disclosure summary { font-size: 14px; }
+.ft-evidence .ft-section-head { margin-top: 0; }
+.ft-host-label { cursor: default; }
+@media (max-width: 760px) { .ft-investigation-summary { grid-template-columns: 1fr; gap: 12px; } }
+
+.ft-observation-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--ft-border); }
+.ft-observation-row > div { min-width: 0; }
+.ft-observation-row time, .ft-observation-row strong, .ft-observation-row span, .ft-observation-row small { display: block; margin-bottom: 4px; overflow-wrap: anywhere; }
+.ft-observation-row time, .ft-observation-row small { color: var(--muted); font-size: 12px; }
+@media(max-width: 760px) { .ft-observation-row { flex-direction: column; } }

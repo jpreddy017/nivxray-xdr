@@ -16,6 +16,8 @@ from typing import Any
 
 from pymongo import ReturnDocument
 
+from edr_plane.stage_timing import measure
+
 log = logging.getLogger(__name__)
 
 COLLECTION = "edr_processing_queue"
@@ -60,6 +62,12 @@ async def ensure_indexes(db: Any) -> None:
     await db[COLLECTION].create_index(
         [("state", 1), ("created_at", 1), ("available_at", 1), ("lease_until", 1)],
         name="fifo_work",
+    )
+
+    # Supports bounded historical sweeps without scanning unowned evidence.
+    await db["edr_raw_events"].create_index(
+        [("processing_contract", 1), ("trust_state", 1), ("_id", 1)],
+        name="owned_reconciliation_scan",
     )
 
 
@@ -137,6 +145,8 @@ async def claim(
             "$set": {
                 "state": PROCESSING,
                 "lease_until": lease_until,
+                "processing_started_at": now,
+                "processing_timings": None,
                 "updated_at": now,
             },
             "$inc": {"attempts": 1},
@@ -152,6 +162,7 @@ async def mark_done(
     tenant_id: str,
     raw_id: str,
     attempts: int,
+    timings: dict[str, Any] | None = None,
 ) -> bool:
     """Complete only the still-live claim returned to this worker.
 
@@ -171,6 +182,7 @@ async def mark_done(
         {
             "$set": {
                 "state": DONE,
+                "processing_timings": timings,
                 "completed_at": now,
                 "updated_at": now,
                 "lease_until": None,
@@ -189,6 +201,7 @@ async def mark_retry(
     attempts: int,
     error: str,
     retry_after_seconds: int = 30,
+    timings: dict[str, Any] | None = None,
 ) -> bool:
     """Return failed work only while this worker still owns a live claim."""
     now = _now()
@@ -205,6 +218,7 @@ async def mark_retry(
         {
             "$set": {
                 "state": RETRY,
+                "processing_timings": timings,
                 "available_at": available_at,
                 "updated_at": now,
                 "lease_until": None,
@@ -241,6 +255,7 @@ async def process_one(
     """
     from edr_plane import raw_events
     from edr_plane.canonical_bridge import bridge
+    from edr_plane.processing_lease import run_with_lease
 
     job = await claim(db, lease_seconds=lease_seconds, newest_first=newest_first)
     if not job:
@@ -248,6 +263,7 @@ async def process_one(
 
     tenant_id = job["tenant_id"]
     raw_id = job["raw_id"]
+    timings = {"contract": "edr.processing_timings.v1", "attempt": job["attempts"], "stages": {}}
 
     try:
         raw_doc = await raw_events.get(
@@ -276,24 +292,40 @@ async def process_one(
                 f"endpoint identity missing for raw event {raw_id}"
             )
 
-        result = await bridge(
-            db,
-            raw_id=raw_id,
-            tenant_id=tenant_id,
-            payload=raw_doc["payload"],
-            endpoint_id=endpoint_id,
-            hostname=authentication.get("hostname"),
-            authentication=authentication,
-            source_kind=raw_doc.get("source_kind"),
-            sensor_version=raw_doc.get("sensor_version"),
-            nivx_received_at=raw_doc.get("ingest_time"),
-        )
+        with measure(timings["stages"], "canonical_bridge"):
+            result = await run_with_lease(db, job, bridge(
+                db,
+                raw_id=raw_id,
+                tenant_id=tenant_id,
+                payload=raw_doc["payload"],
+                endpoint_id=endpoint_id,
+                hostname=authentication.get("hostname"),
+                authentication=authentication,
+                source_kind=raw_doc.get("source_kind"),
+                sensor_version=raw_doc.get("sensor_version"),
+                nivx_received_at=raw_doc.get("ingest_time"),
+                stage_timings=timings["stages"],
+            ), lease_seconds=lease_seconds)
 
+        detection = result.get("detection") if isinstance(result, dict) else None
+        finding = detection.get("finding_plane") if isinstance(detection, dict) else None
+        stages = detection.get("stage_results") if isinstance(detection, dict) else None
+        if not (isinstance(result, dict) and result.get("canonicalized") is True
+                and result.get("parser_state") == "OK"
+                and isinstance(detection, dict) and detection.get("evaluated") is True
+                and isinstance(finding, dict) and finding.get("evaluation_state") in {
+                    "FINDINGS_PRESENT", "EVALUATED_NO_FINDING",
+                    "EVALUATION_SUPPRESSED_BY_EXCLUSION"}
+                and isinstance(stages, list) and stages
+                and all(isinstance(s, dict) and s.get("status") in {"EXECUTED", "NOT_CREATED"}
+                        for s in stages)):
+            raise RuntimeError("canonical/detection processing is incomplete; refusing DONE")
         completed = await mark_done(
             db,
             tenant_id=tenant_id,
             raw_id=raw_id,
             attempts=job["attempts"],
+            timings=timings,
         )
         if not completed:
             raise RuntimeError(
@@ -316,6 +348,7 @@ async def process_one(
             attempts=job["attempts"],
             error=str(exc),
             retry_after_seconds=retry_after_seconds,
+            timings=timings,
         )
 
         return {
@@ -334,82 +367,15 @@ async def reconcile_missing_jobs(
     limit: int = 500,
     window_seconds: int = RECONCILE_WINDOW_SECONDS,
 ) -> dict[str, int]:
-    """Repair durable-ACK raw evidence whose processing job did not persist.
+    """Ensure jobs for marked raw evidence using durable bounded progress.
 
-    AUTHORITY IS THE MARKER, NOT TIME. Only raw evidence stamped
-    `processing_contract == "durable_queue_v1"` at creation declares that a
-    processing obligation ought to exist for it, so only such evidence is
-    reconcilable. This is what makes a rolling deployment safe: an event
-    accepted by a pod still running the previous build never carries the
-    marker, is never reconciled, and is therefore never double-owned or
-    retro-queued by the new build. Historical evidence is not merely
-    skipped by a filter — it is outside the contract.
-
-    The window is a PERFORMANCE BOUND ONLY. It exists so this loop reads a
-    small, index-covered slice of recent traffic every interval instead of
-    the whole corpus; it confers no ownership of its own. Repair of a job
-    older than the window is still guaranteed, because the crash window
-    being repaired is seconds wide (raw write succeeded, queue write did
-    not) and the next ingest/redelivery from the endpoint re-enqueues
-    idempotently.
-
-    `enqueue()` remains the single idempotent authority: this function does
-    not pre-check the queue and does not write queue documents itself.
+    window_seconds is retained for caller compatibility; it no longer
+    excludes older owned obligations. The marker and authenticated trust,
+    not age, establish ownership. Existing jobs remain unchanged.
     """
-    from edr_plane import raw_events
-
-    limit = max(1, min(int(limit), 5000))
-    window_seconds = max(1, int(window_seconds))
-    since = (
-        _now() - timedelta(seconds=window_seconds)
-    ).isoformat()
-
-    cursor = (
-        db[raw_events.COLLECTION]
-        .find(
-            {
-                "processing_contract": PROCESSING_CONTRACT,
-                "trust_state": "AUTHENTICATED",
-                "ingest_time": {"$gte": since},
-            },
-            {"_id": 0, "tenant_id": 1, "raw_id": 1},
-        )
-        .sort("ingest_time", 1)
-        .limit(limit)
-    )
-
-    scanned = 0
-    created = 0
-    already_present = 0
-
-    async for raw_doc in cursor:
-        tenant_id = raw_doc.get("tenant_id")
-        raw_id = raw_doc.get("raw_id")
-
-        if not tenant_id or not raw_id:
-            continue
-
-        scanned += 1
-
-        result = await enqueue(
-            db,
-            tenant_id=tenant_id,
-            raw_id=raw_id,
-        )
-
-        if result["created"]:
-            created += 1
-        else:
-            # Another worker/reconciler may have repaired it after the
-            # aggregation snapshot. That race is safe because enqueue()
-            # is idempotent.
-            already_present += 1
-
-    return {
-        "scanned": scanned,
-        "created": created,
-        "already_present": already_present,
-    }
+    from edr_plane.reconciliation import reconcile_page
+    return await reconcile_page(
+        db, enqueue=enqueue, contract=PROCESSING_CONTRACT, limit=limit)
 
 
 # ---------------------------------------------------------------------------
@@ -603,4 +569,5 @@ async def stop_workers() -> None:
     finally:
         _supervisor_task = None
         _stop_event = None
+
 

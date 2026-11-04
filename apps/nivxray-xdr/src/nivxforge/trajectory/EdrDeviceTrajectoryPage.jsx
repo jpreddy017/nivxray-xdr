@@ -580,6 +580,7 @@ const iconBtn = { width: 34, height: 32, cursor: "pointer",
   }, [laneStart, rows, total, params, setParams]);
 
   const deepLink = params.get("event");
+  const fileHandoff = params.get("source") === "file_search";
 
   /** P0-F.13.5 · detection handoff.
    *
@@ -592,10 +593,11 @@ const iconBtn = { width: 34, height: 32, cursor: "pointer",
     + `${params.get("raw_event_id") || ""}|`
     + `${params.get("canonical_event_id") || ""}`;
   useEffect(() => {
-    if (!device || handoffKey === "||" || deepLink) return undefined;
+    if (!device || (!fileHandoff && (handoffKey === "||" || deepLink))) return undefined;
     let live = true;
     api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory/focus`,
             { params: {
+              event_iid: fileHandoff ? deepLink : undefined,
               detection_id: params.get("detection") || undefined,
               raw_event_id: params.get("raw_event_id") || undefined,
               canonical_event_id: params.get("canonical_event_id")
@@ -625,11 +627,12 @@ const iconBtn = { width: 34, height: 32, cursor: "pointer",
         }
         const next = new URLSearchParams(params);
         next.set("event", data.focus.event_iid);
+        next.delete("source");
         setParams(next, { replace: true });
       })
       .catch(() => { if (live) setHandoff({ state: "FOCUS_UNAVAILABLE" }); });
     return () => { live = false; };
-  }, [device, handoffKey, deepLink]);   // eslint-disable-line
+  }, [device, handoffKey, deepLink, fileHandoff]);   // eslint-disable-line
 
   const locate = useCallback(async (iid) => {
     if (!device) return;

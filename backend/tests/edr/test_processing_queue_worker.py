@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 
 import pytest
 
@@ -30,6 +31,7 @@ async def test_worker_success_marks_done(monkeypatch):
             "raw_id": "raw_1",
             "state": q.PROCESSING,
             "attempts": 1,
+            "lease_until": q._now() + timedelta(seconds=600),
         }
 
     async def _get(*a, **k):
@@ -49,7 +51,9 @@ async def test_worker_success_marks_done(monkeypatch):
         }
 
     async def _bridge(*a, **k):
-        return {"canonicalized": True}
+        return {"canonicalized": True, "parser_state": "OK", "detection": {
+            "evaluated": True, "finding_plane": {"evaluation_state": "EVALUATED_NO_FINDING"},
+            "stage_results": [{"stage": "detection", "status": "EXECUTED"}]}}
 
     done = []
 
@@ -66,7 +70,15 @@ async def test_worker_success_marks_done(monkeypatch):
 
     assert out["processed"] is True
     assert out["state"] == q.DONE
+    assert len(done) == 1
+    timing = done[0].pop("timings")
     assert done == [{"tenant_id": "t", "raw_id": "raw_1", "attempts": 1}]
+    assert timing["attempt"] == 1
+    assert timing["contract"] == "edr.processing_timings.v1"
+    stage = timing["stages"]["canonical_bridge"]
+    assert stage["state"] == "COMPLETED"
+    assert stage["duration_ms"] >= 0
+    assert stage["ended_at"] >= stage["started_at"]
 
 
 @pytest.mark.asyncio
@@ -80,6 +92,7 @@ async def test_worker_bridge_failure_records_retry(monkeypatch):
             "raw_id": "raw_2",
             "state": q.PROCESSING,
             "attempts": 1,
+            "lease_until": q._now() + timedelta(seconds=600),
         }
 
     async def _get(*a, **k):
@@ -113,6 +126,7 @@ async def test_worker_bridge_failure_records_retry(monkeypatch):
     assert out["processed"] is False
     assert out["state"] == q.RETRY
     assert out["retry_recorded"] is True
+    assert retries[0]["attempts"] == 1
     assert "bridge failed" in out["error"]
     assert retries[0]["tenant_id"] == "t"
     assert retries[0]["raw_id"] == "raw_2"
@@ -130,6 +144,7 @@ async def test_worker_missing_raw_records_retry(monkeypatch):
             "raw_id": "raw_missing",
             "state": q.PROCESSING,
             "attempts": 1,
+            "lease_until": q._now() + timedelta(seconds=600),
         }
 
     async def _get(*a, **k):
@@ -150,6 +165,7 @@ async def test_worker_missing_raw_records_retry(monkeypatch):
     assert out["processed"] is False
     assert out["state"] == q.RETRY
     assert out["retry_recorded"] is True
+    assert retries[0]["attempts"] == 1
     assert "raw evidence missing" in out["error"]
     assert retries[0]["raw_id"] == "raw_missing"
 
@@ -165,16 +181,26 @@ class _FakeRawCursor:
     """
 
     def __init__(self, docs):
-        self.docs = docs
+        self.docs = [dict(doc, _id=i + 1) for i, doc in enumerate(docs)]
         self.query = None
         self.projection = None
         self.sort_spec = None
         self.limit_value = None
 
+    async def find_one(self, query, projection=None, sort=None):
+        assert query["processing_contract"] == q.PROCESSING_CONTRACT
+        assert query["trust_state"] == "AUTHENTICATED"
+        return self.docs[-1] if self.docs else None
+
     def find(self, query, projection=None):
+        assert query["processing_contract"] == q.PROCESSING_CONTRACT
+        assert query["trust_state"] == "AUTHENTICATED"
         self.query = query
         self.projection = projection
-        self._selected = list(self.docs)
+        bounds = query["_id"]
+        self._selected = [d for d in self.docs
+                          if d["_id"] <= bounds["$lte"]
+                          and d["_id"] > bounds.get("$gt", 0)]
         return self
 
     def sort(self, field, direction=1):
@@ -197,8 +223,31 @@ class _FakeRawCursor:
             raise StopAsyncIteration
 
 
+class _FakeCursorState:
+    def __init__(self):
+        self.doc = None
+
+    async def update_one(self, query, update, upsert=False):
+        from types import SimpleNamespace
+        if self.doc is None and upsert:
+            self.doc = {**query, **update["$setOnInsert"]}
+            return SimpleNamespace(modified_count=0)
+        if self.doc is None or any(self.doc.get(k) != v for k, v in query.items()):
+            return SimpleNamespace(modified_count=0)
+        self.doc.update(update.get("$set", {}))
+        for k, v in update.get("$inc", {}).items():
+            self.doc[k] = self.doc.get(k, 0) + v
+        return SimpleNamespace(modified_count=1)
+
+    async def find_one(self, query):
+        return dict(self.doc) if self.doc else None
+
+
 class _FakeDB(dict):
-    pass
+    def __init__(self):
+        super().__init__()
+        from edr_plane.reconciliation import CURSORS
+        self[CURSORS] = _FakeCursorState()
 
 
 @pytest.mark.asyncio
@@ -345,6 +394,38 @@ async def test_worker_loop_survives_transient_process_one_exception(monkeypatch)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["canonical", "parser", "evaluation", "finding", "stages", "failed_stage"])
+async def test_incomplete_processing_never_marks_done(monkeypatch, failure):
+    from edr_plane import raw_events, canonical_bridge
+    result = {"canonicalized": True, "parser_state": "OK", "detection": {
+        "evaluated": True, "finding_plane": {"evaluation_state": "EVALUATED_NO_FINDING"},
+        "stage_results": [{"stage": "detection", "status": "EXECUTED"}]}}
+    if failure == "canonical": result["canonicalized"] = False
+    if failure == "parser": result["parser_state"] = "FAILED"
+    if failure == "evaluation": result["detection"]["evaluated"] = False
+    if failure == "finding": result["detection"]["finding_plane"]["evaluation_state"] = "EVALUATION_FAILED"
+    if failure == "stages": result["detection"]["stage_results"] = []
+    if failure == "failed_stage": result["detection"]["stage_results"][0]["status"] = "FAILED"
+    async def claim(*a, **k): return {"tenant_id": "t", "raw_id": "r", "attempts": 3, "lease_until": q._now() + timedelta(seconds=600)}
+    async def raw(*a, **k): return {"payload": "{}", "endpoint_ref": "ep", "source_kind": "sensor", "authentication": {"endpoint_id": "ep", "auth_method": "session"}}
+    async def bridge(*a, **k): return result
+    async def done(*a, **k): pytest.fail("incomplete processing reached DONE")
+    retries = []
+    async def retry(*a, **k):
+        retries.append(k)
+        return True
+    monkeypatch.setattr(q, "claim", claim)
+    monkeypatch.setattr(raw_events, "get", raw)
+    monkeypatch.setattr(canonical_bridge, "bridge", bridge)
+    monkeypatch.setattr(q, "mark_done", done)
+    monkeypatch.setattr(q, "mark_retry", retry)
+    out = await q.process_one(object())
+    assert out["retry_recorded"] is True
+    assert retries[0]["attempts"] == 3
+    assert "refusing DONE" in retries[0]["error"]
+
+
+@pytest.mark.asyncio
 async def test_worker_alternates_live_and_recovery_under_backlog(monkeypatch):
     turns = []
     q._stop_event = asyncio.Event()
@@ -361,3 +442,4 @@ async def test_worker_alternates_live_and_recovery_under_backlog(monkeypatch):
     finally:
         q._stop_event = None
     assert turns == [True, False, True, False, True, False]
+

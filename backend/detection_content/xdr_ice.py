@@ -33,6 +33,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+from .correlation_replay import persist_match
 
 
 ICE_ENGINE_ID = "nivxray::xdr::ice"
@@ -204,8 +205,11 @@ async def correlate(db, canonical: dict, iue: dict, trace_id: str) -> dict:
                 "attack_techniques": rule.get("attack_techniques") or [],
                 "engine_id":        ICE_ENGINE_ID,
             }
-            await db[CORRELATION_MATCHES_COLLECTION].insert_one(dict(match_doc))
-            matches.append(match_doc)
+            persisted_match = await persist_match(
+                db[CORRELATION_MATCHES_COLLECTION], match_doc,
+                tenant_id=canonical.get("tenant_id"), rule=rule,
+                signal=signal, engine_version=ICE_ENGINE_VERSION)
+            matches.append(persisted_match)
 
     return {
         "engine_id":      ICE_ENGINE_ID,

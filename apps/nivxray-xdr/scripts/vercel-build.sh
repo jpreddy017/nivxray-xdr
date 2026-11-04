@@ -36,11 +36,14 @@ esac
 
 API_ORIGIN="${XDR_PROD_API_ORIGIN:-https://nivxray.nivxforge.com}"
 if [[ "${NIVX_EDR_INTEGRATION_PREVIEW:-0}" == "1" ]]; then
-  if [[ "${VERCEL_ENV:-}" != "preview" || "$SCOPE" != "edr" || "${VERCEL_GIT_COMMIT_REF:-}" != "validation/edr-preview-backend-2026-10-31" || "${NIVX_CROSS_PRODUCT_ORIGINS:-0}" != "0" ]]; then
+  if [[ "${VERCEL_ENV:-}" != "preview" || "$SCOPE" != "edr" || ( "${VERCEL_GIT_COMMIT_REF:-}" != "validation/edr-preview-backend-2026-10-31" && "${VERCEL_GIT_COMMIT_REF:-}" != "feature/edr-global-file-search-20261104" && "${VERCEL_GIT_COMMIT_REF:-}" != "review/edr-combined-acceptance-20261104" ) || "${NIVX_CROSS_PRODUCT_ORIGINS:-0}" != "0" ]]; then
     echo "FATAL: integration build is restricted to the designated EDR preview branch." >&2
     exit 1
   fi
   API_ORIGIN="https://greeting-app-5782.preview.emergentagent.com"
+  if [[ "${VERCEL_GIT_COMMIT_REF:-}" == "review/edr-combined-acceptance-20261104" ]]; then
+    API_ORIGIN="$API_ORIGIN/candidate-api"
+  fi
 fi
 
 # Cross-product origins (public config only — never a credential).

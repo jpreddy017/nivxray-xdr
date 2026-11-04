@@ -291,6 +291,12 @@ from routers.edr_response import (agent as edr_resp_agent,
                                   router as edr_resp_router)
 api.include_router(edr_resp_router)
 api.include_router(edr_resp_agent)
+from routers.edr_forensics import (board_router as edr_board_router,
+                                   live as edr_live_query_router,
+                                   router as edr_forensics_router)
+api.include_router(edr_forensics_router)
+api.include_router(edr_live_query_router)
+api.include_router(edr_board_router)
 api.include_router(incident_summary_router)
 api.include_router(ops_router)
 api.include_router(analyze_router)
@@ -1063,20 +1069,25 @@ async def _startup():
     try:
         from edr_plane.processing_queue import start_workers as _start_edr_workers
         from deps import db as _edr_worker_db
+        from edr_plane.worker_config import processing_worker_count
+        _edr_worker_count = processing_worker_count()
         await _start_edr_workers(
             _edr_worker_db,
-            worker_count=1,
+            worker_count=_edr_worker_count,
             reconcile_interval_seconds=60,
         )
         log.info(
             "[startup] EDR durable processing supervisor started "
-            "(workers=1, reconcile=60s)"
+            "(workers=%s, reconcile=60s)", _edr_worker_count
         )
     except Exception as e:  # noqa: BLE001
         log.warning(
             f"[startup] EDR durable processing supervisor failed: {e}"
         )
 
+
+    from edr_plane.file_index_lifecycle import start_file_index_worker
+    await start_file_index_worker()
 
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:
@@ -1185,6 +1196,8 @@ async def _startup():
 
 @app.on_event("shutdown")
 async def _shutdown():
+    from edr_plane.file_index_lifecycle import stop_file_index_worker
+    await stop_file_index_worker()
     try:
         from edr_plane.processing_queue import stop_workers as _stop_edr_workers
         await _stop_edr_workers()
@@ -1198,3 +1211,4 @@ async def _shutdown():
     except Exception:  # noqa: BLE001
         pass
     client.close()
+
