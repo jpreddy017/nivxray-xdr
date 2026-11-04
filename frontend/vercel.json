@@ -1,5 +1,5 @@
 {
-  "installCommand": "yarn install --production=false --frozen-lockfile",
+  "installCommand": "yarn install --production=false",
   "buildCommand": "yarn build",
   "outputDirectory": "build",
   "framework": "create-react-app",
