@@ -1,0 +1,18 @@
+{
+  "installCommand": "yarn install --production=false",
+  "buildCommand": "CI=false yarn build",
+  "outputDirectory": "build",
+  "framework": "create-react-app",
+  "build": {
+    "env": {
+      "NPM_CONFIG_PRODUCTION": "false",
+      "YARN_PRODUCTION": "false"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

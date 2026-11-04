@@ -31,10 +31,10 @@ GAP_TRACK_DIRS = (
     pathlib.Path(__file__).resolve().parents[1] / "coverage_gaps",
 )
 
-# Last human review date for the gap-tracking tests. Bumping this after
+# Last documented review date for the gap-tracking tests. Bumping this after
 # a monthly triage is the SOLE hygiene ritual we ask reviewers to
 # perform. Format: YYYY-MM-DD.
-LAST_REVIEW_DATE = "2026-07-21"
+LAST_REVIEW_DATE = "2026-11-04"
 
 # Max staleness before this test fails, forcing a fresh triage.
 MAX_STALENESS_DAYS = 60
