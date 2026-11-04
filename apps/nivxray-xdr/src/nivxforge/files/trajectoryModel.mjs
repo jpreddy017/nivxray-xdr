@@ -1,6 +1,6 @@
 export const unavailable = 'Unavailable from this source';
 export const unique = (values) => [...new Set(values.filter((v) => v !== null && v !== undefined && v !== ''))];
-export const eventKey = (row) => `${row.endpoint_id || ''}:${row.record_id}`;
+export const eventKey = (row) => `${row.endpoint_id || ''}:${row._id || row.record_id}`;
 export function chronological(rows) {
   return rows.slice().sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at) || eventKey(a).localeCompare(eventKey(b)));
 }

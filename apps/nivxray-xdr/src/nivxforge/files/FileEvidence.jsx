@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getFileObservations } from "./fileEvidenceApi";
+import { getIndexedFileObservations, getFileObservations } from "./fileEvidenceApi";
 import { TENANT_BOUND_EVENT } from "@/lib/tenant";
 import "./file-evidence.css";
 import FileTimeline from "./FileTimeline";
@@ -12,14 +12,14 @@ const iso = (ms) => new Date(ms).toISOString().slice(0, 16);
 const utcMillis = (text) => Date.parse(`${text}:00Z`);
 const validMillis = (value) => Number.isFinite(value) && value > 0 && value <= 253402300799000;
 
-export default function FileEvidence({ endpointId, endpointIds, computers = [] }) {
+export default function FileEvidence({ endpointId, endpointIds, computers = [], indexSearch }) {
   const [params, setParams] = useSearchParams();
   const [end] = useState(() => Math.floor(Date.now() / 60000) * 60000);
-  const startParam = Number(params.get("t0")), endParam = Number(params.get("t1"));
+  const startParam = Number(indexSearch?.time_start || params.get("t0")), endParam = Number(indexSearch?.time_end || params.get("t1"));
   const [start, setStart] = useState(() => iso(validMillis(startParam) ? startParam : end - 30 * day));
   const [finish, setFinish] = useState(() => iso(validMillis(endParam) ? endParam : end));
-  const [kind, setKind] = useState(() => params.get("file_key_type") || (endpointIds ? "sha256" : "path"));
-  const [key, setKey] = useState(() => params.get("file_key") || "");
+  const [kind, setKind] = useState(() => indexSearch?.key_type || params.get("file_key_type") || (endpointIds ? "sha256" : "path"));
+  const [key, setKey] = useState(() => indexSearch?.key || params.get("file_key") || "");
   const [eventFilter, setEventFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [ascending, setAscending] = useState(true);
@@ -76,12 +76,14 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [] }
     setParams(next, { replace: true });
   };
 
+  useEffect(() => { if (indexSearch) load(); }, [indexSearch]); // query supplied by global discovery
+
   useEffect(() => {
     if (!query) return undefined;
     const controller = new AbortController();
     const ticket = generation.current;
     setBusy(true); setError("");
-    readComputerPage(getFileObservations, query, controller.signal, request.cursor)
+    readComputerPage(indexSearch ? getIndexedFileObservations : getFileObservations, query, controller.signal, request.cursor)
       .then((value) => {
         if (controller.signal.aborted || ticket !== generation.current) return;
         setData((old) => {
@@ -103,7 +105,7 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [] }
     return () => controller.abort();
   }, [query, request]);
 
-  const trajectory = query ? `/edr/computers/${encodeURIComponent(selected?.endpoint_id || endpointId)}/trajectory?t0=${query.time_start}&t1=${query.time_end}` : "";
+  const trajectory = selected?.trajectory_url || (query ? `/edr/computers/${encodeURIComponent(selected?.endpoint_id || endpointId)}/trajectory?t0=${query.time_start}&t1=${query.time_end}` : "");
   const ordered = chronological(rows).filter((r) => (!actionFilter || r.action === actionFilter) &&
     [r.path, r.name, r.writer_image, r.endpoint_id, r.hashes?.sha256].some((v) => String(v || "").toLowerCase().includes(eventFilter.toLowerCase())));
   if (!ascending) ordered.reverse();
@@ -126,7 +128,7 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [] }
         <label>Start (UTC)<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required /></label>
         <label>End (UTC, exclusive)<input type="datetime-local" value={finish} onChange={(e) => setFinish(e.target.value)} required /></label>
         <label>Match by<select value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="path">Exact path</option><option value="name">Exact name</option><option value="sha256">SHA-256 content hash</option>
+          {indexSearch && <><option value="auto">Auto detect</option><option value="sha1">SHA-1</option><option value="md5">MD5</option></>}<option value="path">Exact path</option><option value="name">Exact name</option><option value="sha256">SHA-256 content hash</option>
         </select></label>
         <label className="ft-key">{endpointIds ? "SHA-256 (required across computers)" : "File filter (optional)"}<input value={key} maxLength={4096} onChange={(e) => setKey(e.target.value)} placeholder={endpointIds ? "Enter 64 hexadecimal characters" : "Leave empty to inspect recorded files"} /></label>
         <button className="btn" type="submit" disabled={busy || (!endpointId && !endpointIds?.length)}>Search observations</button>
@@ -135,8 +137,8 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [] }
       {busy ? <p role="status">Reading file evidence…</p> : null}
       {data?.state === "ENDPOINT_NOT_RESOLVED" ? <p role="alert">Endpoint identity or permission could not be resolved. This is not an empty file history.</p> : null}
       {data && data.state !== "ENDPOINT_NOT_RESOLVED" ? <>
-        <p role="status">{rows.length} observations loaded · {data.complete ? "scan reached the end" : "more source records remain"}.</p>
-        <p className="ft-coverage">Coverage has not been proven. A missing hash is unknown; no detection verdict is inferred. Timeline and history show loaded evidence chronologically; continue scanning to retrieve more.</p>
+        <p role="status">{rows.length} observations loaded · {indexSearch ? (data.complete ? "all matching indexed evidence loaded" : "more matching indexed evidence available") : (data.complete ? "scan reached the end" : "more source records remain")}.</p>
+        <p className="ft-coverage">{indexSearch ? "Evidence is limited to index coverage shown above. Missing hashes and verdicts remain unknown. Timeline and history show loaded evidence." : "Coverage has not been proven. A missing hash is unknown; no detection verdict is inferred. Timeline and history show loaded evidence chronologically; continue scanning to retrieve more."}</p>
         {!rows.length ? <p>{data.next_cursor ? "No file matches in this scan page. Continue scanning before concluding there are no matches."
           : "No matching file observations found in the scanned records. This does not prove that no file activity occurred."}</p> : null}
         {Object.keys(data.issues || {}).length ? <p>Some source records could not be interpreted or timed and were excluded. Coverage is incomplete.</p> : null}
@@ -154,7 +156,7 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [] }
           <tbody>{visible.map((row) => <tr key={eventKey(row)} data-selected={selected && eventKey(selected) === eventKey(row)}>
             <td>{row.observed_at}</td><td>{computers.find((c) => c.endpoint_id === row.endpoint_id)?.hostname || row.endpoint_id}</td><td className="ft-path">{row.path}</td><td>{row.action || "Not reported"}</td>
             <td>{row.hashes?.sha256 || (Object.keys(row.hashes || {}).length ? "Other source hash" : "Hash not observed")}</td>
-            <td><button className="btn" onClick={(e) => { lastInspect.current = e?.currentTarget; setSelected(row); }} aria-label={`Inspect ${row.name || row.path}`}>Inspect</button></td>
+            <td><button className="btn" onClick={(e) => { lastInspect.current = e?.currentTarget; setSelected(row); }} aria-label={`Inspect ${row.name || row.path}`}>Inspect</button>{row.trajectory_url && <><br /><Link to={row.trajectory_url}>Matching event in Device Trajectory</Link></>}</td>
           </tr>)}</tbody>
         </table>{!ordered.length && <p className="ft-empty">No loaded events match these filters.</p>}</div>
         <div className="ft-pagination"><span>{ordered.length} matching loaded events</span><label>Rows <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}>{[25,50,100].map((n) => <option key={n}>{n}</option>)}</select></label><button className="btn" disabled={!page} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page + 1} of {Math.max(1, Math.ceil(ordered.length / pageSize))}</span><button className="btn" disabled={(page + 1) * pageSize >= ordered.length} onClick={() => setPage(page + 1)}>Next</button></div>
@@ -165,13 +167,13 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [] }
             "Observed (UTC)": selected.observed_at, "Identity basis": selected.identity_basis,
             "SHA-256": selected.hashes?.sha256, "Source-stated process": selected.writer_image,
             "Process GUID": selected.writer_process_guid, "Process PID (not unique identity)": selected.writer_pid,
-            "Writer basis": selected.writer_basis, Signer: selected.signer,
+            "Evidence type": selected.evidence_type, "Observed image": selected.process_image, "Command line": selected.command_line, "Writer basis": selected.writer_basis, Signer: selected.signer,
             "Size (bytes)": selected.size, Source: selected.source,
             "Evidence reference": selected.evidence_ref, "Observation record": selected.record_id,
             Assessment: selected.assessment }).map(([label, value]) => <React.Fragment key={label}>
               <dt>{label}</dt><dd>{value ?? "Not observed"}{value === "" ? "Not observed" : ""}</dd>
             </React.Fragment>)}</dl>
-          <Link to={trajectory}>Open Device Trajectory in this window</Link>
+          <Link to={trajectory}>{selected?.trajectory_url ? "Open matching event in Device Trajectory" : "Open Device Trajectory in this window"}</Link>
           <button className="btn" onClick={() => { setSelected(null); lastInspect.current?.focus(); }}>Close details</button>
         </aside> : null}
         </div>

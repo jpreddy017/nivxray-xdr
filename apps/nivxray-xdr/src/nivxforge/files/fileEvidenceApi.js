@@ -5,3 +5,8 @@ export async function getFileObservations(params, signal) {
   return data;
 }
 
+
+export async function getIndexedFileObservations(params, signal) {
+  const { data } = await api.get("/edr/files/search", { params, signal });
+  return data;
+}

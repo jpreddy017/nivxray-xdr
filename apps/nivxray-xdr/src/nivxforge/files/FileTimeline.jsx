@@ -22,7 +22,7 @@ export default function FileTimeline({ rows, endpointId, selected, onSelect, sta
     return [JSON.stringify(record), record];
   }))).values()];
   const executions = rows.flatMap((r) => r.executions || []);
-  const writers = unique(rows.map((r) => r.writer_image));
+  const writers = unique(rows.map((r) => r.writer_image || r.process_image));
   return <>
     <div className="ft-top-grid">
       <section className="ft-card"><h3><Icon name="eye" />Visibility</h3>
@@ -59,7 +59,7 @@ export default function FileTimeline({ rows, endpointId, selected, onSelect, sta
         const hostRows = rows.filter((r) => (r.endpoint_id || endpointId) === id);
         const positioned = clusterEvents(hostRows, from, to);
         const height = 80;
-        const processes = unique(hostRows.map((r) => r.writer_image));
+        const processes = unique(hostRows.map((r) => r.writer_image || r.process_image));
         return <div className="ft-host-group" key={id}><div className="ft-host-row"><button className="ft-host-label" aria-expanded={Boolean(expanded[id])} onClick={() => setExpanded((old) => ({ ...old, [id]: !old[id] }))}><Icon name="computer" /><span>{name(id)}<small>{hostRows.length} loaded events</small></span><span>{expanded[id] ? '−' : '+'}</span></button>
           <div className="ft-time-track" style={{ height }}>{positioned.map(({ rows: grouped, position }) => { const row = grouped[0], s = eventStyle(row.action); return <button key={eventKey(row)} type="button" className="ft-time-event" data-tone={grouped.length > 1 ? 'gray' : s.tone} aria-pressed={Boolean(selected && grouped.some((r) => eventKey(selected) === eventKey(r)))} style={{ left: `${position}%`, top: 22 }} title={grouped.length > 1 ? `${grouped.length} events · click to expand` : `${row.observed_at} · ${row.action || 'Observed'}`} aria-label={grouped.length > 1 ? `Expand ${grouped.length} events on ${name(id)}` : `Inspect event ${row.observed_at}, ${row.action || 'Observed'}, ${row.path || unavailable}`} onClick={(e) => grouped.length > 1 ? setCluster({ id, rows: grouped }) : onSelect(row, e.currentTarget)}>{grouped.length > 1 ? grouped.length : <Icon name={s.icon} />}</button>; })}{!positioned.length && <p>No loaded events in this zoom window</p>}</div></div>
           {cluster?.id === id && <div className="ft-cluster"><div className="ft-section-head"><h4>{cluster.rows.length} grouped events · {name(id)}</h4><button className="btn" onClick={() => setCluster(null)}>Close grouped events</button></div><div className="ft-cluster-list">{cluster.rows.map((r) => <button className="ft-cluster-event" key={eventKey(r)} onClick={(e) => onSelect(r, e.currentTarget)}><Icon name={eventStyle(r.action).icon} /><time>{r.observed_at}</time><span>{r.action || 'Observed'}</span><span>{r.path}</span></button>)}</div></div>}

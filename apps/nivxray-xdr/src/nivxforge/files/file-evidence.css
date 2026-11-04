@@ -102,3 +102,8 @@
 .ft-cluster-list { max-height: 240px; overflow: auto; }
 .ft-cluster-event { display: flex; gap: 14px; width: 100%; text-align: left; padding: 10px; background: var(--ft-surface); color: inherit; border: 0; border-bottom: 1px solid var(--ft-border); cursor: pointer; }
 .ft-time-event { font-size: 11px; font-weight: bold; }
+
+.global-files { margin: 16px 0 24px; padding: 20px; border: 1px solid var(--border, #a7b4c5); border-radius: 8px; }
+.global-files table { width: 100%; border-collapse: collapse; }
+.global-files th, .global-files td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border, #a7b4c5); }
+.global-endpoint { display: block; opacity: .7; margin-top: 4px; }

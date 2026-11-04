@@ -58,6 +58,7 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     ("GET", "/api/edr/observation-narrative"): TENANT_SCOPED,
     ("GET", "/api/edr/file-trajectory"): TENANT_SCOPED,
     ("GET", "/api/edr/endpoint-file-observations"): TENANT_SCOPED,
+    ("GET", "/api/edr/files/search"): TENANT_SCOPED,
     ("GET", "/api/edr/fleet-spread-index"): TENANT_SCOPED,
     ("GET", "/api/edr/telemetry/freshness"): TENANT_SCOPED,
     ("GET", "/api/edr/endpoints"): TENANT_SCOPED,

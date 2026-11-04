@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import { getComputers } from "@/nivxforge/onboardingApi";
+import GlobalFileSearch from "@/nivxforge/files/GlobalFileSearch";
 import FileEvidence from "@/nivxforge/files/FileEvidence";
 import { activeTenant, TENANT_BOUND_EVENT } from "@/lib/tenant";
 
@@ -24,6 +25,8 @@ function FilesBody() {
   }, [tenant]);
   return <>
     <h1 className="page-h1">Files</h1>
+    <GlobalFileSearch />
+    <details><summary>Endpoint-only search (existing view)</summary>
     <label>Computer <select value={endpoint} onChange={(e) => {
       const next = new URLSearchParams(params);
       if (e.target.value) next.set("device", e.target.value); else next.delete("device");
@@ -35,6 +38,7 @@ function FilesBody() {
     <p>{computers.length} computers loaded from the directory. A multi-computer search covers this list only.</p>
     {error ? <p role="alert">{error}</p> : null}
     {endpoint ? <FileEvidence key={`${tenant}:${endpoint}:${computers.map((c) => c.endpoint_id).join(",")}`} endpointId={endpoint === "__listed__" ? undefined : endpoint} endpointIds={endpoint === "__listed__" ? computers.map((c) => c.endpoint_id).filter(Boolean) : undefined} computers={computers} /> : <p>Select a computer to investigate its recorded file observations.</p>}
+    </details>
   </>;
 }
 
