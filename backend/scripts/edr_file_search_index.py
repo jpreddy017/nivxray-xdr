@@ -4,6 +4,7 @@ PYTHONPATH=backend python backend/scripts/edr_file_search_index.py --tenant ID
 Use --follow for incremental polling. Source evidence is never modified.
 The source must be append-only with monotonically increasing ObjectIds;
 periodic bounded reconciliation revisits older IDs and repaired mappings.
+Index validation withdraws stale search tokens without deleting source or index evidence.
 """
 import argparse
 from datetime import datetime, timezone, timedelta
@@ -92,6 +93,61 @@ def batch(db, tenant, size=500, owner=None, reconcile=False):
     return len(docs), written
 
 
+def reconcile_index(db, tenant, size=500, owner=None):
+    """Revalidate a bounded index page; preserve invalid rows without search tokens.
+
+    Source evidence is read-only. Replays restore repaired/restored rows. A failed
+    source read raises before invalidation, and the cursor advances only after
+    every write succeeds.
+    """
+    if owner:
+        renew(db, tenant, owner)
+    target, state = db[COLLECTION], db[CHECKPOINTS]
+    checkpoint = state.find_one({'_id': tenant}) or {}
+    query = {'tenant_id': tenant}
+    if checkpoint.get('validation_after'):
+        query['_id'] = {'$gt': checkpoint['validation_after']}
+    rows = list(target.find(query).sort('_id', 1).limit(size).max_time_ms(5000))
+    cache = {}
+    for row in rows:
+        if owner:
+            renew(db, tenant, owner)
+        ref = row.get('record_id', '')
+        doc = (db.v2_shadow_observations.find_one({'_id': ObjectId(ref), 'tenant_id': tenant})
+               if ObjectId.is_valid(ref) else None)
+        reason = 'source_unavailable'
+        replacement = None
+        if doc:
+            res = resolve_file_identity(doc, 'v2_shadow_observations', tenant, eq.resolve_endpoint, cache)
+            reason = 'identity_unresolved'
+            if res and db.v2_shadow_observations.find_one(
+                    {'$and': [{'_id': doc['_id']}, res.predicate('v2_shadow_observations')]}, {'_id': 1}):
+                reason = 'superseded'
+                replacement = next((value for value in project_document(doc, res)
+                                    if value['_id'] == row['_id']), None)
+        if owner:
+            renew(db, tenant, owner)
+        if replacement:
+            target.replace_one({'_id': row['_id'], 'tenant_id': tenant}, replacement)
+        elif row.get('tokens') or row.get('invalidation_reason') != reason:
+            values = {'tokens': [], 'invalidation_reason': reason,
+                      'invalidated_at': datetime.now(timezone.utc).isoformat()}
+            if row.get('tokens'):
+                values['previous_tokens'] = row['tokens']
+            target.update_one({'_id': row['_id'], 'tenant_id': tenant}, {'$set': values})
+    update = {'validation_after': rows[-1]['_id'] if len(rows) == size else None}
+    if len(rows) < size:
+        update['validated_at'] = datetime.now(timezone.utc).isoformat()
+    predicate = {'_id': tenant}
+    if owner:
+        renew(db, tenant, owner)
+        predicate['owner'] = owner
+    result = state.update_one(predicate, {'$set': update}, upsert=not bool(owner))
+    if owner and not result.matched_count:
+        raise LeaseBusy('Indexer lease lost before validation checkpoint')
+    return len(rows)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     tenants = parser.add_mutually_exclusive_group(required=True)
@@ -110,7 +166,7 @@ def main():
         ensure_indexes(db[COLLECTION])
         while True:
             tenants = ([args.tenant] if args.tenant else sorted(
-                value for value in db.edr_endpoints.distinct('tenant_id')
+                value for value in set(db.edr_endpoints.distinct('tenant_id')) | set(db[CHECKPOINTS].distinct('_id'))
                 if isinstance(value, str) and value.strip()))
             pending = False
             for tenant in tenants:
@@ -122,9 +178,10 @@ def main():
                     # One bounded historical batch per turn: catches older-ID arrivals
                     # and retries identities repaired after their initial scan.
                     replayed, _ = batch(db, tenant, owner=owner, reconcile=True)
-                    pending = pending or count == 500 or replayed == 500
+                    validated = reconcile_index(db, tenant, owner=owner)
+                    pending = pending or count == 500 or replayed == 500 or validated == 500
                     failures = 0
-                    print(f'scanned={count} indexed={written} reconciled={replayed}', flush=True)
+                    print(f'scanned={count} indexed={written} reconciled={replayed} validated={validated}', flush=True)
                 except (PyMongoError, LeaseBusy):
                     if not args.follow:
                         raise

@@ -60,3 +60,65 @@ def test_reconcile_resumes_under_lease_and_excludes_other_tenants(db):
     assert db[COLLECTION].count_documents({}) == 2
     assert db[COLLECTION].count_documents({'tenant_id':'t2'}) == 0
     assert db[CHECKPOINTS].find_one({'_id':'t1'})['reconcile_after'] is None
+
+
+def test_deleted_source_withdraws_tokens_preserves_evidence_and_restores(db):
+    endpoint(db); oid=ObjectId(); seed(db, oid)
+    worker.batch(db, 't1')
+    saved=db.v2_shadow_observations.find_one({'_id':oid})
+    indexed=db[COLLECTION].find_one()
+    # Simulate external source retention only in this disposable database.
+    db.v2_shadow_observations.delete_one({'_id':oid})
+    worker.reconcile_index(db, 't1')
+    stale=db[COLLECTION].find_one({'_id':indexed['_id']})
+    assert stale['tokens']==[] and stale['previous_tokens']==indexed['tokens']
+    assert stale['invalidation_reason']=='source_unavailable'
+    assert stale['path']==indexed['path']
+    assert db[COLLECTION].count_documents({'tokens':'name:cmd.exe'})==0
+    db.v2_shadow_observations.insert_one(saved)
+    worker.reconcile_index(db, 't1')
+    assert db[COLLECTION].find_one()['tokens']==indexed['tokens']
+    assert 'invalidation_reason' not in db[COLLECTION].find_one()
+    assert db.v2_shadow_observations.find_one({'_id':oid})==saved
+
+def test_changed_path_and_removed_identity_withdraw_old_matches(db):
+    endpoint(db); oid=ObjectId(); seed(db, oid)
+    worker.batch(db, 't1')
+    db.v2_shadow_observations.update_one({'_id':oid},{'$set':{'event.process.image':'new.exe'}})
+    worker.batch(db, 't1', reconcile=True)
+    worker.reconcile_index(db, 't1')
+    assert db[COLLECTION].count_documents({'tokens':'name:cmd.exe'})==0
+    assert db[COLLECTION].count_documents({'tokens':'name:new.exe'})==1
+    before=db.v2_shadow_observations.find_one({'_id':oid})
+    db.edr_endpoints.delete_many({})
+    worker.reconcile_index(db, 't1')
+    assert db[COLLECTION].count_documents({'tokens':{'$ne':[]}})==0
+    assert db.v2_shadow_observations.find_one({'_id':oid})==before
+
+def test_validation_is_bounded_resumable_and_tenant_scoped(db):
+    endpoint(db); endpoint(db, 'ep_foreign', 't2')
+    seed(db, ObjectId()); seed(db, ObjectId()); seed(db,ObjectId(),'ep_foreign','t2')
+    worker.batch(db,'t1'); worker.batch(db,'t2')
+    foreign=db[COLLECTION].find_one({'tenant_id':'t2'})
+    db.v2_shadow_observations.delete_many({'tenant_id':'t1'})
+    assert worker.acquire(db,'t1','a')
+    assert worker.reconcile_index(db,'t1',size=1,owner='a')==1
+    assert db[CHECKPOINTS].find_one({'_id':'t1'})['validation_after']
+    db[CHECKPOINTS].update_one({'_id':'t1'},{'$set':{'lease_until':datetime.now(timezone.utc)-timedelta(seconds=1)}})
+    assert worker.acquire(db,'t1','b')
+    with pytest.raises(worker.LeaseBusy):
+        worker.reconcile_index(db,'t1',owner='a')
+    worker.reconcile_index(db,'t1',owner='b')
+    assert db[COLLECTION].count_documents({'tenant_id':'t1','tokens':{'$ne':[]}})==0
+    assert db[COLLECTION].find_one({'tenant_id':'t2'})==foreign
+    assert db[CHECKPOINTS].find_one({'_id':'t1'})['validation_after'] is None
+
+def test_source_read_failure_does_not_withdraw_or_advance(db,monkeypatch):
+    from pymongo.errors import AutoReconnect
+    endpoint(db); seed(db,ObjectId()); worker.batch(db,'t1')
+    before=list(db[COLLECTION].find())
+    def fail(*args,**kwargs): raise AutoReconnect('synthetic failure')
+    monkeypatch.setattr(db.v2_shadow_observations,'find_one',fail)
+    with pytest.raises(AutoReconnect): worker.reconcile_index(db,'t1')
+    assert list(db[COLLECTION].find())==before
+    assert not db[CHECKPOINTS].find_one({'_id':'t1'}).get('validation_after')
