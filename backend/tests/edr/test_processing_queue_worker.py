@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 
 import pytest
 
@@ -30,6 +31,7 @@ async def test_worker_success_marks_done(monkeypatch):
             "raw_id": "raw_1",
             "state": q.PROCESSING,
             "attempts": 1,
+            "lease_until": q._now() + timedelta(seconds=600),
         }
 
     async def _get(*a, **k):
@@ -80,6 +82,7 @@ async def test_worker_bridge_failure_records_retry(monkeypatch):
             "raw_id": "raw_2",
             "state": q.PROCESSING,
             "attempts": 1,
+            "lease_until": q._now() + timedelta(seconds=600),
         }
 
     async def _get(*a, **k):
@@ -130,6 +133,7 @@ async def test_worker_missing_raw_records_retry(monkeypatch):
             "raw_id": "raw_missing",
             "state": q.PROCESSING,
             "attempts": 1,
+            "lease_until": q._now() + timedelta(seconds=600),
         }
 
     async def _get(*a, **k):
