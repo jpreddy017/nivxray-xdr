@@ -62,8 +62,14 @@ export function buildSections(it, ctx) {
     s.add("File type", ctx.typeDesc(it.target), {});
     s.add("Full path", it.target?.path, { reason: R.SRC, wrap: true });
     s.add("Signer / publisher", null, { reason: R.SIGN }).add("Signature status", null, { reason: R.SIGN });
-    s.add("First seen on this device", facts?.first_seen_on_device, { reason: facts ? R.SRC : undefined });
-    s.add("Prevalence", facts && `${facts.prevalence_devices} device(s) in retained evidence`, {});
+    const first = facts?.first_seen_in_customer ?? facts?.first_seen_on_device;
+    const complete = facts?.prevalence_complete === true;
+    s.add("First observed in customer evidence", typeof first === "string" ? first : null,
+      { reason: first?.reason || (facts ? R.SRC : undefined) });
+    const count = facts?.prevalence_devices;
+    s.add("Prevalence", Number.isInteger(count) && count >= 0
+      ? `${complete ? "" : "At least "}${count} device(s) in retained customer evidence${complete ? "" : " · coverage incomplete"}` : null,
+      { reason: facts ? "File prevalence is unavailable" : undefined });
     const creator = model.items.find((x) => ["create", "modify"].includes(x.kind.glyph) && x.target?.path && x.target.path === it.target?.path);
     s.add("Created / dropped by", creator?.actor ? `${creator.actor.label} · ${String(creator.actorIid || "").slice(-8)}` : null,
       { reason: R.WIN, jump: creator });

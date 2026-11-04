@@ -191,8 +191,8 @@ async def trajectory_file_facts(endpoint_id: str,
                 else ["process.hashes.sha256", "file.hashes.sha256"])
         paths = (["event.process.image", "event.file.path"] if store == "v2_shadow_observations"
                  else ["process.executable_path", "file.path"])
-        ors = ([{k: sha256} for k in keys] if sha256 else []) + \
-              ([{k: path} for k in paths] if path else [])
+        # A known content hash must not broaden to different contents at the same path.
+        ors = [{k: sha256} for k in keys] if sha256 else [{k: path} for k in paths]
         match: Dict[str, Any] = {"$or": ors}
         if partition:
             match[partition] = tenant
@@ -216,14 +216,18 @@ async def trajectory_file_facts(endpoint_id: str,
                 first_ms = us // 1000
                 first_ref = doc.get("observation_id") or doc.get("event_id")
     if first_ms is None and not devices:
-        return {"state": "NO_EVIDENCE_IN_THIS_CUSTOMER",
+        return {"state": "LOOKUP_INCOMPLETE" if truncated or unresolved_records else "NO_EVIDENCE_IN_THIS_CUSTOMER",
+                "first_seen_in_customer": NC,
+                "prevalence_complete": not truncated and unresolved_records == 0,
+                "unresolved_records": unresolved_records, "truncated": truncated,
                 "first_seen_on_device": NC, "prevalence_devices": 0,
                 "signer": NC, "reputation": NC, "creator": NC,
-                "basis": "no retained observation in this customer carries this hash or path",
+                "basis": "no resolved matching observation in the scanned retained evidence",
                 "tenant_id": tenant}
     from edr_trajectory.contracts import iso
     return {
         "state": "FACTS",
+        "first_seen_in_customer": iso(first_ms) if first_ms is not None else NC,
         "first_seen_on_device": iso(first_ms) if first_ms is not None else NC,
         "first_observation_id": first_ref or NC,
         "prevalence_devices": len(devices),
