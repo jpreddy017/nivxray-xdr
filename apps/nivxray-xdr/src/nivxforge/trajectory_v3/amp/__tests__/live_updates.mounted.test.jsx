@@ -139,3 +139,20 @@ it("does not reopen a closed inspection when its event leaves the refreshed head
   expect(api.get.mock.calls.every(([url]) => !url.endsWith("/focus"))).toBe(true);
 });
 
+
+
+it("resolves file observation links within their supplied window and opens the exact event", async () => {
+  const ms=Date.parse("2026-10-30T03:16:32.321Z");
+  api.get.mockImplementation(async (url, options) => {
+    if (url.endsWith("/focus")) return {data:{state:"FOCUS_RESOLVED",focus:{event_iid:"v3_exact",observed_at:new Date(ms).toISOString()}}};
+    const p=options.params;
+    return response(Date.parse(p.time_end)-Date.parse(p.time_start) === 2001 ? ["v3_exact"] : []);
+  });
+  await mount(`?source=file_search&observation_id=obs_exact&event=legacy_row&t0=${ms-60000}&t1=${ms+60000}`);
+  await settle();
+  const lookup=api.get.mock.calls.find(([url])=>url.endsWith("/focus"));
+  expect(lookup[1].params.observation_id).toBe("obs_exact");
+  expect(Date.parse(lookup[1].params.time_start)).toBe(ms-60000);
+  expect(Date.parse(lookup[1].params.time_end)).toBe(ms+60000);
+  expect(screen.getByText("Back to activity")).toBeTruthy();
+});
