@@ -1,0 +1,35 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const {transformSync}=require('esbuild'),React=require('react'),{create,act}=require('react-test-renderer');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const source=fs.readFileSync(path.join(root,'apps/nivxray-xdr/src/nivxforge/trajectory/EndpointPicker.jsx'),'utf8');
+let pending=[],listeners={},selected;
+const moduleObject={exports:{}};
+const mocks={'react':React,'react-router-dom':{Link:({children})=>React.createElement('a',{},children)},'@/nivxforge/onboardingApi':{getComputers:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))},'@/lib/tenant':{TENANT_BOUND_EVENT:'tenant'}};
+vm.runInNewContext('(function(require,module,exports){'+transformSync(source,{loader:'jsx',format:'cjs'}).code+'})',{window:{addEventListener:(k,f)=>listeners[k]=f,removeEventListener:k=>delete listeners[k]}})(id=>mocks[id],moduleObject,moduleObject.exports);
+const Component=moduleObject.exports.default;
+const text=n=>typeof n==='string'?n:(n.children||[]).map(text).join('');
+(async()=>{
+ let v;await act(async()=>{v=create(React.createElement(Component,{onSelect:id=>selected=id}));});
+ assert.match(text(v.toJSON()),/Loading computers/);
+ await act(async()=>pending.shift().reject({response:{status:403}}));
+ assert.match(text(v.root.findByProps({role:'alert'})),/not authorized/);
+ await act(async()=>v.root.findByType('button').props.onClick());
+ await act(async()=>pending.shift().resolve({computers:[]}));
+ assert.match(text(v.toJSON()),/No computers were returned/);
+ await act(async()=>v.root.findByType('button').props.onClick());
+ const stale=pending.shift();
+ await act(async()=>listeners.tenant());
+ await act(async()=>stale.resolve({computers:[{endpoint_id:'wrong'}]}));
+ assert.equal(v.root.findAllByType('select').length,0);
+ await act(async()=>pending.shift().resolve({computers:[{endpoint_id:'correct',hostname:'Computer A'}]}));
+ await act(async()=>v.root.findByType('select').props.onChange({target:{value:'correct'}}));
+ assert.equal(selected,'correct');
+ await act(async()=>v.root.findByType('button').props.onClick());
+ await act(async()=>pending.shift().resolve({unexpected:[]}));
+ assert.match(text(v.root.findByProps({role:'alert'})),/could not be loaded/);
+ act(()=>v.unmount());assert.equal(listeners.tenant,undefined);
+ // Transform the actual parent to verify syntax; module imports are not mocked as a build claim.
+ transformSync(fs.readFileSync(path.join(root,'apps/nivxray-xdr/src/nivxforge/trajectory/EdrDeviceTrajectoryPage.jsx'),'utf8'),{loader:'jsx',format:'esm'});
+ console.log('PASS: loading, authorization error, retry, empty directory, stale customer reply rejection, selection, malformed response, cleanup; parent JSX compiles');
+})().catch(e=>{console.error(e);process.exitCode=1});
