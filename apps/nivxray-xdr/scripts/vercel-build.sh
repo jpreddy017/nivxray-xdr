@@ -36,7 +36,7 @@ esac
 
 API_ORIGIN="${XDR_PROD_API_ORIGIN:-https://nivxray.nivxforge.com}"
 if [[ "${NIVX_EDR_INTEGRATION_PREVIEW:-0}" == "1" ]]; then
-  if [[ "${VERCEL_ENV:-}" != "preview" || "$SCOPE" != "edr" || "${VERCEL_GIT_COMMIT_REF:-}" != "validation/edr-preview-backend-2026-10-31" || "${NIVX_CROSS_PRODUCT_ORIGINS:-0}" != "0" ]]; then
+  if [[ "${VERCEL_ENV:-}" != "preview" || "$SCOPE" != "edr" || ( "${VERCEL_GIT_COMMIT_REF:-}" != "validation/edr-preview-backend-2026-10-31" && "${VERCEL_GIT_COMMIT_REF:-}" != "feature/edr-global-file-search-20261104" ) || "${NIVX_CROSS_PRODUCT_ORIGINS:-0}" != "0" ]]; then
     echo "FATAL: integration build is restricted to the designated EDR preview branch." >&2
     exit 1
   fi

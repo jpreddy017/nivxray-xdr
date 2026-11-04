@@ -40,7 +40,7 @@ if (!["0", "1"].includes(process.env.NIVX_EDR_INTEGRATION_PREVIEW || "0")) {
 }
 const INTEGRATION = process.env.NIVX_EDR_INTEGRATION_PREVIEW === "1";
 if (INTEGRATION && (process.env.VERCEL_ENV !== "preview" || SCOPE !== "edr" ||
-    process.env.VERCEL_GIT_COMMIT_REF !== "validation/edr-preview-backend-2026-10-31" || CROSS_OK)) {
+    !["validation/edr-preview-backend-2026-10-31", "feature/edr-global-file-search-20261104"].includes(process.env.VERCEL_GIT_COMMIT_REF) || CROSS_OK)) {
   console.error("Integration build requires the designated EDR preview branch, preview target and no cross-product origins.");
   process.exit(1);
 }
