@@ -1,0 +1,25 @@
+.ft-evidence { color: var(--text); min-width: 0; }
+.ft-evidence p { line-height: 1.5; color: var(--muted); }
+.ft-query { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 20px 0; }
+.ft-query label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.ft-query input, .ft-query select { font: inherit; padding: 9px; background: var(--panel, transparent); color: inherit; border: 1px solid var(--line); border-radius: 4px; max-width: 100%; }
+.ft-key { flex: 1 1 260px; }
+.ft-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.ft-results[data-has-selection="true"] { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+.ft-results > .btn { justify-self: start; }
+.ft-evidence tr[data-selected="true"] { background: var(--panel); outline: 1px solid var(--line); }
+.ft-table-wrap { overflow: auto; max-height: 65vh; max-width: 100%; margin: 0; }
+.ft-evidence table { width: 100%; border-collapse: collapse; text-align: left; }
+.ft-evidence th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.ft-evidence caption { text-align: left; padding-bottom: 10px; }
+.ft-evidence th, .ft-evidence td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 13px; }
+.ft-evidence td { overflow-wrap: anywhere; min-width: 120px; max-width: 360px; }
+.ft-details { border: 1px solid var(--line); padding: 18px; margin: 0; border-radius: 6px; grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 12px; max-height: calc(100vh - 40px); overflow: auto; }
+.ft-details dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.ft-details dd { margin: 0; overflow-wrap: anywhere; }
+.ft-details dt { color: var(--muted); }
+.ft-details .btn { display: block; margin-top: 12px; }
+.ft-details h3:focus { outline: 2px solid var(--text); outline-offset: 4px; }
+@media (max-width: 1000px) { .ft-results[data-has-selection="true"] { grid-template-columns: minmax(0, 1fr); } .ft-details { grid-column: 1; grid-row: 1; position: static; max-height: none; } }
+.ft-error { border: 1px solid currentColor; padding: 12px; }
+@media (max-width: 600px) { .ft-query label { flex: 1 1 100%; } .ft-details dl { grid-template-columns: 1fr; } }

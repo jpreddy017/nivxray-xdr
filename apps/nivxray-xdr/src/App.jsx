@@ -90,7 +90,7 @@ const EdrReserved = lazy(() =>
 );
 
 // Reserved endpoint-console tabs — each is a tiny stub in the source.
-const EdrFilesPage      = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrFilesPage })));
+const EdrFilesPage      = lazy(() => import("@/nivxforge/pages/EdrFilesPage"));
 const EdrNetworkPage    = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrNetworkPage })));
 const EdrHuntingPage    = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrHuntingPage })));
 const EdrForensicsPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrForensicsPage })));
@@ -417,3 +417,4 @@ export default function App() {
     </Suspense>
   );
 }
+
