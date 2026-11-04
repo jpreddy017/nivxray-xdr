@@ -172,6 +172,8 @@ def read_page(collection, resolution, query, tenant_id, cursor=None):
         result = scan_page(docs, query, tenant_id)
     finally:
         docs.close()
+    from services.edr.file_context import enrich
+    enrich(collection, resolution.predicate(STORE), result["observations"], query)
     result["identity"] = resolution.descriptor()
     for row in result["observations"]:
         # The adapter may name a historical collector alias. The resolved

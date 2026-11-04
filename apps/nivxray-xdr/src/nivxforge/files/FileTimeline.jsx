@@ -17,6 +17,11 @@ export default function FileTimeline({ rows, endpointId, selected, onSelect, sta
   const duration = (end - start) / zoom;
   const from = start + offset * (end - start - duration), to = from + duration;
   const first = events[0];
+  const connections = [...new Map(rows.flatMap((r) => (r.network_connections || []).map((c) => {
+    const record = { ...c, endpoint_id: r.endpoint_id || endpointId };
+    return [JSON.stringify(record), record];
+  }))).values()];
+  const executions = rows.flatMap((r) => r.executions || []);
   const writers = unique(rows.map((r) => r.writer_image));
   return <>
     <div className="ft-top-grid">
@@ -29,7 +34,7 @@ export default function FileTimeline({ rows, endpointId, selected, onSelect, sta
       </section>
       <section className="ft-card"><h3><Icon name="process" />Related Processes</h3>
         <strong>{writers.length}</strong><p>Source-stated process images</p><ul>{writers.slice(0, 3).map((w) => <li key={w}>{w}</li>)}</ul>{!writers.length && <p>{unavailable}</p>}
-        <p>Process association alone does not prove which process created or delivered the file.</p>
+        <p>Process association alone does not prove which process created or delivered the file.</p><dl><Field label="Hash-matched executable images" values={executions.map((e) => e.image)} /><Field label="Source-stated parent images" values={executions.map((e) => e.parent_image)} /></dl>
       </section>
     </div>
     <details className="ft-card ft-disclosure" open><summary><Icon name="file" />File Details</summary>
@@ -39,8 +44,10 @@ export default function FileTimeline({ rows, endpointId, selected, onSelect, sta
       <p>Attributes describe loaded observations. Name and path matches may represent different file contents. Missing detection data is not a clean verdict.</p>
     </details>
     <details className="ft-card ft-disclosure"><summary><Icon name="network" />Network Profile</summary>
-      <div className="ft-attributes"><dl><Field label="IP addresses" values={[]} /><Field label="Ports" values={[]} /></dl><dl><Field label="URLs" values={[]} /><Field label="Flagged connections" values={[]} /></dl></div>
-      <p>The file-observation feed does not provide correlated network activity. No connections are inferred from a filename or process ID.</p>
+      <div className="ft-attributes"><dl><Field label="IP addresses" values={connections.map((c) => c.dst_ip)} /><Field label="Ports" values={connections.map((c) => c.dst_port)} /></dl><dl><Field label="URLs" values={connections.map((c) => c.url)} /><Field label="DNS names" values={connections.map((c) => c.dns)} /><Field label="Flagged connections" values={[]} /></dl></div>
+      <p>Connections require a matching file SHA-256 and source process GUID on the same authorized computer. Up to 1,000 recent source records per computer are examined within the requested time window; missing connections do not prove no network activity.</p>
+      {rows.some((r) => r.context_coverage === 'BOUNDED_SCAN_INCOMPLETE' || r.context_results_truncated) && <p role="status">Network context scan is incomplete. Older records may contain additional connections.</p>}
+      {connections.length > 0 && <div className="ft-timeline-scroll"><table><thead><tr><th>Computer</th><th>Time (UTC)</th><th>Process GUID</th><th>Destination</th><th>Port</th><th>Protocol</th><th>Evidence record</th></tr></thead><tbody>{connections.map((c, i) => <tr key={`${c.record_id}:${i}`}><td>{name(c.endpoint_id)}</td><td>{c.observed_at}</td><td>{c.process_guid}</td><td>{c.dst_ip || c.dns || c.url || unavailable}</td><td>{c.dst_port ?? unavailable}</td><td>{c.protocol || unavailable}</td><td>{c.record_id}</td></tr>)}</tbody></table></div>}
     </details>
     <section className="ft-card" aria-label="Trajectory timeline"><div className="ft-section-head"><h3><Icon name="timeline" />Trajectory</h3>
       <div className="ft-tools"><label>Zoom <select aria-label="Zoom" value={zoom} onChange={(e) => { setZoom(Number(e.target.value)); setOffset(0); }}><option value={1}>Full window</option><option value={2}>2×</option><option value={4}>4×</option><option value={8}>8×</option></select></label><button className="btn" onClick={() => { setZoom(1); setOffset(0); }}>Reset view</button></div></div>
