@@ -545,15 +545,19 @@ jobs:
           print("GATE4 PRECONDITION: RUNNING")
 
           # 1 . A RUNNING service's image must never be overwritten.
-          try:
-              s._stage_service_host()
-              raise SystemExit("GATE4 FAIL: staged over a RUNNING service")
-          except SystemExit as ex:
-              text = str(ex)
-              if "GATE4 FAIL" in text:
-                  raise
-              assert "RUNNING" in text, text
-              print("GATE4 RUNNING-GUARD: PASS")
+          # Source Python has no PyInstaller _MEIPASS payload. Exercise
+          # the packaged entrypoint, which carries the real service host.
+          import subprocess
+          from pathlib import Path
+          installer = Path("agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe").resolve()
+          guarded = subprocess.run(
+              [str(installer), "stage-host"], capture_output=True, text=True,
+              timeout=60)
+          text = guarded.stdout + guarded.stderr
+          assert guarded.returncode != 0, "GATE4 FAIL: staged over a RUNNING service"
+          assert "refusing to overwrite the image of a RUNNING" in text, text
+          assert s._service_state() == "RUNNING", s._service_state()
+          print("GATE4 RUNNING-GUARD: PASS")
 
           # 2 . Stop must be PROVED, and the image must be PROVED released.
           prior = s._stop_service_and_wait()
