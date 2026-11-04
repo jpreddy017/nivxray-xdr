@@ -203,6 +203,23 @@ def detect_interpreter(text: str) -> Optional[InterpreterProfile]:
     return INTERPRETERS[key] if key else None
 
 
+def _wrapped_powershell(text: str) -> Optional[Tuple[int, str]]:
+    """Recognize a bounded CMD launch grammar without expanding environment data.
+
+    Do not search arbitrary arguments for 'powershell': an echo, filename or
+    quoted description is not an interpreter invocation. Keep offsets into the
+    original evidence, including the outer COMSPEC/CMD command.
+    """
+    match = re.match(
+        r'(?ix)^\s*(?:%COMSPEC%|cmd(?:\.exe)?)\s+'
+        r'(?:(?:/b|/d|/s|/q)\s+)*?/c\s+'
+        r'(?:start\s+(?:""\s+)?(?:(?:/b|/min|/max|/wait)\s+)*)?'
+        r'(?P<child>(?:powershell|pwsh)(?:\.exe)?)(?=\s|$)', text)
+    if match is None:
+        return None
+    return match.start('child'), text[match.start('child'):]
+
+
 # =============================================================================
 # 2. Pipeline + shell-aware tokenizer
 # =============================================================================
@@ -897,6 +914,8 @@ def analyze_command(text: str,
     """
     if not text or not text.strip():
         return {"error": "empty input"}
+    original_text = text
+    leading_offset = len(text) - len(text.lstrip())
     text = text.strip()
 
     prof = detect_interpreter(text)
@@ -921,7 +940,18 @@ def analyze_command(text: str,
     }
 
     # Payload spans ------------------------------------------------------------
-    spans = _find_payload_spans(text, tokens, prof)
+    wrapped = _wrapped_powershell(text)
+    if wrapped:
+        child_offset, child_text = wrapped
+        child_profile = detect_interpreter(child_text)
+        spans = _find_payload_spans(child_text, tokenize(child_text), child_profile)
+        for span in spans:
+            if span.offset >= 0:
+                span.offset += child_offset
+        parsed_structure['nested_interpreter'] = child_profile.name
+        parsed_structure['nested_interpreter_offset'] = child_offset + leading_offset
+    else:
+        spans = _find_payload_spans(text, tokens, prof)
     # Filter out spans that sit inside file-operand tokens (certutil -decode file.b64)
     if prof:
         spans = [s for s in spans if not _is_inside_file_operand(s.span_text, tokens, prof)]
@@ -1091,7 +1121,7 @@ def analyze_command(text: str,
     summary     = summarize(prof, behaviors, iocs, decodes)
 
     return {
-        "original_command":       text,
+        "original_command":       original_text,
         "parsed_structure":       parsed_structure,
         "identified_payloads":    [
             {
@@ -1100,7 +1130,7 @@ def analyze_command(text: str,
                 "role":       s.role,
                 "confidence": round(s.confidence, 3),
                 "reason":     s.reason,
-                "offset":     s.offset,
+                "offset":     s.offset + leading_offset if s.offset >= 0 else s.offset,
                 "auto_decoded": s in to_decode,
             } for s in spans
         ],
@@ -1118,3 +1148,4 @@ def analyze_command(text: str,
         "behavior_summary":       summary,
         "raw_tokens":             tokens,
     }
+
