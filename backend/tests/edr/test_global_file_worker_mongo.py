@@ -90,3 +90,14 @@ def test_reconcile_old_id_real_mongo(db):
     batch(db,tenant,owner='replay',reconcile=True)
     assert db[COLLECTION].count_documents({}) == 2
     assert db.v2_shadow_observations.count_documents({}) == 2
+
+
+def test_device_iid_only_evidence_is_indexed_with_authoritative_endpoint(db):
+    oid=seed(db)
+    db.v2_shadow_observations.update_one({'_id':oid},{'$unset':{'collector_id':''}})
+    before=db.v2_shadow_observations.find_one({'_id':oid})
+    ensure_indexes(db[COLLECTION])
+    assert acquire(db,'index-test','iid-worker')
+    batch(db,'index-test',owner='iid-worker')
+    assert db[COLLECTION].find_one()['endpoint_id']=='ep_test_a'
+    assert db.v2_shadow_observations.find_one({'_id':oid})==before

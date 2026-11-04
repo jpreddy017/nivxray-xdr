@@ -14,6 +14,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 import deps
 from services.edr import endpoint_query as eq
+from services.edr.file_identity import resolve_file_identity
 from services.edr.global_file_index import COLLECTION, CHECKPOINTS, ensure_indexes, project_document
 
 
@@ -57,10 +58,7 @@ def batch(db, tenant, size=500, owner=None, reconcile=False):
     for doc in docs:
         if owner:
             renew(db, tenant, owner)
-        ref = doc.get('connector_id') or doc.get('collector_id')
-        if ref not in cache:
-            cache[ref] = eq.resolve_endpoint(ref, scope) if ref else None
-        res = cache[ref]
+        res = resolve_file_identity(doc, 'v2_shadow_observations', tenant, eq.resolve_endpoint, cache)
         # Recheck membership using the exact authoritative source predicate.
         if not res or not source.find_one({'$and': [{'_id': doc['_id']}, res.predicate('v2_shadow_observations')]}, {'_id': 1}):
             skipped += 1

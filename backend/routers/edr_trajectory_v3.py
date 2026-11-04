@@ -19,7 +19,9 @@ EVERY ROUTE HERE
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Dict, Optional
+from services.edr.file_identity import resolve_file_identity
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -177,6 +179,9 @@ async def trajectory_file_facts(endpoint_id: str,
     first_ms: Optional[int] = None
     first_ref: Optional[str] = None
     devices: set[str] = set()
+    identity_cache = {}
+    unresolved_records = 0
+    truncated = False
     for store in STORES:
         tkey = OBSERVATION_TIME_KEY[store]
         partition = TENANT_PARTITIONED_STORES.get(store)
@@ -191,10 +196,18 @@ async def trajectory_file_facts(endpoint_id: str,
         match: Dict[str, Any] = {"$or": ors}
         if partition:
             match[partition] = tenant
-        dev_fields = (["event.device_iid", "collector_id", "event.computer"]
-                      if store == "v2_shadow_observations"
-                      else ["provenance.collector_id", "host.host_id", "host.hostname"])
-        async for doc in _db[store].find(match, {"_id": 0}).sort(tkey, 1).limit(5_000):
+        scanned = 0
+        async for doc in _db[store].find(match, {"_id": 0}).sort(tkey, 1).limit(5_001):
+            scanned += 1
+            if scanned > 5_000:
+                truncated = True
+                break
+            resolved = await asyncio.to_thread(resolve_file_identity, doc, store, tenant,
+                                               eq.resolve_endpoint, identity_cache)
+            if not resolved:
+                unresolved_records += 1
+                continue
+            devices.add(str(resolved.identity['endpoint_id']))
             cur: Any = doc
             for part in tkey.split("."):
                 cur = cur.get(part) if isinstance(cur, dict) else None
@@ -202,13 +215,6 @@ async def trajectory_file_facts(endpoint_id: str,
             if us is not None and (first_ms is None or us // 1000 < first_ms):
                 first_ms = us // 1000
                 first_ref = doc.get("observation_id") or doc.get("event_id")
-            for f in dev_fields:
-                v: Any = doc
-                for part in f.split("."):
-                    v = v.get(part) if isinstance(v, dict) else None
-                if v:
-                    devices.add(str(v))
-                    break
     if first_ms is None and not devices:
         return {"state": "NO_EVIDENCE_IN_THIS_CUSTOMER",
                 "first_seen_on_device": NC, "prevalence_devices": 0,
@@ -221,6 +227,9 @@ async def trajectory_file_facts(endpoint_id: str,
         "first_seen_on_device": iso(first_ms) if first_ms is not None else NC,
         "first_observation_id": first_ref or NC,
         "prevalence_devices": len(devices),
+        "prevalence_complete": not truncated and unresolved_records == 0,
+        "unresolved_records": unresolved_records,
+        "truncated": truncated,
         "prevalence_scope": "ENDPOINTS_IN_THIS_CUSTOMER_WITH_RETAINED_EVIDENCE",
         "signer": NC,
         "reputation": NC,
