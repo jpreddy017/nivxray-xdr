@@ -68,7 +68,15 @@ async def test_worker_success_marks_done(monkeypatch):
 
     assert out["processed"] is True
     assert out["state"] == q.DONE
+    assert len(done) == 1
+    timing = done[0].pop("timings")
     assert done == [{"tenant_id": "t", "raw_id": "raw_1", "attempts": 1}]
+    assert timing["attempt"] == 1
+    assert timing["contract"] == "edr.processing_timings.v1"
+    stage = timing["stages"]["canonical_bridge"]
+    assert stage["state"] == "COMPLETED"
+    assert stage["duration_ms"] >= 0
+    assert stage["ended_at"] >= stage["started_at"]
 
 
 @pytest.mark.asyncio
