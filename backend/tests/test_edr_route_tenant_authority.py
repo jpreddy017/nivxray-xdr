@@ -84,6 +84,16 @@ TENANT_UNKNOWN = "ten_definitely_not_registered_0000"
 #: authority check instead of being turned away by schema validation.
 #: ``mutating`` routes are driven for the REFUSAL cases only.
 SAMPLES: dict[tuple, dict] = {
+    ("POST", "/api/edr/forensics/command-analysis"): {
+        "url": "/api/edr/forensics/command-analysis",
+        "json": {"mode": "command", "command_line": "Write-Output test"},
+        "mutating": True,
+    },
+    ("POST", "/api/edr/forensics/ioc-reputation"): {
+        "url": "/api/edr/forensics/ioc-reputation",
+        "json": {"kind": "domain", "value": "example.com"},
+        "mutating": True,
+    },
     ("GET", "/api/edr/detections"): {"url": "/api/edr/detections?incident_id=probe"},
     ("GET", "/api/edr/endpoint-detections"): {"url": "/api/edr/endpoint-detections?endpoint_id=probe"},
     ("GET", "/api/edr/process-tree"): {"url": "/api/edr/process-tree?endpoint_id=probe"},

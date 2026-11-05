@@ -7,6 +7,7 @@ body: a job id is not a capability, so reading one from another customer is a
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from routers.edr_analyzer import router as analyzer_router
 from pydantic import BaseModel, ConfigDict
 
 from deps import db as _db, get_current_user
@@ -160,3 +161,6 @@ async def get_query(query_id: str, user: dict = Depends(get_current_user),
                               f"a query belonging to another customer is not "
                               f"readable here."})
     return q
+
+
+router.include_router(analyzer_router)

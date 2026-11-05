@@ -71,6 +71,8 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     #: Command Intelligence. Tenant-scoped through the SAME resolver the
     #: other evidence reads use; it is NOT the response plane.
     ("GET", "/api/edr/endpoint-commands"): TENANT_SCOPED,
+    ("POST", "/api/edr/forensics/command-analysis"): TENANT_SCOPED,
+    ("POST", "/api/edr/forensics/ioc-reputation"): TENANT_SCOPED,
     # ── routers/edr_onboarding.py · management surfaces (4) ───────────
     #: The sensor build catalog describes artifacts on disk and carries no
     #: customer evidence, so it is product metadata, not tenant data.
