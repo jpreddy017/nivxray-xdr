@@ -1,8 +1,7 @@
 import React from "react";
 import api from "@/lib/api";
 import { activeTenant } from "@/lib/tenant";
-import NivXForgeConsole from "../NivXForgeConsole";
-import ForensicsAnalyzer from "../forensics/ForensicsAnalyzer";
+import ForensicsAnalyzer from "./ForensicsAnalyzer";
 
 const ANALYSIS_PATHS = new Set([
   "/api/edr/forensics/command-analysis",
@@ -17,16 +16,8 @@ async function request(path, { method, body, signal }) {
   return data;
 }
 
-function AuthorizedAnalyzer() {
+export default function ForensicsAnalyzerSection() {
   const tenantId = activeTenant();
   if (!tenantId) return <p>Select a customer to analyze commands.</p>;
   return <ForensicsAnalyzer key={tenantId} request={request} tenantId={tenantId} />;
-}
-
-export default function EdrForensicsPage() {
-  return (
-    <NivXForgeConsole activeTab="forensics">
-      <AuthorizedAnalyzer />
-    </NivXForgeConsole>
-  );
 }

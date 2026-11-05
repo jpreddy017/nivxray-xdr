@@ -5,19 +5,22 @@
  * preserves the incident context banner, and clearly states its
  * reserved status.  No fake data.
  */
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { Lock } from "lucide-react";
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 
-function ReservedPage({ tabKey, heading, body }) {
+const ForensicsAnalyzerSection = lazy(() => import("../forensics/ForensicsAnalyzerSection"));
+
+function ReservedPage({ tabKey, heading, body, reservedTitle = heading, children }) {
   return (
     <NivXForgeConsole activeTab={tabKey}>
       <h1 className="page-h1">{heading}</h1>
       <div className="x-reserved" data-testid={`edr-page-${tabKey}`}>
         <div className="lock"><Lock size={11} /> Reserved · later slice</div>
-        <div className="title">{heading}</div>
+        <div className="title">{reservedTitle}</div>
         <div className="body">{body}</div>
       </div>
+      {children}
     </NivXForgeConsole>
   );
 }
@@ -47,8 +50,13 @@ export const EdrForensicsPage = () => (
   <ReservedPage
     tabKey="forensics"
     heading="Forensics"
+    reservedTitle="Endpoint snapshots and live query"
     body="Forensic snapshot + targeted live query on the endpoint.  Every collection carries an evidence id and audit trail.  Arrives in a later slice."
-  />
+  >
+    <Suspense fallback={<p>Loading Command-line Analyzer…</p>}>
+      <ForensicsAnalyzerSection />
+    </Suspense>
+  </ReservedPage>
 );
 export const EdrLiveQueryPage = () => (
   <ReservedPage

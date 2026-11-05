@@ -35,7 +35,7 @@ export default function ForensicsAnalyzer({request,tenantId}) {
       popup.opener=null;popup.document.write(printableHtml(text));popup.document.close();popup.focus();popup.print();
     }
   };
-  return <section className="forensics-analyzer" aria-label="Command-line Analyzer"><h1>Command-line Analyzer</h1><form onSubmit={analyze}>
+  return <section className="forensics-analyzer" aria-label="Command-line Analyzer"><h2>Command-line Analyzer</h2><form onSubmit={analyze}>
     <label htmlFor="forensics-command">Command line · Auto Detect</label>
     <textarea id="forensics-command" value={command} onChange={e=>{invalidate();setCommand(e.target.value);}} maxLength={65536} rows={8}/>
     <button disabled={busy||!tenantId||!command.trim()}>{busy?'Analyzing…':'Analyze'}</button>
