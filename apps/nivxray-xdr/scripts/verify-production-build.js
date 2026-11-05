@@ -165,7 +165,15 @@ const foreign = new Map();
 for (const f of files) {
   const body = readFileSync(f, "utf8");
   expectedHits += body.split(EXPECTED_API).length - 1;
-  for (const m of body.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})(?::\d+)?/gi)) {
+  // These exact OOXML attributes identify the document format and relationship.
+  // Bare URLs on the same host still go through the network-origin check.
+  const withoutDocumentNamespaces = [
+    'xmlns="http://schemas.openxmlformats.org/package/2006/content-types"',
+    'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"',
+    'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"',
+    'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"',
+  ].reduce((source, attribute) => source.replaceAll(attribute, ""), body);
+  for (const m of withoutDocumentNamespaces.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})(?::\d+)?/gi)) {
     const host = m[1].toLowerCase();
     if (!ALLOWED_HOSTS.has(host) && !isReservedPlaceholder(host))
       foreign.set(host, (foreign.get(host) || 0) + 1);
