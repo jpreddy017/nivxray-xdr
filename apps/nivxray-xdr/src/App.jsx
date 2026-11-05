@@ -93,7 +93,7 @@ const EdrReserved = lazy(() =>
 const EdrFilesPage      = lazy(() => import("@/nivxforge/pages/EdrFilesPage"));
 const EdrNetworkPage    = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrNetworkPage })));
 const EdrHuntingPage    = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrHuntingPage })));
-const EdrForensicsPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrForensicsPage })));
+const EdrForensicsPage  = lazy(() => import("@/nivxforge/pages/EdrForensicsPage"));
 const EdrLiveQueryPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrLiveQueryPage })));
 // P0-2A · `/edr/response` is now a native EDR operational surface,
 // projecting the authoritative response lifecycle. It is no longer a

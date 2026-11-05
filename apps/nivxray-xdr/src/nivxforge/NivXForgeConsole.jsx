@@ -83,8 +83,7 @@ const NAV = [
       reason: "Endpoint-observed connections and DNS are not collected by "
         + "the current sensor." },
     { key: "forensics", label: "Forensics", icon: Camera,
-      reason: "No forensic collection capability exists on the endpoint "
-        + "sensor yet." },
+      to: "/edr/forensics" },
     { key: "live-query", label: "Live Query", icon: Terminal,
       reason: "Live query requires an endpoint execution channel with "
         + "approval, which is not implemented." },

@@ -1,0 +1,48 @@
+name: EDR Command-line Analyzer
+on:
+  pull_request:
+    branches: [phase2/edr-production]
+    paths:
+      - 'apps/nivxray-xdr/src/nivxforge/forensics/**'
+      - 'backend/edr_decode/**'
+      - 'backend/routers/edr_analyzer.py'
+      - '.github/workflows/edr-command-analyzer.yml'
+permissions:
+  contents: read
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install brotli==1.2.0 pydantic==2.13.4 cryptography==49.0.0 zstandard==0.25.0 fastapi==0.115.5 httpx==0.28.1
+      - name: Verify decoding, extraction and the authenticated route contract
+        env:
+          PYTHONPATH: backend
+        run: python -m unittest discover -s backend/tests/edr -p test_edr_analyzer_release.py
+  edr-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: apps/nivxray-xdr
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install -g yarn@1.22.22
+      - run: yarn install --frozen-lockfile
+      - name: Build and verify the production EDR bundle
+        env:
+          NIVX_PRODUCT_SCOPE: edr
+        run: bash scripts/vercel-build.sh
+      - name: Test full analysis exports
+        run: node --test ../../tools/test-edr-analyzer-report.mjs
