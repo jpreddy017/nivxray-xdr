@@ -97,7 +97,7 @@ PACKAGES = {
         "os": "WINDOWS",
         "architecture": "x64",
         "display_name": "NivXForge Sensor Setup · Windows x64 (EXE)",
-        "directory": "nivxforge-windows/dist",
+        "directory": "nivxforge-windows/releases/0.4.0",
         "files": ["NivXForgeEDRSetup.exe"],
         "entrypoint": "NivXForgeEDRSetup.exe",
         "release_status": "CI_BUILD_REQUIRED",
