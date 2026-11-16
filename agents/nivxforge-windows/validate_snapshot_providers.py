@@ -18,7 +18,16 @@ e=json.loads(r.stdout.decode('utf-8-sig'))
 assert e['script_block_id']=='fixture-id' and e['script_block_count']=='2' and e['message_number']=='1'
 assert e['script_text']=='Write-Output "test"' and e['script_name']=='sample.ps1' and e['record_id']==7
 print('PowerShell event XML fields: PASS')
+# Real Windows collection below must retain bounded PowerShell records rather than lose the category.
 
+original=s.CATALOG['os_version']
+try:
+ s.CATALOG['os_version']=('Bounded fixture',"1..500|ForEach-Object{[pscustomobject]@{index=$_;payload=('x'*5000)}}",False)
+ bounded=s.run_query('os_version')
+ assert bounded['state']=='PARTIAL' and 0<len(bounded['rows'])<500 and bounded['rows_truncated'],'Byte limit must retain partial evidence'
+finally:
+ s.CATALOG['os_version']=original
+print('Byte-limited partial evidence retention: PASS')
 result=s.collect(include_sensitive=True)
 summary=[{'id':c['category_id'],'state':c['state'],'rows':c['row_count'],'error_type':c.get('error_type')} for c in result['categories']]
 print(json.dumps({'collector_version':s.VERSION,'categories':summary}))
@@ -27,7 +36,7 @@ assert result['collection_limits']['rows_per_category']==10000
 for row in next(c for c in result['categories'] if c['category_id']=='running_hashes')['rows']:
  assert 'owner' in row and 'owner_state' in row
 by_id={c['id']:c for c in summary}
-for key in ('os_version','services','installed_programs','module_processes','hosts','root_certificates','running_hashes','network_processes'):
+for key in ('os_version','services','installed_programs','module_processes','hosts','root_certificates','running_hashes','network_processes','powershell_history','logged_in_users'):
  assert by_id[key]['state'] in ('COLLECTED','PARTIAL'),f'{key}: core Windows provider did not collect'
 assert not any(c.get('error_type') in ('ParseException','CommandNotFoundException') for c in summary),'Missing command or parser failure'
 print('Windows forensic provider smoke: PASS; per-category availability is reported above.')

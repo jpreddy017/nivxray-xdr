@@ -119,7 +119,7 @@ def manifest():
 
 def script_for(key):
     # Pipeline row bound is inside the process, before serialization.
-    return HELPERS + '\ntry{$rows=@(& {\n' + CATALOG[key][1] + '\n}|Select-Object -First 10001);[pscustomobject]@{rows=@($rows|Select-Object -First 10000);truncated=($rows.Count -gt 10000);issues=@($script:issues.ToArray())}|ConvertTo-Json -Depth 8 -Compress}catch{[pscustomobject]@{error=$_.Exception.GetType().Name;message="Collector query failed; provider may be unavailable or access denied"}|ConvertTo-Json -Compress;exit 2}'
+    return HELPERS + '\ntry{$rows=@(& {\n' + CATALOG[key][1] + '\n}|Select-Object -First 10001);$kept=New-Object System.Collections.Generic.List[object];$used=0;$sizeLimited=$false;foreach($row in $rows|Select-Object -First 10000){$bytes=[Text.Encoding]::UTF8.GetByteCount(($row|ConvertTo-Json -Depth 7 -Compress));if(($used+$bytes+1) -gt 1966080){$sizeLimited=$true;Issue "Category byte limit reached; retained preceding rows";break};$kept.Add($row);$used+=$bytes+1};[pscustomobject]@{rows=@($kept.ToArray());truncated=(($rows.Count -gt 10000) -or $sizeLimited);issues=@($script:issues.ToArray())}|ConvertTo-Json -Depth 8 -Compress}catch{[pscustomobject]@{error=$_.Exception.GetType().Name;message="Collector query failed; provider may be unavailable or access denied"}|ConvertTo-Json -Compress;exit 2}'
 
 def run_query(key, timeout=MAX_CATEGORY_SECONDS, cancelled=lambda:False):
     executable = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
