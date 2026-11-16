@@ -135,8 +135,13 @@ def stop_proven(host):
         fail('UPGRADE_DISABLE_UNPROVEN')
     if host.service_stop(m1.SERVICE_NAME) != 'STOPPED':
         fail('UPGRADE_STOP_UNPROVEN')
-    if pid and host.process_exited(pid, identity) is not True:
-        fail('UPGRADE_PROCESS_EXIT_UNPROVEN')
+    # SCM STOPPED can precede process teardown and DLL release.
+    # Keep the original identity while waiting; a reused PID is not the old host.
+    deadline = time.monotonic() + 60
+    while pid and host.process_exited(pid, identity) is not True:
+        if time.monotonic() >= deadline:
+            fail('UPGRADE_PROCESS_EXIT_UNPROVEN')
+        time.sleep(0.2)
 
 
 def image_running(host, exe, digest, timeout=60):
