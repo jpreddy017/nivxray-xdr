@@ -1,0 +1,20 @@
+/* Shared EDR defaults. Existing specialized controls keep their geometry;
+   native fallbacks use the same typography, palette and focus treatment. */
+.nvf-console button,.nvf-console input,.nvf-console select{font-family:var(--sans);letter-spacing:inherit}
+.nvf-console .main h1{font-family:var(--sans);font-size:19px;font-weight:700;line-height:1.35;color:var(--text)}
+.nvf-console .main h2,.nvf-console .main h3{font-family:var(--sans);color:var(--text)}
+:where(.nvf-console main) button:where(:not([class]),[class=""]):not(:where(.artifact-workspace *)){font-size:12px;line-height:1.4;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius,4px);background:var(--panel2);color:var(--text);cursor:pointer}
+:where(.nvf-console main) button:where(:not([class]),[class=""]):not(:where(.artifact-workspace *)):hover:not(:disabled){background:var(--surf-hover);border-color:var(--border-hover)}
+:where(.nvf-console main) button:disabled{cursor:not-allowed}
+.nvf-console :where(button,a,input,select,textarea):focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.nvf-console .forensics-workspace{font-family:var(--sans);font-size:13px;color:var(--text)}
+.nvf-console .snapshot-panel{background:var(--panel);border-color:var(--border);border-radius:var(--radius)}
+.nvf-console .snapshot-note{color:var(--muted)}
+.nvf-console .snapshot-alert{background:var(--warn-bg);color:var(--text-dim);border-color:var(--amber)}
+.nvf-console .snapshot-meta dt{color:var(--muted)}
+.nvf-console .snapshot-meta dd{color:var(--text)}
+.nvf-console .snapshot-table th{background:var(--surf-th);color:var(--muted);font-family:var(--sans);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.nvf-console .snapshot-table td{color:var(--text);font-size:12px}
+.nvf-console .snapshot-table tbody tr:hover{background:var(--surf-row-hover)}
+.nvf-console .artifact-grid table{font-family:var(--sans);font-size:12px}
+.nvf-console .artifact-record pre{font-family:var(--mono)}

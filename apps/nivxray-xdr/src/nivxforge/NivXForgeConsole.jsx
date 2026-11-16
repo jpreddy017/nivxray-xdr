@@ -46,6 +46,7 @@ import {
 } from "@/lib/tenant";
 import "./nivxforge.css";
 import "./nvf-ops.css";
+import "./nvf-consistency.css";
 
 const EDR_BRAND = brandFor("edr");
 
