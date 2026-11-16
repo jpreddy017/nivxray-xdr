@@ -3,6 +3,7 @@
 Uses its own HTTP session and connection so it cannot interrupt telemetry's
 keep-alive connection. Unknown actions never invoke a shell or command.
 """
+from contextlib import closing
 import json
 import re
 import sqlite3
@@ -101,7 +102,7 @@ class Worker:
 
     def run(self):
         self.path.parent.mkdir(parents=True,exist_ok=True)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db:
             db.execute('pragma synchronous=FULL')
             db.execute('create table if not exists jobs(id text primary key,result text,reported integer not null default 0)');db.commit()
             while not self.stop_event.is_set():
