@@ -56,6 +56,26 @@ _V1_CAPABILITIES: Dict[str, bool] = {
 
 RELEASES: List[Dict[str, Any]] = [
     {
+        "release_id": "nvf-connector-windows-0.4.0-x64",
+        "product": "NivXForge Windows Connector",
+        "connector_version": "0.4.0",
+        "os": "WINDOWS", "architecture": "x64", "channel": "PREVIEW",
+        "support_status": "INTERNAL_VALIDATION",
+        "release_date": "2026-11-16", "end_of_support": None,
+        "signing_status": "UNSIGNED_INTERNAL_VALIDATION_BUILD",
+        "supported_os": ["Windows 10 21H2+", "Windows 11", "Windows Server 2019", "Windows Server 2022"],
+        "requires": ["elevated prompt for installation"],
+        "release_notes": [
+            "On-demand forensic collection across 41 Windows artifact categories, with independent category status and bounded collection.",
+            "Includes durable command recovery and a native Windows service. Windows CI verifies providers, installer, service lifecycle and recovery.",
+            "Unsigned internal-validation build. No automatic compromise capture, memory image or disk image. Sensitive histories require the full profile.",
+        ],
+        "declared_capabilities": {**_V1_CAPABILITIES, "endpoint_exclusions": True, "forensic_snapshot": True},
+        "artifact": {"directory": "nivxforge-windows/releases/0.4.0",
+                     "files": ["NivXForgeEDRSetup.exe"], "entrypoint": "NivXForgeEDRSetup.exe",
+                     "expected_sha256": {"NivXForgeEDRSetup.exe": "5e393dbceb83d9033ab58767749a0d3855f22e1321df5b3eb3e5d9336b2bc941"}},
+    },
+    {
         "release_id": "nvf-connector-windows-0.2.0-x64",
         "product": "NivXForge Windows Connector",
         "connector_version": "0.2.0",
@@ -222,6 +242,8 @@ def describe(release: Dict[str, Any]) -> Dict[str, Any]:
         state, reason = ARTIFACT_REFUSED, (
             f"an artifact contains something shaped like a credential "
             f"({embedded}); a redistributable connector must never carry one")
+    elif any(f["sha256"] != art.get("expected_sha256", {}).get(f["name"], f["sha256"]) for f in files):
+        state, reason = "ARTIFACT_HASH_MISMATCH", "Artifact bytes do not match the verified release; download is refused."
     else:
         state, reason = ARTIFACT_PUBLISHED, (
             "the released artifact exists, its identity is recorded, and it "

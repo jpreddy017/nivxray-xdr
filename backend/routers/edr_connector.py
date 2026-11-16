@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from deps import db as _db, get_current_user
@@ -117,6 +117,11 @@ async def download_release_artifact(release_id: str, name: str,
     path = catalog.artifact_path(release_id, name)
     if not path:
         raise HTTPException(404, detail={"code": "ARTIFACT_NOT_IN_RELEASE"})
+    if name.lower().endswith(".exe"):
+        sha = next((f["sha256"] for f in row["artifact_files"] if f["name"] == name), "")
+        return FileResponse(path, media_type="application/octet-stream", filename=name, headers={
+            "X-NivXForge-Release": release_id, "X-NivXForge-Sha256": sha,
+            "X-NivXForge-Redistributable": "true"})
     try:
         with open(path, encoding="utf-8") as fh:
             body = fh.read()

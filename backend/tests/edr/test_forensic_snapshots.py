@@ -330,3 +330,28 @@ async def test_the_result_lists_what_it_covers_and_what_it_does_not(db):
         assert by_name[absent]["state"] == "NOT_COLLECTED"
         assert by_name[absent]["rows"] is None
     assert "No automatic retention or deletion schedule" in out["retention_note"]
+
+
+def test_connector_release_binary_download_and_hash_refusal(tmp_path,monkeypatch):
+    import copy,hashlib
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routers import edr_connector as connector
+    catalog=connector.catalog
+    monkeypatch.setattr(catalog,'AGENTS_ROOT',str(tmp_path))
+    release=copy.deepcopy(catalog._BY_ID['nvf-connector-windows-0.4.0-x64'])
+    artifact=b'MZ\x00\xff\xfe_binary_fixture'
+    release['artifact']['expected_sha256']={'NivXForgeEDRSetup.exe':hashlib.sha256(artifact).hexdigest()}
+    monkeypatch.setitem(catalog._BY_ID,release['release_id'],release)
+    folder=tmp_path/release['artifact']['directory'];folder.mkdir(parents=True)
+    path=folder/'NivXForgeEDRSetup.exe';path.write_bytes(artifact)
+    app=FastAPI();app.include_router(connector.releases,prefix='/api')
+    app.dependency_overrides[connector.get_current_user]=lambda:{'email':'fixture@test.invalid'}
+    url='/api/edr/connector/releases/'+release['release_id']+'/artifact/NivXForgeEDRSetup.exe'
+    with TestClient(app) as client:
+        response=client.get(url)
+        assert response.status_code==200 and response.content==artifact
+        assert response.headers['content-type']=='application/octet-stream'
+        path.write_bytes(artifact+b'altered')
+        assert catalog.get(release['release_id'])['artifact_state']=='ARTIFACT_HASH_MISMATCH'
+        assert client.get(url).status_code==409
