@@ -88,7 +88,15 @@ def _assert_backend(api: str) -> str:
     failure mode the platform's investigability state exists to expose.
     """
     api = (api or "").strip().rstrip("/")
-    parsed = urlparse(api)
+    if any(c.isspace() or c in '\\"' for c in api):
+        raise SystemExit("refusing to install: backend must be an HTTPS origin")
+    try:
+        parsed = urlparse(api)
+        port = parsed.port
+    except ValueError:
+        raise SystemExit("refusing to install: invalid backend origin") from None
+    if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path:
+        raise SystemExit("refusing to install: backend must be an origin without credentials, path, query or fragment")
     if parsed.scheme != "https":
         raise SystemExit("refusing to install: --backend must be https "
                          f"(got {parsed.scheme or 'no scheme'})")
@@ -98,9 +106,9 @@ def _assert_backend(api: str) -> str:
     if any(marker in host for marker in _FORBIDDEN_HOST_MARKERS):
         raise SystemExit(f"refusing to install: {host} is not a production "
                          "backend (localhost/preview origins are rejected)")
-    if parsed.port in (8001, 3000):
+    if port in (8001, 3000):
         raise SystemExit("refusing to install: development port "
-                         f"{parsed.port} is not a production backend")
+                         f"{port} is not a production backend")
     return api
 
 
@@ -355,10 +363,46 @@ def _protect_state_dir() -> None:
     """SYSTEM + Administrators only — the endpoint credential lives here."""
     state = sensor.STATE_DIR
     state.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["icacls", str(state), "/inheritance:r",
+    owner = subprocess.run(["icacls", str(state), "/setowner", "*S-1-5-32-544"],
+                           capture_output=True, text=True, timeout=60)
+    if owner.returncode != 0:
+        raise SystemExit("refusing to enrol: state directory owner could not be secured")
+    result = subprocess.run(["icacls", str(state), "/inheritance:r",
                     "/grant:r", "*S-1-5-18:(OI)(CI)F",
                     "/grant:r", "*S-1-5-32-544:(OI)(CI)F"],
-                   capture_output=True, text=True)
+                   capture_output=True, text=True, timeout=60)
+    if result.returncode != 0 or not _restricted_state_acl(state):
+        raise SystemExit("refusing to enrol: state directory permissions could not be secured")
+
+
+def _restricted_state_acl(path: Path) -> bool:
+    """Inspect SIDs and access masks; never trust localized icacls output."""
+    try:
+        import win32security as security
+        sd = security.GetNamedSecurityInfo(
+            str(path), security.SE_FILE_OBJECT,
+            security.OWNER_SECURITY_INFORMATION | security.DACL_SECURITY_INFORMATION)
+        allowed = {"S-1-5-18", "S-1-5-32-544"}
+        if security.ConvertSidToStringSid(sd.GetSecurityDescriptorOwner()) not in allowed:
+            return False
+        acl = sd.GetSecurityDescriptorDacl()
+        if acl is None or not (sd.GetSecurityDescriptorControl()[0] & 0x1000):
+            return False
+        grants = set()
+        for i in range(acl.GetAceCount()):
+            ace = acl.GetAce(i)
+            kind, flags = ace[0]
+            # Fail closed for unfamiliar ACE types and non-privileged grants.
+            if kind != security.ACCESS_ALLOWED_ACE_TYPE:
+                return False
+            sid = security.ConvertSidToStringSid(ace[-1])
+            if sid not in allowed:
+                return False
+            if not flags & 0x08 and (ace[1] & 0x1F01FF) == 0x1F01FF:
+                grants.add(sid)
+        return grants == allowed
+    except Exception:
+        return False
 
 
 def _service_payload_dir() -> Path | None:
@@ -454,8 +498,11 @@ def _validate_identity() -> dict:
             f"existing {sensor.IDENTITY_FILE} is unreadable ({type(ex).__name__}). "
             "Refusing to guess. Re-run with --re-enrol and a fresh token, or "
             "remove the file deliberately.") from None
+    if not isinstance(ident, dict):
+        raise SystemExit("existing enrollment is not a JSON object; refusing to change the installation")
     missing = [k for k in ("tenant_id", "endpoint_id", "credential_id",
-                           "agent_credential") if not ident.get(k)]
+                           "agent_credential")
+               if not isinstance(ident.get(k), str) or not ident[k].strip()]
     if missing:
         raise SystemExit(
             f"existing enrolment is incomplete (missing: {', '.join(missing)}). "
@@ -471,12 +518,24 @@ def install(api: str, tenant: str | None, token_stdin: bool,
     # deterministic on any host (including an already-elevated CI runner).
     # Nothing is written until _assert_admin() has passed.
     api = _assert_backend(api)
+    if not 1 <= interval <= 86400:
+        raise SystemExit("refusing to install: --interval must be 1 to 86400 seconds")
     _assert_admin()
     if '--m1-service-run' in _service_config():
         raise SystemExit('Existing M1 enrollment: use m1-upgrade --m1-config with its existing configuration.')
     # The one fact that makes rollback possible: was this endpoint
     # collecting BEFORE we touched anything? Read it before the first
     # mutation, because every later step can change it.
+    # Validate before stopping a healthy service, staging files or consuming a token.
+    existing = None
+    if sensor.IDENTITY_FILE.exists() and not re_enrol:
+        existing = _validate_identity()
+        if tenant is not None and _assert_tenant(tenant) != existing["tenant_id"]:
+            raise SystemExit("refusing to install: requested tenant differs from existing enrollment; use an explicit re-enrollment")
+    else:
+        tenant = _assert_tenant(tenant or "")
+        if not token_stdin:
+            raise SystemExit("--token-stdin is required to enrol. No files or service were changed.")
     prior_state = _service_state()
     try:
         print(f"=== 1 . STAGE ===\n  install dir : {INSTALL_DIR}")
@@ -903,19 +962,7 @@ def _service_permission_check() -> object:
     be writable by everyone: the endpoint credential lives there."""
     if not _IS_WINDOWS:
         return NOT_WINDOWS
-    try:
-        acl = subprocess.run(["icacls", str(sensor.STATE_DIR)],
-                             capture_output=True, text=True,
-                             timeout=60).stdout or ""
-    except (OSError, subprocess.SubprocessError):
-        return False
-    dense = acl.upper().replace(" ", "")
-    privileged = ("NTAUTHORITY\\SYSTEM" in dense
-                  or "BUILTIN\\ADMINISTRATORS" in dense
-                  or "S-1-5-18" in dense or "S-1-5-32-544" in dense)
-    world_writable = ("EVERYONE:(F)" in dense or "EVERYONE:(M)" in dense
-                      or "EVERYONE:(W)" in dense)
-    return bool(privileged and not world_writable)
+    return _restricted_state_acl(sensor.STATE_DIR)
 
 
 def _pragmas(db) -> dict:
@@ -1117,7 +1164,6 @@ def main(argv: list[str] | None = None) -> None:
     # `--token <secret>` pair, which is worse than failing: the operator
     # would believe the old interface still worked while the secret had
     # already been recorded in the command line of this process.
-    sensor.refuse_secret_on_command_line(raw)
     sensor.refuse_secret_on_command_line(raw)
     args, unknown = build_parser().parse_known_args(raw)
     if unknown:

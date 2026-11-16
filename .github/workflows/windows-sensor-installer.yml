@@ -54,6 +54,15 @@ jobs:
           ./agents/nivxforge-windows/build/build_windows_installer.ps1 `
             -PythonExe python -Commit $env:GITHUB_SHA
 
+      - name: Installer preflight and native ACL regressions
+        shell: pwsh
+        working-directory: agents/nivxforge-windows
+        run: |
+          python -m unittest -v test_install_preflight
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import nivxforge_setup as s; s._protect_state_dir()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Verify artifact contract
         shell: pwsh
         run: |
