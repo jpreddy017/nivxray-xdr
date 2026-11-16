@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, FileResponse
 
 from deps import db as _db, get_current_user
 from edr_plane.enrollment import instructions
@@ -251,6 +251,11 @@ async def download_artifact(package_id: str, name: str,
             "code": "PACKAGE_NOT_AVAILABLE",
             "state": described["state"], "reason": described["state_reason"]})
     path = _artifact_path(package, name)
+    if name.lower().endswith(".exe"):
+        artifact = next(item for item in described["files"] if item["name"] == name)
+        return FileResponse(path, media_type="application/octet-stream", filename=name,
+                            headers={"X-NivXForge-Sha256": artifact["sha256"],
+                                     "X-NivXForge-Credential-Free": "true"})
     try:
         with open(path, encoding="utf-8") as fh:
             body = fh.read()

@@ -25,6 +25,42 @@ EP = "ep_snapfixture_aaaaaaaaaa"
 EP_OTHER = "ep_snapfixture_bbbbbbbbbb"
 WHO = "analyst@fixture.test"
 
+def test_installer_version_requires_matching_artifact_hash(tmp_path, monkeypatch):
+    import hashlib,json
+    from routers import edr_onboarding as onboarding
+    monkeypatch.setattr(onboarding,'AGENTS_ROOT',str(tmp_path))
+    package=onboarding.PACKAGES['windows-x64-exe']
+    folder=tmp_path/package['directory'];folder.mkdir(parents=True)
+    artifact=b'MZ_unit_test_fixture_not_an_installer'
+    (folder/'NivXForgeEDRSetup.exe').write_bytes(artifact)
+    info={'artifact':'NivXForgeEDRSetup.exe','sha256':hashlib.sha256(artifact).hexdigest(),'sensor_version':'0.4.0-windows','commit':'test-commit'}
+    (folder/'build-info.json').write_text(json.dumps(info))
+    result=onboarding._describe(package)
+    assert result['sensor_version']=='0.4.0-windows'
+    assert result['build_provenance']['commit']=='test-commit'
+    info['sha256']='0'*64;(folder/'build-info.json').write_text(json.dumps(info))
+    result=onboarding._describe(package)
+    assert result['build_provenance']=={}
+    assert result['sensor_version'] is None
+
+def test_installer_download_returns_binary_bytes(tmp_path,monkeypatch):
+    import hashlib
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routers import edr_onboarding as onboarding
+    monkeypatch.setattr(onboarding,'AGENTS_ROOT',str(tmp_path))
+    folder=tmp_path/onboarding.PACKAGES['windows-x64-exe']['directory'];folder.mkdir(parents=True)
+    artifact=b'MZ\x00\xff\xfe_binary_fixture'
+    (folder/'NivXForgeEDRSetup.exe').write_bytes(artifact)
+    app=FastAPI();app.include_router(onboarding.router,prefix='/api')
+    app.dependency_overrides[onboarding.get_current_user]=lambda:{'email':'fixture@test.invalid'}
+    with TestClient(app) as client:
+        response=client.get('/api/edr/onboarding/packages/windows-x64-exe/file/NivXForgeEDRSetup.exe')
+    assert response.status_code==200
+    assert response.content==artifact
+    assert response.headers['x-nivxforge-sha256']==hashlib.sha256(artifact).hexdigest()
+    assert response.headers['content-type']=='application/octet-stream'
+
 async def _full_request(d):
     from services.edr import forensic_profiles as fp
     await d['edr_endpoints'].update_one({'tenant_id': OWNER, 'endpoint_id': EP}, {'$set': {'forensic_collection': {'platform':'windows','categories':list(fp.KEYS),'reported_at':datetime.now(timezone.utc).isoformat()}}})
