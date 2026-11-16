@@ -15,7 +15,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 
-VERSION = '2026.11.16.3'
+VERSION = '2026.11.16.4'
 MAX_ROWS = 10000
 MAX_CATEGORY_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
@@ -71,6 +71,7 @@ CATALOG = {
 HELPERS = r'''
 $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';$WarningPreference='SilentlyContinue'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)
+$script:historyLimited=$false
 $script:issues=New-Object System.Collections.Generic.List[string]
 function Issue($s){if($script:issues.Count -lt 20){$script:issues.Add([string]$s)}}
 function Profiles {Get-CimInstance Win32_UserProfile|Where-Object {$_.LocalPath -and -not $_.Special}|Select-Object -First 32 -ExpandProperty LocalPath}
@@ -78,7 +79,7 @@ function RegTree($path,$depth){
  if(-not(Test-Path -LiteralPath $path)){return}
  $keys=@(Get-Item -LiteralPath $path)
  if($depth -gt 0){$regErrors=@();$children=@(Get-ChildItem -LiteralPath $path -Recurse -Depth $depth -ErrorAction SilentlyContinue -ErrorVariable regErrors|Select-Object -First 10001);if($regErrors.Count){Issue 'Registry traversal had inaccessible keys'};if($children.Count -gt 10000){Issue 'Registry key limit reached'};$keys+=@($children|Select-Object -First 10000)}
- foreach($key in $keys){try{$names=@($key.GetValueNames());if($names.Count -gt 64){Issue 'Registry value count limit reached'};foreach($name in $names|Select-Object -First 64){$v=$key.GetValue($name,$null,'DoNotExpandEnvironmentNames');$truncated=$false;$encoding='native';if($v -is [byte[]]){$encoding='base64';if($v.Length -gt 32768){$v=$v[0..32767];$truncated=$true;Issue 'Registry binary value was truncated'};$v=[Convert]::ToBase64String($v)};[pscustomobject]@{path=$key.Name;name=$name;kind=[string]$key.GetValueKind($name);value=$v;encoding=$encoding;value_truncated=$truncated}}}catch{Issue 'One or more registry values could not be read'}}
+ foreach($key in $keys){try{$names=@($key.GetValueNames());if($names.Count -gt 64){Issue 'Registry value count limit reached'};foreach($name in $names|Select-Object -First 64){$v=$key.GetValue($name,$null,'DoNotExpandEnvironmentNames');$truncated=$false;$encoding='native';$originalBytes=$null;$retainedBytes=$null;$digest=$null;if($v -is [byte[]]){$encoding='base64';$originalBytes=$v.Length;$sha=[Security.Cryptography.SHA256]::Create();try{$digest=([BitConverter]::ToString($sha.ComputeHash($v))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()};if($v.Length -gt 1048576){$v=[byte[]]$v[0..1048575];$truncated=$true;Issue 'Registry binary value exceeded 1048576 bytes; original size and SHA-256 retained'};$retainedBytes=$v.Length;$v=[Convert]::ToBase64String($v)};[pscustomobject]@{path=$key.Name;name=$name;kind=[string]$key.GetValueKind($name);value=$v;encoding=$encoding;value_truncated=$truncated;original_bytes=$originalBytes;retained_bytes=$retainedBytes;original_sha256=$digest}}}catch{Issue 'One or more registry values could not be read'}}
 }
 function UserReg($suffix,$depth){Get-ChildItem Registry::HKEY_USERS|Where-Object {$_.PSChildName -match '^S-1-5-21-'}|Select-Object -First 32|ForEach-Object{RegTree ('Registry::'+$_.Name+'\'+$suffix) $depth}}
 function HashFile($path){if(-not $path){return [pscustomobject]@{path=$path;state='PATH_UNAVAILABLE';sha256=$null}};try{$f=Get-Item -LiteralPath $path;if($f.Length -gt 67108864){return [pscustomobject]@{path=$path;state='SIZE_LIMIT';sha256=$null}};[pscustomobject]@{path=$path;state='HASHED';sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash}}catch{[pscustomobject]@{path=$path;state='UNREADABLE';sha256=$null}}}
@@ -87,22 +88,48 @@ function PowerShellEventRow($event){
  $xml=[xml]$event.ToXml();$data=@{};foreach($node in $xml.Event.EventData.Data){$data[[string]$node.Name]=[string]$node.'#text'}
  [pscustomobject]@{source='event_log';time=([DateTimeOffset]$event.TimeCreated).ToUnixTimeSeconds();datetime=$event.TimeCreated.ToUniversalTime().ToString('o');script_block_id=$data.ScriptBlockId;script_block_count=$data.MessageTotal;message_number=$data.MessageNumber;script_text=$data.ScriptBlockText;script_name=[IO.Path]::GetFileName($data.Path);script_path=$data.Path;event_id=$event.Id;record_id=$event.RecordId;log_name=$event.LogName;user_sid=[string]$event.UserId}
 }
+function HistoryBucket($name,$budget,$rowLimit){
+ return @{name=$name;budget=$budget;row_limit=$rowLimit;used=0;kept=0;omitted=0}
+}
+function HistoryRow($row,$bucket){
+ $bytes=[Text.Encoding]::UTF8.GetByteCount(($row|ConvertTo-Json -Depth 7 -Compress))+1
+ if(($bucket.used+$bytes) -gt $bucket.budget -or $bucket.kept -ge $bucket.row_limit){$bucket.omitted++;$script:historyLimited=$true;return}
+ $bucket.used+=$bytes;$bucket.kept++;$row
+}
+function HistorySummary($bucket){
+ if($bucket.omitted){Issue ('History source limit: '+$bucket.name+'; retained '+$bucket.kept+' rows; omitted at least '+$bucket.omitted+' rows')}
+}
 function PowerShellHistory {
+ # Reserve independent budgets: neither event log can suppress interactive history.
  foreach($log in @('Microsoft-Windows-PowerShell/Operational','PowerShellCore/Operational')){
+  $bucket=HistoryBucket $log 614400 3000
   try{
    $info=Get-WinEvent -ListLog $log -ErrorAction Stop
    if(-not $info.IsEnabled){Issue ('PowerShell event log is disabled: '+$log);continue}
-   $eventErrors=@();$events=@(Get-WinEvent -FilterHashtable @{LogName=$log;Id=4104} -MaxEvents 5001 -ErrorAction SilentlyContinue -ErrorVariable eventErrors)
+   $eventErrors=@();$events=@(Get-WinEvent -FilterHashtable @{LogName=$log;Id=4104} -MaxEvents 3001 -ErrorAction SilentlyContinue -ErrorVariable eventErrors)
    foreach($err in $eventErrors){if($err.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*'){Issue ('PowerShell event log could not be completely read: '+$log)}}
-   if($events.Count -gt 5000){Issue ('PowerShell event history limited to newest 5000 events: '+$log)}
-   $events|Select-Object -First 5000|ForEach-Object{PowerShellEventRow $_}
+   foreach($event in $events){HistoryRow (PowerShellEventRow $event) $bucket}
   }catch{Issue ('PowerShell event log unavailable: '+$log)}
+  HistorySummary $bucket
  }
- Profiles|ForEach-Object{
+ $paths=@(Profiles|ForEach-Object{
   $profile=$_
   foreach($relative in @('AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt','AppData\Roaming\Microsoft\PowerShell\PSReadLine\ConsoleHost_history.txt')){
    $p=Join-Path $profile $relative
-   try{if(Test-Path -LiteralPath $p){$lines=@(Get-Content -LiteralPath $p -Tail 10001);if($lines.Count -gt 10000){Issue 'PSReadLine history limited to last 10000 lines'};$n=0;$lines|Select-Object -Last 10000|ForEach-Object{$n++;[pscustomobject]@{source='PSReadLine';user_profile=$profile;path=$p;tail_line=$n;script_text=$_;datetime=$null;script_path=$null;script_block_id=$null;script_block_count=$null}}}}catch{Issue 'PSReadLine history file was inaccessible'}
+   try{if(Test-Path -LiteralPath $p){[pscustomobject]@{profile=$profile;path=$p}}}catch{Issue 'PSReadLine history path was inaccessible'}
+  }
+ })
+ if($paths.Count){
+  $budget=[int][Math]::Floor(614400/$paths.Count);$rows=[int][Math]::Floor(3000/$paths.Count)
+  foreach($file in $paths){
+   $bucket=HistoryBucket $file.path $budget $rows
+   try{
+    $lines=@(Get-Content -LiteralPath $file.path -Tail ($rows+1));$n=$lines.Count
+    # Keep newest commands first. tail_line is a position in the bounded tail,
+    # never presented as an absolute file line number or execution timestamp.
+    for($i=$lines.Count-1;$i -ge 0;$i--){HistoryRow ([pscustomobject]@{source='PSReadLine';user_profile=$file.profile;path=$file.path;tail_line=($i+1);script_text=$lines[$i];datetime=$null;script_path=$null;script_block_id=$null;script_block_count=$null}) $bucket}
+   }catch{Issue 'PSReadLine history file was inaccessible'}
+   HistorySummary $bucket
   }
  }
 }
@@ -119,7 +146,7 @@ def manifest():
 
 def script_for(key):
     # Pipeline row bound is inside the process, before serialization.
-    return HELPERS + '\ntry{$rows=@(& {\n' + CATALOG[key][1] + '\n}|Select-Object -First 10001);$kept=New-Object System.Collections.Generic.List[object];$used=0;$sizeLimited=$false;foreach($row in $rows|Select-Object -First 10000){$bytes=[Text.Encoding]::UTF8.GetByteCount(($row|ConvertTo-Json -Depth 7 -Compress));if(($used+$bytes+1) -gt 1966080){$sizeLimited=$true;Issue "Category byte limit reached; retained preceding rows";break};$kept.Add($row);$used+=$bytes+1};[pscustomobject]@{rows=@($kept.ToArray());truncated=(($rows.Count -gt 10000) -or $sizeLimited);issues=@($script:issues.ToArray())}|ConvertTo-Json -Depth 8 -Compress}catch{[pscustomobject]@{error=$_.Exception.GetType().Name;message="Collector query failed; provider may be unavailable or access denied"}|ConvertTo-Json -Compress;exit 2}'
+    return HELPERS + '\ntry{$rows=@(& {\n' + CATALOG[key][1] + '\n}|Select-Object -First 10001);$kept=New-Object System.Collections.Generic.List[object];$used=0;$sizeLimited=$false;foreach($row in $rows|Select-Object -First 10000){$bytes=[Text.Encoding]::UTF8.GetByteCount(($row|ConvertTo-Json -Depth 7 -Compress));if(($used+$bytes+1) -gt 1966080){$sizeLimited=$true;Issue "Category byte limit reached; retained preceding rows";break};$kept.Add($row);$used+=$bytes+1};[pscustomobject]@{rows=@($kept.ToArray());truncated=(($rows.Count -gt 10000) -or $sizeLimited -or $script:historyLimited);issues=@($script:issues.ToArray())}|ConvertTo-Json -Depth 8 -Compress}catch{[pscustomobject]@{error=$_.Exception.GetType().Name;message="Collector query failed; provider may be unavailable or access denied"}|ConvertTo-Json -Compress;exit 2}'
 
 def run_query(key, timeout=MAX_CATEGORY_SECONDS, cancelled=lambda:False):
     executable = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32/WindowsPowerShell/v1.0/powershell.exe'

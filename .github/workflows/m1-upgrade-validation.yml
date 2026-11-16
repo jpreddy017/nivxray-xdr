@@ -17,6 +17,9 @@ jobs:
       - name: Migration failure and recovery tests
         working-directory: agents/nivxforge-windows
         run: python -m unittest -v test_m1_upgrade
+      - name: Native forensic limit regression tests
+        shell: powershell
+        run: ./agents/nivxforge-windows/test_snapshot_limits.ps1
       - name: Build forensic sensor with M1 compatibility
         shell: pwsh
         run: |
@@ -35,7 +38,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: m1-compatible-forensic-sensor-0.6.0
+          name: m1-compatible-forensic-sensor-0.6.1
           path: |
             agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
             agents/nivxforge-windows/dist/build-info.json

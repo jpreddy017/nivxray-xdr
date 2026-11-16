@@ -109,7 +109,7 @@ def main():
         results['upgrade']=invoke('m1-upgrade','--m1-config',str(config_path),'--apply')
         assert results['upgrade']['result']=='VERIFIED'
         assert (root/'state/identity.json').read_bytes()==identity
-        assert '0.6.0-windows' in observations['heartbeats']
+        assert '0.6.1-windows' in observations['heartbeats']
         assert observations['capabilities']>0
         # State written after activation must survive the explicit rollback.
         host.write_new_file(root/'state/retained-evidence.fixture',b'keep after rollback')
