@@ -1,4 +1,4 @@
-"""Forensic snapshot routes · request one, list history, read one job.
+"""Forensic snapshot routes Â· request one, list history, read one job.
 
 Customer scope comes from the server-resolved acting tenant, never from the
 body: a job id is not a capability, so reading one from another customer is a
@@ -7,7 +7,8 @@ body: a job id is not a capability, so reading one from another customer is a
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 
 from deps import db as _db, get_current_user
 from edr_plane import authority as authz
@@ -45,8 +46,9 @@ async def dashboard_board(start: str, end: str, sha256: str | None = None,
 
 class SnapshotBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    endpoint_id: str
-    reason: str = ""
+    endpoint_id: str = Field(min_length=1, max_length=160)
+    reason: str = Field(default="", max_length=1000)
+    profile: Literal["process", "windows_standard", "windows_full"] = "process"
 
 
 @router.post("/snapshots")
@@ -57,7 +59,7 @@ async def request_snapshot(body: SnapshotBody,
     requester = str(user.get("email") or user.get("sub") or "user")
     try:
         decision = await authz.authorize(
-            verb=svc.ACTION, tenant_id=tenant_id,
+            verb=svc.ACTION if body.profile == "process" else svc.FULL_ACTION, tenant_id=tenant_id,
             endpoint_id=body.endpoint_id, requester=requester,
             session_role=user.get("role"), db=_db)
     except authz.AuthorityError as e:
@@ -66,7 +68,7 @@ async def request_snapshot(body: SnapshotBody,
         return await svc.request(_db, tenant_id=tenant_id,
                                  endpoint_id=body.endpoint_id,
                                  requested_by=requester, reason=body.reason,
-                                 authority=decision)
+                                 authority=decision, profile=body.profile)
     except resp.ResponseError as e:
         raise HTTPException(status_code=e.http,
                             detail={"error": e.code,
@@ -98,7 +100,7 @@ async def get_snapshot(job_id: str, user: dict = Depends(get_current_user),
     return job
 
 
-# ── Live Query ──────────────────────────────────────────────────────────────
+# â”€â”€ Live Query â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # One read-only question, answered by the endpoint. It shares the response
 # plane with snapshots, so a query id is a command id and the same customer
 # binding applies: a query id is not a capability.
@@ -160,3 +162,24 @@ async def get_query(query_id: str, user: dict = Depends(get_current_user),
                               f"a query belonging to another customer is not "
                               f"readable here."})
     return q
+
+
+
+from routers.edr_tenancy import ROUTE_CLASSIFICATION, TENANT_SCOPED
+ROUTE_CLASSIFICATION[("GET", "/api/edr/forensics/snapshot-catalog")] = TENANT_SCOPED
+
+@router.get("/snapshot-catalog")
+async def snapshot_catalog(endpoint_id: str | None = None,
+        user: dict = Depends(get_current_user), tenant_id: str = Depends(edr_tenant)):
+    edr_scope(tenant_id, user)
+    from services.edr.forensic_profiles import CATALOG, capability_available
+    endpoint = None
+    if endpoint_id:
+        endpoint = await _db["edr_endpoints"].find_one(
+            {"tenant_id": tenant_id, "endpoint_id": endpoint_id}, {"_id": 0, "forensic_collection": 1})
+        if endpoint is None:
+            raise HTTPException(404, detail="Endpoint not found in this customer")
+    return {"tenant_id": tenant_id, "categories": CATALOG,
+            "windows_ready": capability_available(endpoint or {}),
+            "collector": (endpoint or {}).get("forensic_collection"),
+            "profiles": ["process", "windows_standard", "windows_full"]}

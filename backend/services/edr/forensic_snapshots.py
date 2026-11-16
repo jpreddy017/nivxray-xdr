@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 from edr_plane import response as resp
 
 ACTION = "COLLECT_PROCESS_SNAPSHOT"
+FULL_ACTION = "COLLECT_FORENSIC_SNAPSHOT"
 
 #: A sensor claims within one poll interval and a /proc walk is fast. Past
 #: this, a job that never came back is reported as TIMED_OUT rather than left
@@ -37,9 +38,10 @@ CAPABILITY_UNAVAILABLE = "CAPABILITY_UNAVAILABLE"
 TIMED_OUT = "TIMED_OUT"
 
 STATUS_MEANING = {
+    "COMPLETED_PARTIAL": "Collection finished with partial coverage; inspect every category status.",
     QUEUED: "recorded and waiting for the sensor to claim it; nothing has run",
     RUNNING: "claimed by the endpoint; the capture has not reported back yet",
-    COMPLETED_WITH_ROWS: "the sensor captured and returned process rows",
+    COMPLETED_WITH_ROWS: "the sensor captured and returned evidence rows",
     COMPLETED_ZERO_ROWS: ("the capture ran and returned NO rows — this is an "
                           "empty result, not a failure, and not a timeout"),
     FAILED: "the sensor attempted the capture and it did not complete",
@@ -72,12 +74,7 @@ SECTIONS = (
      "never collected; a snapshot is metadata, not a memory dump"),
 )
 
-#: Nothing deletes a snapshot here. Cisco's console keeps one for two days;
-#: this preview keeps every job until its database is cleared, and says so
-#: rather than implying a retention policy it does not run.
-RETENTION_NOTE = ("No retention job runs in this preview: every snapshot and "
-                  "its rows are kept until the database is cleared. Cisco's "
-                  "console keeps a snapshot for two days.")
+RETENTION_NOTE = "No automatic retention or deletion schedule is configured by this feature."
 
 
 def sections(row_count: Optional[int]) -> List[Dict[str, Any]]:
@@ -104,13 +101,22 @@ def _status(doc: Dict[str, Any], now: Optional[datetime] = None) -> str:
     if state in ("REQUESTED", "AUTHORIZED", "DISPATCHED"):
         started = _parse(doc.get("requested_at"))
         if started and (now or _now()) - started > timedelta(
-                seconds=TIMEOUT_SECONDS):
+                seconds=660 if doc.get("action") == FULL_ACTION else TIMEOUT_SECONDS):
             return TIMED_OUT
         return RUNNING if state == "DISPATCHED" else QUEUED
     if state == "CAPABILITY_UNAVAILABLE":
         return CAPABILITY_UNAVAILABLE
     if state in ("EXECUTED", "VERIFIED"):
-        rows = (result.get("evidence") or {}).get("rows") or []
+        evidence = result.get("evidence") or {}
+        categories = evidence.get("categories")
+        if isinstance(categories, list):
+            useful = [c for c in categories if c.get("state") in ("COLLECTED", "PARTIAL")]
+            if not useful:
+                return FAILED
+            if any(c.get("state") not in ("COLLECTED", "NOT_SELECTED") for c in categories):
+                return "COMPLETED_PARTIAL"
+            return COMPLETED_WITH_ROWS if any(c.get("rows") for c in useful) else COMPLETED_ZERO_ROWS
+        rows = evidence.get("rows") or []
         return COMPLETED_WITH_ROWS if rows else COMPLETED_ZERO_ROWS
     return FAILED
 
@@ -130,29 +136,42 @@ def _job(doc: Dict[str, Any], *, rows: bool = False,
         "reported_at": result.get("at"),
         "capture_started_at": ev.get("capture_started_at"),
         "capture_finished_at": ev.get("capture_finished_at"),
-        "row_count": ev.get("row_count") if ev else None,
+        "row_count": sum(c.get("row_count", 0) for c in ev["categories"]) if ev.get("categories") else ev.get("row_count") if ev else None,
         "status": status,
+        "profile": (doc.get("target") or {}).get("profile", "process"),
+        "reason": doc.get("reason"),
         "status_meaning": STATUS_MEANING[status],
         "command_state": doc.get("state"),
         "detail": result.get("detail"),
-        "sensor_version": ev.get("sensor_version"),
+        "sensor_version": ev.get("sensor_version") or ev.get("collector_version"),
         "collection_basis": ev.get("collection_basis"),
         "not_observed": ev.get("not_observed"),
     }
     if rows:
+        out["categories"] = ev.get("categories") or []
+        out["collector_version"] = ev.get("collector_version")
+        out["evidence_sha256"] = ev.get("sha256")
+        out["limitations"] = ev.get("limitations") or []
         out["rows"] = ev.get("rows") or []
         out["rows_truncated"] = bool(ev.get("rows_truncated"))
-        out["sections"] = sections(ev.get("row_count") if ev else None)
+        out["sections"] = [] if ev.get("categories") else sections(ev.get("row_count") if ev else None)
+        if status not in (COMPLETED_WITH_ROWS, COMPLETED_ZERO_ROWS):
+            for section in out["sections"]:
+                section["state"] = "NOT_COLLECTED"
+        if status == TIMED_OUT and doc.get("action") == FULL_ACTION:
+            out["status_meaning"] = "No result arrived within 660 seconds. No completed capture is claimed."
         out["retention_note"] = RETENTION_NOTE
     return out
 
 
 async def request(db, *, tenant_id: str, endpoint_id: str, requested_by: str,
-                  reason: str = "", authority: Optional[Dict] = None) -> Dict:
+                  reason: str = "", authority: Optional[Dict] = None, profile: str = "process") -> Dict:
     """Record the request. Nothing is captured here — the endpoint does that."""
+    from services.edr.forensic_profiles import target_for
+    target = target_for(profile)
     cmd = await resp.request_action(
-        db, tenant_id=tenant_id, endpoint_id=endpoint_id, action=ACTION,
-        target={}, reason=reason or "analyst-requested process snapshot",
+        db, tenant_id=tenant_id, endpoint_id=endpoint_id, action=ACTION if profile == "process" else FULL_ACTION,
+        target=target, reason=reason or "analyst-requested process snapshot",
         requested_by=requested_by, authority=authority)
     return {**_job(cmd), "honesty_note": (
         "The job is recorded, not captured. Until the endpoint reports, this "
@@ -161,7 +180,7 @@ async def request(db, *, tenant_id: str, endpoint_id: str, requested_by: str,
 
 async def list_jobs(db, *, tenant_id: str, endpoint_id: Optional[str] = None,
                     limit: int = 50) -> Dict[str, Any]:
-    q: Dict[str, Any] = {"tenant_id": tenant_id, "action": ACTION}
+    q: Dict[str, Any] = {"tenant_id": tenant_id, "action": {"$in": [ACTION, FULL_ACTION]}}
     if endpoint_id:
         q["endpoint_id"] = endpoint_id
     cur = db[resp.COLLECTION].find(q, projection={"_id": 0}).sort(
@@ -179,6 +198,7 @@ async def list_jobs(db, *, tenant_id: str, endpoint_id: Optional[str] = None,
 async def get_job(db, *, tenant_id: str, job_id: str) -> Optional[Dict]:
     """One job WITH its rows, readable only inside its own customer."""
     doc = await db[resp.COLLECTION].find_one(
-        {"tenant_id": tenant_id, "action": ACTION, "command_id": job_id},
+        {"tenant_id": tenant_id, "action": {"$in": [ACTION, FULL_ACTION]}, "command_id": job_id},
         projection={"_id": 0})
     return _job(doc, rows=True) if doc else None
+

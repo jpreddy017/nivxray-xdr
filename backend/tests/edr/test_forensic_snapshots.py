@@ -25,6 +25,59 @@ EP = "ep_snapfixture_aaaaaaaaaa"
 EP_OTHER = "ep_snapfixture_bbbbbbbbbb"
 WHO = "analyst@fixture.test"
 
+async def _full_request(d):
+    from services.edr import forensic_profiles as fp
+    await d['edr_endpoints'].update_one({'tenant_id': OWNER, 'endpoint_id': EP}, {'$set': {'forensic_collection': {'platform':'windows','categories':list(fp.KEYS),'reported_at':datetime.now(timezone.utc).isoformat()}}})
+    return await fs.request(d,tenant_id=OWNER,endpoint_id=EP,requested_by=WHO,profile='windows_full')
+
+def _full_evidence():
+    import hashlib,json
+    from services.edr import forensic_profiles as fp
+    ev={'schema':'nivxforge.windows-forensic-snapshot.v1','categories':[{'category_id':r['id'],'name':r['name'],'state':'COLLECTED','rows':[{'fixture':True}],'row_count':1} for r in fp.CATALOG]}
+    ev['categories'][0].update(state='UNAVAILABLE',rows=[],row_count=0)
+    ev['sha256']=hashlib.sha256(json.dumps(ev,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+    return ev
+
+@pytest.mark.asyncio
+async def test_full_profile_claim_is_sensor_scoped_and_excluded_from_legacy_poller(db):
+    from services.edr import forensic_profiles as fp
+    job=await _full_request(db)
+    assert await resp.claim_pending(db,tenant_id=OWNER,endpoint_id=EP)==[]
+    assert await fp.claim_one(db,OUTSIDER,EP)==[]
+    assert await fp.claim_one(db,OWNER,EP_OTHER)==[]
+    claimed=await fp.claim_one(db,OWNER,EP)
+    assert claimed[0]['command_id']==job['job_id']
+    assert await fp.claim_one(db,OWNER,EP)==[]
+
+@pytest.mark.asyncio
+async def test_full_profile_partial_evidence_is_preserved_and_tenant_scoped(db):
+    from services.edr import forensic_profiles as fp
+    job=await _full_request(db);await fp.claim_one(db,OWNER,EP)
+    ev=_full_evidence()
+    await resp.record_result(db,tenant_id=OWNER,endpoint_id=EP,command_id=job['job_id'],outcome='EXECUTED',detail='fixture',evidence=ev)
+    result=await fs.get_job(db,tenant_id=OWNER,job_id=job['job_id'])
+    assert result['status']=='COMPLETED_PARTIAL'
+    assert result['row_count']==40
+    assert len(result['categories'])==41
+    assert result['evidence_sha256']==ev['sha256']
+    assert await fs.get_job(db,tenant_id=OUTSIDER,job_id=job['job_id']) is None
+    assert (await fs.list_jobs(db,tenant_id=OWNER))['count']==1
+
+@pytest.mark.asyncio
+async def test_full_profile_rejects_tampering_before_saving_result(db):
+    from services.edr import forensic_profiles as fp
+    job=await _full_request(db);await fp.claim_one(db,OWNER,EP)
+    ev=_full_evidence();ev['categories'][1]['rows'][0]['fixture']='tampered'
+    with pytest.raises(resp.ResponseError):
+        await resp.record_result(db,tenant_id=OWNER,endpoint_id=EP,command_id=job['job_id'],outcome='EXECUTED',detail='fixture',evidence=ev)
+    assert (await fs.get_job(db,tenant_id=OWNER,job_id=job['job_id']))['status']=='RUNNING'
+
+@pytest.mark.asyncio
+async def test_full_profile_requires_recent_endpoint_capability(db):
+    with pytest.raises(resp.ResponseError) as error:
+        await fs.request(db,tenant_id=OWNER,endpoint_id=EP,requested_by=WHO,profile='windows_full')
+    assert error.value.code=='SNAPSHOT_UPGRADE_REQUIRED'
+
 
 @pytest_asyncio.fixture()
 async def db():
@@ -240,4 +293,4 @@ async def test_the_result_lists_what_it_covers_and_what_it_does_not(db):
                    "Wireless networks", "Shell history", "Memory image"):
         assert by_name[absent]["state"] == "NOT_COLLECTED"
         assert by_name[absent]["rows"] is None
-    assert "kept until the database is cleared" in out["retention_note"]
+    assert "No automatic retention or deletion schedule" in out["retention_note"]

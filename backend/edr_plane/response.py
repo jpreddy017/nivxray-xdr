@@ -1,6 +1,6 @@
-"""P0-F.5/F.6 · endpoint response — request, dispatch, execute, VERIFY.
+"""P0-F.5/F.6 Â· endpoint response â€” request, dispatch, execute, VERIFY.
 
-The rule this module exists to enforce: **REQUESTED ≠ SUCCEEDED.** A
+The rule this module exists to enforce: **REQUESTED â‰  SUCCEEDED.** A
 response is not a POST that answers `{"success": true}`. It is a command
 carried to a real endpoint, executed by the real sensor, and then proven
 by INDEPENDENT evidence gathered after the fact. Until that evidence
@@ -11,10 +11,10 @@ No second response *decision* engine is created: the existing
 the execution channel and its evidence.
 
 State machine (forward only, every transition stamped):
-    REQUESTED → DISPATCHED → EXECUTED → VERIFIED
-                                     ↘ VERIFICATION_FAILED
-                          ↘ FAILED / CAPABILITY_UNAVAILABLE
-    REQUESTED → REFUSED  (authorisation or identity could not be proven)
+    REQUESTED â†’ DISPATCHED â†’ EXECUTED â†’ VERIFIED
+                                     â†˜ VERIFICATION_FAILED
+                          â†˜ FAILED / CAPABILITY_UNAVAILABLE
+    REQUESTED â†’ REFUSED  (authorisation or identity could not be proven)
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ ENGINE_ID = "nivxray::edr_plane::response"
 #: permission-gated but never approval-gated, and it is never "verified":
 #: a collection's rows ARE its evidence, and a second read of /proc cannot
 #: prove what the first one saw.
-COLLECTION_ACTIONS = ("COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME")
+COLLECTION_ACTIONS = ("COLLECT_FORENSIC_SNAPSHOT", "COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME")
 ACTIONS = ("KILL_PROCESS", "ISOLATE_ENDPOINT", "RELEASE_ISOLATION",
            *COLLECTION_ACTIONS)
 TERMINAL = ("VERIFIED", "VERIFICATION_FAILED", "FAILED",
@@ -57,7 +57,7 @@ async def ensure_indexes(db) -> None:
                                        ("state", 1)], name="cmd_lookup")
     await db[COLLECTION].create_index("command_id", unique=True,
                                       name="cmd_id_unique")
-    # P0-A · one authority-issued approval authorises exactly ONE command.
+    # P0-A Â· one authority-issued approval authorises exactly ONE command.
     # Uniqueness is enforced by the STORE, so a replayed approval cannot
     # win a race against its own first use.
     await db[COLLECTION].create_index(
@@ -80,7 +80,7 @@ async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
     degrade to pid-only targeting.
     """
     found = None
-    # P0-2C · the identifier reaching this function is already the
+    # P0-2C Â· the identifier reaching this function is already the
     # canonical enrolment key (the HTTP boundary resolves aliases), and
     # `endpoint_ref` is stamped by the AUTHENTICATED sensor session, so
     # the canonical key is the only alias this store can hold for a
@@ -152,7 +152,7 @@ async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
                             .get("iid"))}
 
 
-#: P0-A · a request that reached this function without an authority
+#: P0-A Â· a request that reached this function without an authority
 #: decision did not come from an API surface. `expire_isolations` is the
 #: only such caller, and it is recorded as what it is.
 INTERNAL_AUTHORITY: Dict[str, Any] = {
@@ -191,7 +191,7 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
                             "this endpoint's enrolment is revoked; it holds "
                             "no valid credential to act on a command")
 
-    # P0-A · a release is IDEMPOTENT. Repeating it against an endpoint that
+    # P0-A Â· a release is IDEMPOTENT. Repeating it against an endpoint that
     # is not contained must not mint a second containment transition that
     # will later read as a successful release of something never isolated.
     if action == "RELEASE_ISOLATION" and authority is not None:
@@ -224,6 +224,10 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
         target = await _resolve_kill_target(
             db, tenant_id=tenant_id, endpoint_id=endpoint_id, pid=pid,
             target=target)
+
+    if action == "COLLECT_FORENSIC_SNAPSHOT":
+        from services.edr.forensic_profiles import validate_target
+        target = validate_target(target, ep)
 
     authorisation: Optional[Dict[str, Any]] = None
     if action in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
@@ -261,7 +265,7 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
         "engine_id": ENGINE_ID,
         "dispatched_at": None, "executed_at": None, "verified_at": None,
         "authorisation": authorisation,
-        # P0-A · WHO was allowed to ask for this, on WHAT authority, and
+        # P0-A Â· WHO was allowed to ask for this, on WHAT authority, and
         # which approval artifact was consumed. Stamped from the validated
         # decision; never from the request body.
         "authority": dict(authority or INTERNAL_AUTHORITY),
@@ -323,7 +327,7 @@ async def expire_isolations(db, *, tenant_id: str, endpoint_id: str) -> int:
             requested_by="policy:auto_release",
             reason=(f"configured auto-release after {secs}s of verified "
                     f"containment (isolation {doc['command_id']}); this is "
-                    f"a request, not a release — it is verified like any "
+                    f"a request, not a release â€” it is verified like any "
                     f"other action"))
         await db[COLLECTION].update_one(
             {"command_id": doc["command_id"]},
@@ -342,7 +346,8 @@ async def claim_pending(db, *, tenant_id: str,
     while True:
         doc = await db[COLLECTION].find_one_and_update(
             {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
-             "state": {"$in": ["REQUESTED", "AUTHORIZED"]}},
+             "state": {"$in": ["REQUESTED", "AUTHORIZED"]},
+             "action": {"$ne": "COLLECT_FORENSIC_SNAPSHOT"}},
             {"$set": {"state": "DISPATCHED", "dispatched_at": _now()},
              "$push": {"history": {"state": "DISPATCHED", "at": _now(),
                                    "actor": endpoint_id}}},
@@ -377,6 +382,14 @@ async def record_result(db, *, tenant_id: str, endpoint_id: str,
                 "honesty_note": ("this result was already recorded; the "
                                  "ORIGINAL job and its result are returned "
                                  "unchanged and nothing was overwritten")}
+    collection_doc = await db[COLLECTION].find_one(
+        {"command_id": command_id, "tenant_id": tenant_id, "endpoint_id": endpoint_id},
+        projection={"action": 1, "target": 1})
+    if (collection_doc or {}).get("action") == "COLLECT_FORENSIC_SNAPSHOT" and evidence:
+        from services.edr.forensic_profiles import validate_evidence
+        validate_evidence(evidence, collection_doc["target"])
+    if (collection_doc or {}).get("action") == "COLLECT_FORENSIC_SNAPSHOT" and outcome == "EXECUTED" and not evidence:
+        raise ResponseError("MISSING_SNAPSHOT_EVIDENCE", "A completed collection requires category evidence.", 422)
     doc = await db[COLLECTION].find_one_and_update(
         {"command_id": command_id, "tenant_id": tenant_id,
          "endpoint_id": endpoint_id, "state": "DISPATCHED"},
@@ -402,7 +415,7 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
 
     For a kill: the sensor re-reads /proc for the exact pid and reports
     whether it is still present. Absence verifies the kill; presence is a
-    VERIFICATION_FAILED, which is the honest outcome — the analyst must
+    VERIFICATION_FAILED, which is the honest outcome â€” the analyst must
     know the process is still running.
     """
     doc = await db[COLLECTION].find_one({"command_id": command_id,
@@ -420,12 +433,12 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
         # The probe must prove the OBSERVED process is gone, not merely
         # that the pid is unoccupied. A pid can be free because the
         # process died on its own, and it can be occupied by an unrelated
-        # new process — neither is evidence about the target.
+        # new process â€” neither is evidence about the target.
         expected = (doc.get("target") or {}).get("observed_start_ticks")
         if (probe.get("identity_basis") != "start_ticks"
                 or probe.get("observed_start_ticks") != expected):
             ok = False
-            finding = ("VERIFICATION_IDENTITY_UNPROVEN — the probe did not "
+            finding = ("VERIFICATION_IDENTITY_UNPROVEN â€” the probe did not "
                        "carry the process start identity this command was "
                        "bound to, so it proves only something about the "
                        "pid, not about the target process")
@@ -433,7 +446,7 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
             still = bool(probe.get("process_present"))
             ok = not still
             if still:
-                finding = ("THE TARGET PROCESS IS STILL RUNNING — the kill "
+                finding = ("THE TARGET PROCESS IS STILL RUNNING â€” the kill "
                            "did not take effect")
             elif probe.get("pid_reoccupied"):
                 finding = ("the target process is gone (its start identity "
@@ -478,13 +491,13 @@ def _verify_containment(action: str, probe: Dict[str, Any]):
     address family. So the kernel policy state must confirm the rules ARE
     installed, and the endpoint's own behaviour must confirm an
     independently chosen external target is unreachable WHILE the control
-    channel still is. Losing the control channel is a failure too — a host
+    channel still is. Losing the control channel is a failure too â€” a host
     we cannot talk to is not contained, it is lost.
     """
     cp = probe.get("control_plane") or {}
     bh = probe.get("behavioural") or {}
     if not cp or not bh:
-        return False, ("VERIFICATION_INCOMPLETE — containment requires BOTH "
+        return False, ("VERIFICATION_INCOMPLETE â€” containment requires BOTH "
                        "kernel policy state and independent connectivity "
                        "behaviour; this probe carried "
                        + ("no behavioural proof" if cp else
@@ -502,16 +515,16 @@ def _verify_containment(action: str, probe: Dict[str, Any]):
                 f"NivXForge control channel "
                 f"{bh.get('control_channel')} remains reachable")
         if installed and blocked and not control:
-            return False, ("CONTROL_CHANNEL_LOST — external traffic is "
+            return False, ("CONTROL_CHANNEL_LOST â€” external traffic is "
                            "blocked but the endpoint can no longer reach "
                            "NivXForge. That is not containment, it is an "
                            "unmanageable host.")
         if installed and not blocked:
-            return False, ("RULES_INSTALLED_BUT_NOT_EFFECTIVE — the policy "
+            return False, ("RULES_INSTALLED_BUT_NOT_EFFECTIVE â€” the policy "
                            f"is present yet the endpoint still reached "
                            f"{bh.get('external_target')}. Containment is "
                            f"NOT in force.")
-        return False, ("POLICY_NOT_INSTALLED — the kernel does not hold the "
+        return False, ("POLICY_NOT_INSTALLED â€” the kernel does not hold the "
                        "containment rules; nothing is contained")
     absent = cp.get("rules_absent") is True
     restored = bh.get("external_restored") is True
@@ -520,10 +533,10 @@ def _verify_containment(action: str, probe: Dict[str, Any]):
                       f"from the kernel AND {bh.get('external_target')} is "
                       f"reachable again")
     if absent and not restored:
-        return False, ("RULES_REMOVED_BUT_TRAFFIC_STILL_BLOCKED — the "
+        return False, ("RULES_REMOVED_BUT_TRAFFIC_STILL_BLOCKED â€” the "
                        "endpoint remains cut off; treat it as isolated and "
                        "investigate before telling anyone it is back")
-    return False, ("CONTAINMENT_POLICY_STILL_PRESENT — the kernel still "
+    return False, ("CONTAINMENT_POLICY_STILL_PRESENT â€” the kernel still "
                    "holds isolation rules; the endpoint is NOT released")
 
 
@@ -532,7 +545,7 @@ async def _record_isolation_state(db, *, tenant_id: str, endpoint_id: str,
                                   command_id: str, finding: str) -> None:
     """The endpoint's isolation state changes ONLY on verified evidence.
     An unproven isolation is recorded as unproven, never as isolated and
-    never as released — both would be a claim the evidence does not
+    never as released â€” both would be a claim the evidence does not
     support."""
     if verified:
         state = ("ISOLATED" if action == "ISOLATE_ENDPOINT" else "RELEASED")
@@ -549,7 +562,7 @@ async def _record_isolation_state(db, *, tenant_id: str, endpoint_id: str,
                                               "behaviour")}}})
 
 
-#: What a record PROVES — computed from the record, never from intent.
+#: What a record PROVES â€” computed from the record, never from intent.
 #: The console renders THIS, so an EXECUTED command cannot be painted as a
 #: completed one anywhere in the product.
 PROOF_STATES = {
@@ -560,7 +573,7 @@ PROOF_STATES = {
                    "reached the endpoint. Nothing has happened yet."),
     "DISPATCHED": ("CLAIMED_BY_ENDPOINT_NO_RESULT", False,
                    "The endpoint has claimed the command. No result has "
-                   "come back, so nothing is proven — and a command stuck "
+                   "come back, so nothing is proven â€” and a command stuck "
                    "here is visibly stuck, not silently lost."),
     "EXECUTED": ("SENSOR_CLAIM_ONLY_NOT_VERIFIED", False,
                  "The sensor's own report that it acted. This is a CLAIM. "
@@ -621,7 +634,7 @@ async def list_commands(db, *, tenant_id: str,
                         endpoint_refs: Optional[list] = None) -> Dict[str, Any]:
     q: Dict[str, Any] = {"tenant_id": tenant_id}
     if endpoint_refs:
-        # P0-W.F-1 / P0-2C · address the endpoint by every identifier its
+        # P0-W.F-1 / P0-2C Â· address the endpoint by every identifier its
         # resolved identity owns, over the store's declared identity
         # field, not by the string the caller happened to supply.
         q.update(endpoint_predicate(list(endpoint_refs), COLLECTION))
@@ -642,3 +655,4 @@ async def list_commands(db, *, tenant_id: str,
                                     if r["proof"]["integrity_alarm"]),
             "note": ("REQUESTED/DISPATCHED means nothing is proven yet. "
                      "Only VERIFIED is backed by post-action evidence.")}
+

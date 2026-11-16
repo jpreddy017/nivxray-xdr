@@ -43,7 +43,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.3.1-windows"
+SENSOR_VERSION = "0.4.0-windows"
 PLATFORM = "WINDOWS"
 
 def _default_state_root() -> str:
@@ -1309,6 +1309,8 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
     ident = _read_identity()
     session: dict = {"token": None}
     journal = nvx_journal.open_journal(STATE_DIR, BOOKMARK_FILE)
+    from windows_snapshot_worker import Worker
+    forensic_worker = Worker(api, ident, STATE_DIR).start()
     try:
         while True:
             report = _cycle(api, ident, session, journal, interval)
@@ -1323,6 +1325,7 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
                            and report.get("failed", 0) == 0)
             time.sleep(1 if progressing else max(5, interval))
     finally:
+        forensic_worker.stop()
         journal.close()
         TRANSPORT.close()
 
@@ -1381,4 +1384,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 

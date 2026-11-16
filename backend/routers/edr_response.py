@@ -1,7 +1,7 @@
-"""P0-F.5/F.6 · endpoint response surfaces.
+"""P0-F.5/F.6 Â· endpoint response surfaces.
 
 Analyst side authenticates as a user; sensor side authenticates as the
-enrolled endpoint. Neither side may assert its own identity — the sensor's
+enrolled endpoint. Neither side may assert its own identity â€” the sensor's
 endpoint_id comes from its session, never from the request body.
 """
 from __future__ import annotations
@@ -41,7 +41,7 @@ class ActionBody(BaseModel):
     action: str
     target: Dict[str, Any] = {}
     reason: str = ""
-    #: P0-A · the authority-issued approval this request consumes. It is
+    #: P0-A Â· the authority-issued approval this request consumes. It is
     #: the response authority's own execution id; EDR validates it and
     #: never mints one.
     approval_ref: Optional[str] = None
@@ -65,11 +65,11 @@ class VerifyBody(BaseModel):
 async def request_action(body: ActionBody,
                          user: dict = Depends(get_current_user),
                          tenant_id: str = Depends(edr_tenant)) -> dict:
-    """P0-2C · the command plane accepts the same aliases the read plane
+    """P0-2C Â· the command plane accepts the same aliases the read plane
     does.
 
-    P1 · B5/B7 · the tenant is the explicit, registry-resolved
-    `X-Tenant-Id` — previously `user["tenant_id"] or "default"`, which keyed
+    P1 Â· B5/B7 Â· the tenant is the explicit, registry-resolved
+    `X-Tenant-Id` â€” previously `user["tenant_id"] or "default"`, which keyed
     every containment action to a tenant that does not exist in the registry.
     Only the tenant resolution changed: approval, permission, dispatch,
     idempotency, audit and independent verification are untouched, and
@@ -78,7 +78,7 @@ async def request_action(body: ActionBody,
     The command store and the enrolment registry key on the
     platform-minted `endpoint_id`, but the console pivots on the
     `device_iid`. Without resolution here, requesting an action from a
-    trajectory URL returned `404 ENDPOINT_NOT_ENROLLED` — a false
+    trajectory URL returned `404 ENDPOINT_NOT_ENROLLED` â€” a false
     statement about enrolment for an endpoint that IS enrolled. The
     enrolment record stays the authority; only the identifier is widened,
     and it is widened under the CALLER'S scope.
@@ -86,7 +86,7 @@ async def request_action(body: ActionBody,
     endpoint_id = await _canonical_endpoint_id(
         body.endpoint_id, tenant_id, edr_scope(tenant_id, user))
     requester = str(user.get("email") or user.get("sub") or "user")
-    # P0-A · authority BEFORE anything is recorded. The permission comes
+    # P0-A Â· authority BEFORE anything is recorded. The permission comes
     # from the platform's own RBAC and the approval from the single
     # response-engine approval authority; EDR issues neither.
     decision = None
@@ -114,7 +114,7 @@ async def _canonical_endpoint_id(supplied: str, tenant_id: str,
     """The enrolled `endpoint_id` this reference addresses.
 
     An identifier that is already an enrolment key in this tenant is
-    returned untouched — the enrolment registry remains the authority
+    returned untouched â€” the enrolment registry remains the authority
     and no resolution is attempted. Only a non-enrolment identifier is
     passed through the authoritative resolver, and only its aliases that
     are themselves enrolled in THIS tenant are accepted.
@@ -139,12 +139,12 @@ async def _canonical_endpoint_id(supplied: str, tenant_id: str,
 async def list_actions(endpoint_id: Optional[str] = None,
                        user: dict = Depends(get_current_user),
                        tenant_id: str = Depends(edr_tenant)) -> dict:
-    """P0-W.F-1 (third occurrence) · resolve the endpoint reference.
+    """P0-W.F-1 (third occurrence) Â· resolve the endpoint reference.
 
     The command store keys on the platform-minted `endpoint_id`, but the
     EDR console navigates and pivots on the `device_iid`. Without alias
     resolution this surface reported "0 of 0" for an endpoint that has
-    real command records — the same false-empty class as the process
+    real command records â€” the same false-empty class as the process
     tree and endpoint detections. It reuses the SAME authoritative
     resolver; it widens the identifiers, never the authorization.
     """
@@ -170,7 +170,7 @@ async def list_actions(endpoint_id: Optional[str] = None,
 async def get_action(command_id: str,
                      user: dict = Depends(get_current_user),
                      tenant_id: str = Depends(edr_tenant)) -> dict:
-    """The full action record for one command — the audit surface the
+    """The full action record for one command â€” the audit surface the
     console renders. Read-only; this route never mutates state."""
     try:
         return await resp.get_command(
@@ -199,7 +199,7 @@ async def read_isolation_policy(
 async def write_isolation_policy(
         body: PolicyBody, user: dict = Depends(get_current_user),
         tenant_id: str = Depends(edr_tenant)) -> dict:
-    # P0-A · this policy decides what stays reachable while a host is
+    # P0-A Â· this policy decides what stays reachable while a host is
     # contained, so writing it requires the same response authority as
     # performing a response.
     updated_by = str(user.get("email") or user.get("sub") or "user")
@@ -232,7 +232,7 @@ async def poll_commands(who: AuthenticatedEndpoint = Depends(
         get_authenticated_endpoint)) -> dict:
     """The sensor claims only ITS OWN commands, scoped by its session.
 
-    SENSOR_SCOPED · the tenant comes from the authenticated endpoint session
+    SENSOR_SCOPED Â· the tenant comes from the authenticated endpoint session
     and is validated against the registry. No request header is read.
     """
     cmds = await resp.claim_pending(_db,
@@ -268,3 +268,40 @@ async def command_verification(body: VerifyBody,
                                  command_id=body.command_id, probe=body.probe)
     except resp.ResponseError as e:
         _fail(e)
+
+
+
+# Fixed-profile Windows forensics: authenticated endpoint identity only.
+from pydantic import Field
+from typing import Literal
+
+from routers.edr_tenancy import ROUTE_CLASSIFICATION, SENSOR_SCOPED
+ROUTE_CLASSIFICATION[("POST", "/api/edr/agent/forensic-capabilities")] = SENSOR_SCOPED
+ROUTE_CLASSIFICATION[("GET", "/api/edr/agent/forensic-commands")] = SENSOR_SCOPED
+
+class ForensicCapabilityBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    collector_version: str = Field(min_length=1, max_length=64)
+    platform: Literal["windows"]
+    categories: list[str] = Field(min_length=1, max_length=41)
+
+@agent.post("/forensic-capabilities")
+async def forensic_capabilities(body: ForensicCapabilityBody,
+        who: AuthenticatedEndpoint = Depends(get_authenticated_endpoint)):
+    from datetime import datetime, timezone
+    from services.edr.forensic_profiles import KEYS
+    if set(body.categories) != KEYS or len(body.categories) != len(KEYS):
+        raise HTTPException(422, detail="Collector catalog mismatch")
+    tenant_id = sensor_tenant(who.tenant_id)
+    cap = body.model_dump()
+    cap["reported_at"] = datetime.now(timezone.utc).isoformat()
+    await _db["edr_endpoints"].update_one(
+        {"tenant_id": tenant_id, "endpoint_id": who.endpoint_id},
+        {"$set": {"forensic_collection": cap}})
+    return {"ok": True, "endpoint_id": who.endpoint_id}
+
+@agent.get("/forensic-commands")
+async def forensic_commands(who: AuthenticatedEndpoint = Depends(get_authenticated_endpoint)):
+    from services.edr.forensic_profiles import claim_one
+    commands = await claim_one(_db, sensor_tenant(who.tenant_id), who.endpoint_id)
+    return {"endpoint_id": who.endpoint_id, "commands": commands}

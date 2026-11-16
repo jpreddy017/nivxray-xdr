@@ -53,7 +53,7 @@ VERB_ACTION_ID: Dict[str, str] = {
 
 #: Restorative verbs: permission-gated, never approval-gated.
 PERMISSION_ONLY_VERBS: Tuple[str, ...] = ("RELEASE_ISOLATION",
-                                          "COLLECT_PROCESS_SNAPSHOT",
+                                          "COLLECT_FORENSIC_SNAPSHOT", "COLLECT_PROCESS_SNAPSHOT",
                                           "LIVE_QUERY_PROCESS_NAME")
 
 #: The authority's artifact carries `approved_at` but no expiry. EDR
@@ -388,7 +388,7 @@ async def authorize(*, verb: str, tenant_id: str, endpoint_id: str,
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if verb in ("COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME"):
+    if verb in ("COLLECT_FORENSIC_SNAPSHOT", "COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME"):
         return {**decision, "approval_required": False,
                 "approval_requirement_basis":
                     "READ_ONLY_COLLECTION_PERMISSION_ONLY",
@@ -435,3 +435,4 @@ async def authorize(*, verb: str, tenant_id: str, endpoint_id: str,
         tenant_id=tenant_id, endpoint_id=endpoint_id, requester=requester,
         db=db)
     return {**decision, **approval, "approval_validated": True}
+

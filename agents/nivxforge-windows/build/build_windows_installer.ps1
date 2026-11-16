@@ -34,6 +34,7 @@ if ($env:OS -ne 'Windows_NT') {
   throw 'This build MUST run on Windows. A Linux host cannot produce a Windows PE.'
 }
 foreach ($required in @('nivxforge_setup.py', 'nivxforge_sensor.py',
+                        'windows_snapshot.py', 'windows_snapshot_worker.py',
                         'nivxforge_exclusions.py',
                         'nivxforge_delivery_counters.py',
                         'nivxforge_content_acquisition.py')) {
@@ -73,6 +74,8 @@ $PyiCommon = @(
   '--paths', $SensorDir,
   '--hidden-import', 'nivxforge_build',
   '--hidden-import', 'nivxforge_sensor',
+  '--hidden-import', 'windows_snapshot',
+  '--hidden-import', 'windows_snapshot_worker',
   '--hidden-import', 'nivxforge_exclusions',
   '--hidden-import', 'nivxforge_delivery_counters',
   '--hidden-import', 'nivxforge_content_acquisition',
@@ -179,3 +182,4 @@ Write-Host 'NIVXFORGE WINDOWS INSTALLER BUILD: PASS' -ForegroundColor Green
 Write-Host ('  ' + $Exe)
 Write-Host ('  sha256 ' + $hash)
 Write-Host '  signing: UNSIGNED_INTERNAL_VALIDATION_BUILD (not customer-production-ready)'
+

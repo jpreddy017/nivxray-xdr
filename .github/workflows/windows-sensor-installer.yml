@@ -35,6 +35,14 @@ jobs:
         shell: pwsh
         run: python backend/tests/edr/test_sensor_journal_recovery.py
 
+      - name: Forensic collector contracts
+        shell: pwsh
+        run: |
+          python agents/nivxforge-windows/test_windows_snapshot.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python agents/nivxforge-windows/validate_snapshot_providers.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build installer
         shell: pwsh
         run: |
