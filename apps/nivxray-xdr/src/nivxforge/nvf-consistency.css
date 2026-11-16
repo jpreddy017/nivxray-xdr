@@ -20,3 +20,17 @@
 .nvf-console .artifact-record pre{font-family:var(--mono)}
 
 .nvf-console .evidence-board .security-tabs button{font-family:var(--sans)}
+
+/* Shared type scale and surfaces across operational and investigation pages. */
+.nvf-console .main{font-family:var(--sans);font-size:13px;line-height:1.5}
+.nvf-console .main :is(h1,.ops-head .ttl){font-size:19px;font-weight:700;line-height:1.35;letter-spacing:0;margin:0 0 8px}
+.nvf-console .main :is(h2,h3){font-size:15px;font-weight:600;line-height:1.4;letter-spacing:0}
+.nvf-console .main :is(.page-sub,.ops-head .sub){font-size:13px;line-height:1.5;color:var(--muted);margin:0 0 12px;max-width:960px}
+.nvf-console .main :is(.eyebrow,.kpi .k){font-size:11px;font-weight:600;letter-spacing:.04em}
+.nvf-console .main :is(.pill,.badge){font-family:var(--sans);font-weight:600;letter-spacing:.02em}
+.nvf-console .main table.tbl th{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.04em}
+.nvf-console .main table.tbl td{font-size:12px;line-height:1.5}
+.nvf-console .main :is(.kpi .v,table.tbl td.num){font-family:var(--sans);font-variant-numeric:tabular-nums}
+.nvf-console .main :is(.empty,.empty-state){font-family:var(--sans);font-size:13px;line-height:1.5;color:var(--muted);background:var(--panel);border-color:var(--border);border-radius:var(--radius)}
+.nvf-console .main .snapshot-panel h3{font-size:15px}
+.nvf-console .artifact-workspace h3{font-size:15px}

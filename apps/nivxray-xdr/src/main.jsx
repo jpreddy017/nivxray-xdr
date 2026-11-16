@@ -9,6 +9,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import App from "./App.jsx";
+import PageErrorBoundary from "./components/PageErrorBoundary";
 import { AuthProvider } from "@/lib/auth";
 import { AccessProvider } from "@/xdr/access/AccessProvider";
 import { BRAND } from "@/productScope";
@@ -20,6 +21,7 @@ document.title = BRAND.documentTitle;
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
+    <PageErrorBoundary>
     <BrowserRouter>
       <AuthProvider>
         <AccessProvider>
@@ -27,5 +29,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         </AccessProvider>
       </AuthProvider>
     </BrowserRouter>
+    </PageErrorBoundary>
   </React.StrictMode>,
 );

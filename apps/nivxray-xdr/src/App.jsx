@@ -119,7 +119,7 @@ const EdrNotImplementedPage =
 function Protected({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return null;
+  if (loading) return <RouteFallback />;
   if (!user) {
     // Preserve the requested URL so login can bounce back.
     const returnTo = encodeURIComponent(location.pathname + location.search);
@@ -145,7 +145,7 @@ function Protected({ children }) {
  */
 function RequirePermission({ anyOf, label, children }) {
   const access = useAccess();
-  if (access.loading) return null;
+  if (access.loading) return <RouteFallback />;
   if (access.canAny(anyOf) !== false) return children;
   return (
     <XdrShellGuardShell>
