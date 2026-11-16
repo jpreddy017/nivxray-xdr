@@ -71,6 +71,17 @@ def test_every_release_declaring_endpoint_exclusions_ships_the_evaluator():
                 "endpoint_exclusions"):
             continue
         names = [f["name"] for f in release.get("artifact_files") or []]
+        if release.get("entrypoint") == "NivXForgeEDRSetup.exe":
+            # Frozen installers embed the canonical module; they do not ship
+            # loose Python files. Accept only the hash-pinned CI artifact,
+            # whose frozen sensor startup and service lifecycle are gated.
+            definition = catalog._BY_ID[release["release_id"]]
+            expected = definition["artifact"].get("expected_sha256", {})
+            assert expected.get("NivXForgeEDRSetup.exe")
+            assert release["artifact_state"] == catalog.ARTIFACT_PUBLISHED
+            assert next(f["sha256"] for f in release["artifact_files"]
+                        if f["name"] == "NivXForgeEDRSetup.exe") == expected["NivXForgeEDRSetup.exe"]
+            continue
         assert "nivxforge_exclusions.py" in names, (
             f"{release['release_id']} declares endpoint_exclusions but its "
             "artifact does not ship the evaluator, so it cannot honour one")
