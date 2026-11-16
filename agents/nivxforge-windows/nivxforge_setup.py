@@ -359,19 +359,34 @@ def _self_path() -> Path:
                 else __file__).resolve()
 
 
+def _set_state_acl(state: Path) -> None:
+    import win32security as security
+    sd = security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+        "O:BAG:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)", security.SDDL_REVISION_1)
+    security.SetNamedSecurityInfo(
+        str(state), security.SE_FILE_OBJECT,
+        security.OWNER_SECURITY_INFORMATION | security.GROUP_SECURITY_INFORMATION |
+        security.DACL_SECURITY_INFORMATION | security.PROTECTED_DACL_SECURITY_INFORMATION,
+        sd.GetSecurityDescriptorOwner(), sd.GetSecurityDescriptorGroup(),
+        sd.GetSecurityDescriptorDacl(), None)
+
+
 def _protect_state_dir() -> None:
-    """SYSTEM + Administrators only — the endpoint credential lives here."""
+    """Set and verify an exact SYSTEM/Administrators ACL before enrollment."""
     state = sensor.STATE_DIR
+    # Refuse junctions/symlinks before changing ownership or permissions.
+    for path in (state, *state.parents):
+        try:
+            if getattr(path.lstat(), 'st_file_attributes', 0) & 0x400:
+                raise SystemExit("refusing to enrol: state path contains a reparse point")
+        except FileNotFoundError:
+            pass
     state.mkdir(parents=True, exist_ok=True)
-    owner = subprocess.run(["icacls", str(state), "/setowner", "*S-1-5-32-544"],
-                           capture_output=True, text=True, timeout=60)
-    if owner.returncode != 0:
-        raise SystemExit("refusing to enrol: state directory owner could not be secured")
-    result = subprocess.run(["icacls", str(state), "/inheritance:r",
-                    "/grant:r", "*S-1-5-18:(OI)(CI)F",
-                    "/grant:r", "*S-1-5-32-544:(OI)(CI)F"],
-                   capture_output=True, text=True, timeout=60)
-    if result.returncode != 0 or not _restricted_state_acl(state):
+    try:
+        _set_state_acl(state)
+    except Exception:
+        raise SystemExit("refusing to enrol: state directory permissions could not be secured") from None
+    if not _restricted_state_acl(state):
         raise SystemExit("refusing to enrol: state directory permissions could not be secured")
 
 

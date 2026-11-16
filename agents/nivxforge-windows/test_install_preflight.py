@@ -48,8 +48,7 @@ class PreflightTests(unittest.TestCase):
     def test_acl_command_failure_is_fatal(self):
         with tempfile.TemporaryDirectory() as root, \
              patch.object(setup.sensor, 'STATE_DIR', Path(root)), \
-             patch.object(setup.subprocess, 'run') as run:
-            run.return_value.returncode = 5
+             patch.object(setup, '_set_state_acl', side_effect=OSError('denied')):
             with self.assertRaisesRegex(SystemExit, 'could not be secured'):
                 setup._protect_state_dir()
 
@@ -73,8 +72,8 @@ class PreflightTests(unittest.TestCase):
             subprocess.run(['icacls', str(setup.sensor.STATE_DIR), '/grant',
                             '*S-1-1-0:(R)'], check=True, capture_output=True)
             self.assertFalse(setup._restricted_state_acl(setup.sensor.STATE_DIR))
-            with self.assertRaisesRegex(SystemExit, 'could not be secured'):
-                setup._protect_state_dir()
+            setup._protect_state_dir()
+            self.assertTrue(setup._restricted_state_acl(setup.sensor.STATE_DIR))
 
 if __name__ == '__main__':
     unittest.main()
