@@ -472,6 +472,8 @@ def install(api: str, tenant: str | None, token_stdin: bool,
     # Nothing is written until _assert_admin() has passed.
     api = _assert_backend(api)
     _assert_admin()
+    if '--m1-service-run' in _service_config():
+        raise SystemExit('Existing M1 enrollment: use m1-upgrade --m1-config with its existing configuration.')
     # The one fact that makes rollback possible: was this endpoint
     # collecting BEFORE we touched anything? Read it before the first
     # mutation, because every later step can change it.

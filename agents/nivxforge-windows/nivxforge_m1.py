@@ -1633,7 +1633,19 @@ class WindowsHost:
         for member in manifest:
             source = Path(bundle_root) / member
             target = Path(dest_root) / member
-            target.parent.mkdir(parents=True, exist_ok=True)
+            relative = Path(member)
+            if relative.is_absolute() or '..' in relative.parts:
+                raise M1Error('PAYLOAD_PATH_UNSAFE', 'Invalid payload member')
+            parent = Path(dest_root)
+            for component in relative.parts[:-1]:
+                parent = parent / component
+                if not parent.exists():
+                    self.create_directory_protected(parent)
+                if self.is_reparse_point(parent) is not False:
+                    raise M1Error('PAYLOAD_PATH_UNSAFE', 'Linked payload directory')
+                acl = self.directory_security(parent, role=ROLE_OWNED)
+                if acl is None or acl.get('nonadmin_writable'):
+                    raise M1Error('PAYLOAD_ACL_UNSAFE', 'Unprotected payload directory')
             shutil.copy2(source, target)
             #: A copied file is owned by its CREATOR, which on a default
             #: Windows 11 host is the administrator's USER account, not the
