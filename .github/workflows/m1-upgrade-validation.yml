@@ -1,0 +1,50 @@
+name: M1 forensic sensor upgrade validation
+on:
+  push:
+    branches: ['release/m1-forensic-upgrade-20261116']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-migration:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Migration failure and recovery tests
+        working-directory: agents/nivxforge-windows
+        run: python -m unittest -v test_m1_upgrade
+      - name: Build forensic sensor with M1 compatibility
+        shell: pwsh
+        run: |
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Native service and TLS migration verification
+        shell: pwsh
+        working-directory: agents/nivxforge-windows
+        run: |
+          python -m pip install cryptography
+          python -m PyInstaller --onedir --name NivXForgeSensor --distpath fixture-dist --workpath fixture-work --specpath fixture-work --hidden-import win32timezone --hidden-import servicemanager --hidden-import win32serviceutil --hidden-import win32service --hidden-import win32event --noconfirm tests/legacy_service_fixture.py
+          if ($LASTEXITCODE -ne 0) { throw 'Fixture build failed' }
+          $env:PYTHONPATH = (Get-Location).Path
+          python tests/native_m1_upgrade.py fixture-dist/NivXForgeSensor build/work-svc/NivXForgeSensor dist/NivXForgeEDRSetup.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native migration gate failed' }
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: m1-compatible-forensic-sensor-0.6.0
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/build-info.json
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/m1-native-validation.json
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: m1-migration-failure-diagnostics
+          path: |
+            C:/NivXMigrationCI/m1-upgrade.json
+            C:/NivXMigrationCI/state/m1-runtime-health.json

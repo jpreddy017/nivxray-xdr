@@ -43,7 +43,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.5.1-windows"
+SENSOR_VERSION = "0.6.0-windows"
 PLATFORM = "WINDOWS"
 
 def _default_state_root() -> str:
@@ -1205,7 +1205,7 @@ def _report_integrity(api: str, ident: dict, session: dict, journal,
 
 
 def _heartbeat(api: str, ident: dict, session: dict,
-               interval: int, journal=None) -> None:
+               interval: int, journal=None) -> bool:
     """Liveness. NOT telemetry: it never makes a silent sensor look busy.
 
     The body is unchanged on purpose. `HeartbeatBody` is `extra="forbid"`,
@@ -1224,9 +1224,11 @@ def _heartbeat(api: str, ident: dict, session: dict,
                # Additive and only when the CAPABILITY is enabled.
                **COUNTERS.heartbeat_fields()},
               bearer=session["token"])
+        return True
     except (RuntimeError, urllib.error.URLError, OSError) as ex:
         print(f"[heartbeat] {str(ex)[:140]}")
         session["token"] = None
+        return False
 
 
 def _mirror_bookmarks(journal) -> None:
@@ -1259,7 +1261,7 @@ def _cycle(api: str, ident: dict, session: dict, journal,
                                deliver_budget_seconds(interval))
     reclaimed = journal.reclaim()
 
-    _heartbeat(api, ident, session, interval, journal)
+    heartbeat_ack = _heartbeat(api, ident, session, interval, journal)
     reported = _report_enforcement(api, ident, session, excl_journal, policy)
 
     tails = {}
@@ -1277,6 +1279,7 @@ def _cycle(api: str, ident: dict, session: dict, journal,
     COUNTERS.observe_gauge("sensor_queue_depth", depth)
     COUNTERS.persist()
     return {"at": _now(), "sensor_version": SENSOR_VERSION,
+            "backend_acknowledged": heartbeat_ack,
             "records_read": acquired["records_read"],
             "records_journaled": acquired["records_journaled"],
             "duplicates_ignored": acquired["duplicates_ignored"],
@@ -1305,7 +1308,7 @@ def _cycle(api: str, ident: dict, session: dict, journal,
             "channels_unavailable": acquired["channels_unavailable"]}
 
 
-def run(api: str, interval: int = 30, once: bool = False) -> dict:
+def run(api: str, interval: int = 30, once: bool = False, *, manage_forensics: bool = True) -> dict:
     ident = _read_identity()
     session: dict = {"token": None}
     journal = nvx_journal.open_journal(STATE_DIR, BOOKMARK_FILE)
@@ -1313,7 +1316,8 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
     try:
         try:
             from windows_snapshot_worker import Worker
-            forensic_worker = Worker(api, ident, STATE_DIR).start()
+            if manage_forensics:
+                forensic_worker = Worker(api, ident, STATE_DIR).start()
         except Exception as exc:
             # Optional forensic collection must not stop the telemetry loop.
             # No capability is advertised when initialization fails.

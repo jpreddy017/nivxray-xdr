@@ -74,6 +74,11 @@ $PyiCommon = @(
   '--paths', $SensorDir,
   '--hidden-import', 'nivxforge_build',
   '--hidden-import', 'nivxforge_sensor',
+  '--hidden-import', 'nivxforge_m1',
+  '--hidden-import', 'nivxforge_m1_upgrade',
+  '--hidden-import', 'win32security',
+  '--hidden-import', 'win32api',
+  '--hidden-import', 'win32process',
   '--hidden-import', 'windows_snapshot',
   '--hidden-import', 'windows_snapshot_worker',
   '--hidden-import', 'nivxforge_exclusions',
@@ -106,6 +111,15 @@ $SvcHostExe = Join-Path $SvcHostDir 'NivXForgeSensor.exe'
 if (-not (Test-Path $SvcHostExe)) { throw 'service host exe was not produced' }
 Write-Host ('  service host (onedir): ' + $SvcHostExe)
 
+# Embedded hashes cover every file in the onedir service payload.
+$PayloadManifest = Join-Path $WorkDir 'payload-manifest.json'
+$members = [ordered]@{}
+Get-ChildItem -LiteralPath $SvcHostDir -Recurse -File | Sort-Object FullName | ForEach-Object {
+  $relative = $_.FullName.Substring($SvcHostDir.Length + 1).Replace('\', '/')
+  $members[$relative] = @{size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower()}
+}
+$members | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $PayloadManifest -Encoding utf8
+
 # --- 2b. the INSTALLER: onefile, carrying the service host ------------
 # `--paths $SensorDir` lets the frozen entry import the EXISTING sensor and
 # the Gate 7 exclusion evaluator unchanged — one implementation, not two.
@@ -116,6 +130,7 @@ Write-Host ('  service host (onedir): ' + $SvcHostExe)
   --workpath $WorkDir `
   --specpath $WorkDir `
   --add-data ($SvcHostDir + ';service') `
+  --add-data ($PayloadManifest + ';.') `
   @PyiCommon `
   $Entry
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed' }

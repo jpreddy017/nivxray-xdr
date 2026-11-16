@@ -756,6 +756,11 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--re-enrol", action="store_true")
     u = sub.add_parser("uninstall", help="stop and remove the service")
     u.add_argument("--purge", action="store_true")
+    m = sub.add_parser("m1-upgrade", help="inspect or upgrade an owned M1 installation")
+    m.add_argument("--m1-config", required=True)
+    m.add_argument("--apply", action="store_true", help="apply only after read-only preflight")
+    rb = sub.add_parser("m1-rollback", help="restore the previous payload; preserve live evidence")
+    rb.add_argument("--m1-config", required=True)
     sub.add_parser("status", help="local enrolment and queue state")
     sub.add_parser("version", help="installer and sensor versions")
     sub.add_parser("stage-host",
@@ -1090,6 +1095,10 @@ def main(argv: list[str] | None = None) -> None:
     # parser: `--backend` is unknown there, so argparse consumed the URL
     # that follows it as the positional subcommand and exited 2 with
     # "invalid choice", which Windows reported as error 1053.
+    if "--m1-service-run" in raw:
+        import nivxforge_m1
+        nivxforge_m1.m1_service_run(raw)
+        return
     if SERVICE_FLAG in raw:
         _run_as_service(raw)
         return
@@ -1110,7 +1119,24 @@ def main(argv: list[str] | None = None) -> None:
             "to continue, because an ignored flag makes a wrong installer "
             "version look like a credential failure. Check "
             "`NivXForgeEDRSetup.exe version` and `install --help`.")
-    if args.cmd == "install":
+    if args.cmd in ("m1-upgrade", "m1-rollback"):
+        _assert_admin()
+        import nivxforge_m1 as m1
+        import nivxforge_m1_upgrade as upgrade
+        host = m1.WindowsHost(authorization=m1.AUTH_INSTALLER)
+        if args.cmd == "m1-rollback":
+            out = upgrade.rollback(args.m1_config, host)
+        elif not args.apply:
+            out = upgrade.plan(args.m1_config, host)
+        else:
+            bundle = getattr(sys, "_MEIPASS", None)
+            payload = _service_payload_dir()
+            if not bundle or not payload:
+                raise SystemExit("M1 upgrade requires the frozen release payload")
+            manifest = json.loads((Path(bundle) / "payload-manifest.json").read_text(encoding="utf-8-sig"))
+            out = upgrade.upgrade(args.m1_config, host, payload, manifest, sensor.SENSOR_VERSION)
+        print(json.dumps(out, indent=2))
+    elif args.cmd == "install":
         install(args.backend, args.tenant, args.token_stdin, args.interval,
                 args.re_enrol)
     elif args.cmd == "uninstall":
