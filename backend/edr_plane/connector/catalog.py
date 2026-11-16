@@ -56,6 +56,30 @@ _V1_CAPABILITIES: Dict[str, bool] = {
 
 RELEASES: List[Dict[str, Any]] = [
     {
+        "release_id": "nvf-connector-windows-0.6.3-x64",
+        "product": "NivXForge Windows Connector",
+        "connector_version": "0.6.3",
+        "os": "WINDOWS", "architecture": "x64", "channel": "PREVIEW",
+        "support_status": "INTERNAL_VALIDATION",
+        "release_date": "2026-11-16", "end_of_support": None,
+        "signing_status": "UNSIGNED_INTERNAL_VALIDATION_BUILD",
+        "supported_os": ["Windows 11 x64 (validation)", "Windows Server 2025 x64 (CI validated)"],
+        "requires": ["Administrator PowerShell", "Fresh tenant enrollment token", "Outbound HTTPS to nivxray.nivxforge.com"],
+        "release_notes": [
+            "Validates enrollment arguments, interval and tenant consistency before stopping or staging; rejects malformed existing identities and unsafe backend URLs.",
+            "Sets and verifies an exact SYSTEM/Administrators state-folder ACL; refuses redirected state paths. Includes the 0.6.2 forensic-worker and 0.6.1 collection fixes.",
+            "Windows CI verifies collector providers, in-flight collection, missing-enrollment recovery, frozen journal, real SCM start/stop, and rollback. Build commit f670011f51cc0d572eeafc918cf5b10954e45aa7.",
+            "For a new computer choose Deploy this version, then run install with its tenant and enrollment token. Existing M1 installations use m1-upgrade with their existing config.",
+            "Unsigned internal-validation build. Collection limits remain explicit; no memory or disk imaging, prevention engine, or automatic compromise capture."
+        ],
+        "declared_capabilities": {**_V1_CAPABILITIES, "endpoint_exclusions": True, "forensic_snapshot": True},
+        "artifact": {"directory": "nivxforge-windows/releases/0.6.3",
+                     "files": ["NivXForgeEDRSetup.exe"], "entrypoint": "NivXForgeEDRSetup.exe",
+                     "expected_sha256": {"NivXForgeEDRSetup.exe": "fcdb7f2e4709dc98a71ef39cfdf3ad0d6d68c4bcd263035127d0f4113523d624"}},
+    },
+
+
+    {
         "release_id": "nvf-connector-windows-0.6.2-x64",
         "product": "NivXForge Windows Connector",
         "connector_version": "0.6.2",
