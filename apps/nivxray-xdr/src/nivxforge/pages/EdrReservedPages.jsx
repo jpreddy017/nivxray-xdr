@@ -6,6 +6,7 @@
  * reserved status.  No fake data.
  */
 import React from "react";
+import CommandAnalyzerPreview from "./CommandAnalyzerPreview";
 import { Lock } from "lucide-react";
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 
@@ -44,11 +45,7 @@ export const EdrHuntingPage = () => (
   />
 );
 export const EdrForensicsPage = () => (
-  <ReservedPage
-    tabKey="forensics"
-    heading="Forensics"
-    body="Forensic snapshot + targeted live query on the endpoint.  Every collection carries an evidence id and audit trail.  Arrives in a later slice."
-  />
+  <NivXForgeConsole activeTab="forensics"><CommandAnalyzerPreview /></NivXForgeConsole>
 );
 export const EdrLiveQueryPage = () => (
   <ReservedPage
