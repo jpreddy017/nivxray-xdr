@@ -585,6 +585,32 @@ def _service_log(message: str) -> None:
         pass                                    # logging must never kill it
 
 
+
+def _run_service_cycles(api, interval, wait_stop):
+    """One forensic worker per service lifetime, independent of telemetry cycles."""
+    worker = None
+    try:
+        while not wait_stop(0):
+            if worker is None:
+                try:
+                    from windows_snapshot_worker import Worker
+                    identity = sensor._read_identity()
+                    if identity:
+                        worker = Worker(api, identity, sensor.STATE_DIR).start()
+                except Exception as exc:
+                    _service_log("forensic worker start deferred: " + type(exc).__name__)
+            try:
+                sensor.run(api, interval, once=True, manage_forensics=False)
+            except (Exception, SystemExit) as exc:
+                # Optional collection failures must not kill telemetry or the worker.
+                _service_log("cycle failed — retrying: " + type(exc).__name__)
+            if wait_stop(max(5, interval) * 1000):
+                _service_log("stop event signalled — leaving run loop")
+                break
+    finally:
+        if worker is not None:
+            worker.stop()
+
 def _service_class(api: str, interval: int):
     """Built lazily so the CLI works on a host without pywin32.
 
@@ -652,27 +678,10 @@ def _service_class(api: str, interval: int):
                 self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
         def SvcDoRun(self):                      # noqa: N802
-            while True:
-                try:
-                    # ONE cycle per iteration so a stop request is honoured
-                    # promptly; the sensor owns collection and delivery.
-                    sensor.run(self.api, self.interval, once=True)
-                except (Exception, SystemExit) as ex:   # noqa: BLE001
-                    # A cycle failure (not enrolled yet, backend
-                    # unreachable, a channel unreadable) must NOT stop the
-                    # service: `sensor.run` raises SystemExit when there is
-                    # no local identity, and an unhandled SystemExit here
-                    # would make Windows report a service failure instead
-                    # of a retryable condition.
-                    detail = f"{type(ex).__name__}: {str(ex)[:300]}"
-                    _service_log(f"cycle failed — retrying: {detail}")
-                    _event_log("error",
-                               f"{SERVICE_NAME} cycle failed: {detail}")
-                if win32event.WaitForSingleObject(
-                        self.stop_event,
-                        max(5, self.interval) * 1000) == win32event.WAIT_OBJECT_0:
-                    _service_log("stop event signalled — leaving run loop")
-                    break
+            _run_service_cycles(
+                self.api, self.interval,
+                lambda milliseconds: win32event.WaitForSingleObject(
+                    self.stop_event, milliseconds) == win32event.WAIT_OBJECT_0)
 
     NivXForgeSensorService.api = api
     NivXForgeSensorService.interval = interval

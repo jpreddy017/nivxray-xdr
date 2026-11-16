@@ -43,6 +43,11 @@ jobs:
           python agents/nivxforge-windows/validate_snapshot_providers.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Fresh install forensic worker lifetime
+        shell: pwsh
+        working-directory: agents/nivxforge-windows
+        run: python -m unittest -v test_service_forensics
+
       - name: Build installer
         shell: pwsh
         run: |
