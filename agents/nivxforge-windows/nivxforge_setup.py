@@ -597,7 +597,7 @@ def _run_service_cycles(api, interval, wait_stop):
                     identity = sensor._read_identity()
                     if identity:
                         worker = Worker(api, identity, sensor.STATE_DIR).start()
-                except Exception as exc:
+                except (Exception, SystemExit) as exc:
                     _service_log("forensic worker start deferred: " + type(exc).__name__)
             try:
                 sensor.run(api, interval, once=True, manage_forensics=False)

@@ -53,6 +53,16 @@ class ServiceWorkerLifetime(unittest.TestCase):
             self.assertEqual(calls[0]["outcome"],"EXECUTED")
             self.assertEqual(calls[0]["evidence"]["categories"][0]["state"],"COLLECTED")
 
+    def test_missing_enrollment_keeps_service_alive(self):
+        cycles=[]
+        def stop(ms):
+            if ms: cycles.append(1)
+            return len(cycles)>=3
+        with patch.object(setup.sensor,"_read_identity",side_effect=SystemExit("not enrolled")), patch.object(setup.sensor,"run",side_effect=SystemExit("not enrolled")) as run, patch.object(setup,"_service_log"), patch.object(snapshot,"Worker") as worker:
+            setup._run_service_cycles("https://fixture.invalid",5,stop)
+        self.assertEqual(run.call_count,3)
+        worker.assert_not_called()
+
     def test_stop_before_first_cycle_does_not_start_worker(self):
         with patch.object(setup.sensor,"run") as run, patch.object(snapshot,"Worker") as worker:
             setup._run_service_cycles("https://fixture.invalid",5,lambda ms:True)
