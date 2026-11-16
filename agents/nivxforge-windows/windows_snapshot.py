@@ -15,7 +15,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 
-VERSION = '2026.11.16.2'
+VERSION = '2026.11.16.3'
 MAX_ROWS = 10000
 MAX_CATEGORY_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
@@ -40,7 +40,7 @@ CATALOG = {
  'network_interfaces': ('Network interfaces', "Get-CimInstance Win32_NetworkAdapterConfiguration | Select-Object Description,InterfaceIndex,MACAddress,IPEnabled,IPAddress,IPSubnet,DefaultIPGateway,DNSServerSearchOrder,DHCPEnabled", False),
  'network_profiles': ('Network profile registry', "RegTree 'Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkList\\Profiles' 1", True),
  'os_version': ('Operating system', "Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture,InstallDate,LastBootUpTime,LocalDateTime", False),
- 'powershell_history': ('PowerShell history', "Profiles | ForEach-Object {$p=Join-Path $_ 'AppData\\Roaming\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history.txt';if(Test-Path -LiteralPath $p){$n=0;Get-Content -LiteralPath $p -Tail 257|ForEach-Object{$n++;[pscustomobject]@{path=$p;tail_line=$n;text=$_}}}}", True),
+ 'powershell_history': ('PowerShell history', "PowerShellHistory", True),
  'prefetch': ('Prefetch directory', "$p=Join-Path $env:SystemRoot 'Prefetch';if(Test-Path -LiteralPath $p){Get-ChildItem -LiteralPath $p -File|Select-Object Name,FullName,Length,CreationTimeUtc,LastWriteTimeUtc}", True),
  'recent_files': ('Recent files', "Profiles|ForEach-Object{$p=Join-Path $_ 'AppData\\Roaming\\Microsoft\\Windows\\Recent';if(Test-Path -LiteralPath $p){Get-ChildItem -LiteralPath $p -File|Select-Object Name,FullName,Length,CreationTimeUtc,LastWriteTimeUtc}}", True),
  'running_hashes': ('Running executable hashes', "Get-CimInstance Win32_Process|ForEach-Object{$h=HashFile $_.ExecutablePath;$owner=$null;$ownerState='UNAVAILABLE';try{$o=Invoke-CimMethod -InputObject $_ -MethodName GetOwner;if($o.ReturnValue -eq 0){$owner=$o.Domain+'\'+$o.User;$ownerState='COLLECTED'}}catch{Issue 'Process owner was inaccessible'};[pscustomobject]@{owner=$owner;owner_state=$ownerState;pid=$_.ProcessId;name=$_.Name;path=$_.ExecutablePath;command_line=$_.CommandLine;sha256=$h.sha256;hash_state=$h.state}}", True),
@@ -55,7 +55,7 @@ CATALOG = {
  'groups': ('Local user groups', "Get-CimInstance Win32_Group -Filter 'LocalAccount=True'|Select-Object Name,Domain,SID,Description,Status", False),
  'userassist': ('UserAssist registry', "UserReg 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist' 2", True),
  'users': ('Local users', "Get-CimInstance Win32_UserAccount -Filter 'LocalAccount=True'|Select-Object Name,Domain,SID,Disabled,Lockout,Status,PasswordRequired", False),
- 'logged_in_users': ('Logged-in users', "Get-CimInstance Win32_LoggedOnUser|Select-Object @{n='user';e={[string]$_.Antecedent}},@{n='session';e={[string]$_.Dependent}}", False),
+ 'logged_in_users': ('Logged-in users', "$sessions=@{};Get-CimInstance Win32_LogonSession|ForEach-Object{$sessions[[string]$_.LogonId]=$_};Get-CimInstance Win32_LoggedOnUser|ForEach-Object{$u=$_.Antecedent;$s=$sessions[[string]$_.Dependent.LogonId];[pscustomobject]@{user=$u.Name;domain=$u.Domain;logon_id=$_.Dependent.LogonId;logon_type=$s.LogonType;start_time=$s.StartTime;authentication_package=$s.AuthenticationPackage}}", False),
  'wmi_filters': ('WMI event filters', "Get-CimInstance -Namespace root/subscription -ClassName __EventFilter|Select-Object Name,Query,QueryLanguage,EventNamespace;Get-CimInstance -Namespace root/subscription -ClassName __FilterToConsumerBinding|Select-Object Filter,Consumer", False),
  'antivirus': ('Windows antivirus products', "Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct|Select-Object displayName,instanceGuid,pathToSignedProductExe,pathToSignedReportingExe,productState,timestamp", False),
  'bam': ('Windows BAM registry', "RegTree 'Registry::HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\bam\\State\\UserSettings' 2;RegTree 'Registry::HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\bam\\UserSettings' 2", True),
@@ -82,6 +82,30 @@ function RegTree($path,$depth){
 }
 function UserReg($suffix,$depth){Get-ChildItem Registry::HKEY_USERS|Where-Object {$_.PSChildName -match '^S-1-5-21-'}|Select-Object -First 32|ForEach-Object{RegTree ('Registry::'+$_.Name+'\'+$suffix) $depth}}
 function HashFile($path){if(-not $path){return [pscustomobject]@{path=$path;state='PATH_UNAVAILABLE';sha256=$null}};try{$f=Get-Item -LiteralPath $path;if($f.Length -gt 67108864){return [pscustomobject]@{path=$path;state='SIZE_LIMIT';sha256=$null}};[pscustomobject]@{path=$path;state='HASHED';sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash}}catch{[pscustomobject]@{path=$path;state='UNREADABLE';sha256=$null}}}
+
+function PowerShellEventRow($event){
+ $xml=[xml]$event.ToXml();$data=@{};foreach($node in $xml.Event.EventData.Data){$data[[string]$node.Name]=[string]$node.'#text'}
+ [pscustomobject]@{source='event_log';time=([DateTimeOffset]$event.TimeCreated).ToUnixTimeSeconds();datetime=$event.TimeCreated.ToUniversalTime().ToString('o');script_block_id=$data.ScriptBlockId;script_block_count=$data.MessageTotal;message_number=$data.MessageNumber;script_text=$data.ScriptBlockText;script_name=[IO.Path]::GetFileName($data.Path);script_path=$data.Path;event_id=$event.Id;record_id=$event.RecordId;log_name=$event.LogName;user_sid=[string]$event.UserId}
+}
+function PowerShellHistory {
+ foreach($log in @('Microsoft-Windows-PowerShell/Operational','PowerShellCore/Operational')){
+  try{
+   $info=Get-WinEvent -ListLog $log -ErrorAction Stop
+   if(-not $info.IsEnabled){Issue ('PowerShell event log is disabled: '+$log);continue}
+   $eventErrors=@();$events=@(Get-WinEvent -FilterHashtable @{LogName=$log;Id=4104} -MaxEvents 5001 -ErrorAction SilentlyContinue -ErrorVariable eventErrors)
+   foreach($err in $eventErrors){if($err.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*'){Issue ('PowerShell event log could not be completely read: '+$log)}}
+   if($events.Count -gt 5000){Issue ('PowerShell event history limited to newest 5000 events: '+$log)}
+   $events|Select-Object -First 5000|ForEach-Object{PowerShellEventRow $_}
+  }catch{Issue ('PowerShell event log unavailable: '+$log)}
+ }
+ Profiles|ForEach-Object{
+  $profile=$_
+  foreach($relative in @('AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt','AppData\Roaming\Microsoft\PowerShell\PSReadLine\ConsoleHost_history.txt')){
+   $p=Join-Path $profile $relative
+   try{if(Test-Path -LiteralPath $p){$lines=@(Get-Content -LiteralPath $p -Tail 10001);if($lines.Count -gt 10000){Issue 'PSReadLine history limited to last 10000 lines'};$n=0;$lines|Select-Object -Last 10000|ForEach-Object{$n++;[pscustomobject]@{source='PSReadLine';user_profile=$profile;path=$p;tail_line=$n;script_text=$_;datetime=$null;script_path=$null;script_block_id=$null;script_block_count=$null}}}}catch{Issue 'PSReadLine history file was inaccessible'}
+  }
+ }
+}
 function Modules {Get-Process|Select-Object -First 10000|ForEach-Object{$p=$_;try{$p.Modules|Select-Object -First 10000|ForEach-Object{[pscustomobject]@{pid=$p.Id;process=$p.ProcessName;ModuleName=$_.ModuleName;FileName=$_.FileName;BaseAddress=[string]$_.BaseAddress;ModuleMemorySize=$_.ModuleMemorySize}}}catch{Issue 'Modules of one or more processes were inaccessible'}}}
 '''
 

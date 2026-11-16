@@ -1,0 +1,664 @@
+[
+  {
+    "id": "autoexec",
+    "name": "Autoexec Items",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "Command",
+      "Location",
+      "User"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "bitlocker",
+    "name": "BitLocker Encryption Monitoring",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "MountPoint",
+      "VolumeType",
+      "VolumeStatus",
+      "ProtectionStatus",
+      "EncryptionPercentage",
+      "EncryptionMethod",
+      "LockStatus"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "dns_cache",
+    "name": "DNS Cache Table Monitoring",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Entry",
+      "RecordName",
+      "RecordType",
+      "Status",
+      "Section",
+      "TimeToLive",
+      "Data"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "hosts",
+    "name": "Hosts File Data",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "line",
+      "text"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "installed_programs",
+    "name": "Installed Programs On Windows Host",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "DisplayName",
+      "DisplayVersion",
+      "Publisher",
+      "InstallDate",
+      "InstallLocation",
+      "PSPath"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "listening_ports",
+    "name": "Listening Ports",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "LocalAddress",
+      "LocalPort",
+      "OwningProcess",
+      "CreationTime"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "module_hashes",
+    "name": "Loaded Modules Hashes",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "state",
+      "sha256"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "module_processes",
+    "name": "Loaded Modules Processes",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "ProcessId",
+      "ParentProcessId",
+      "Name",
+      "ExecutablePath",
+      "CreationDate"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "module_mapping",
+    "name": "Loaded Modules vs. Processes",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "pid",
+      "process",
+      "ModuleName",
+      "FileName",
+      "BaseAddress",
+      "ModuleMemorySize"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "logon_sessions",
+    "name": "Logon Sessions",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "LogonId",
+      "LogonType",
+      "StartTime",
+      "AuthenticationPackage"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "mapped_drives",
+    "name": "Mapped Drives",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "DeviceID",
+      "DriveType",
+      "ProviderName",
+      "FileSystem",
+      "VolumeName",
+      "Size",
+      "FreeSpace",
+      "Name",
+      "SessionID"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "network_processes",
+    "name": "Network Connections - Processes",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "protocol",
+      "local_address",
+      "local_port",
+      "remote_address",
+      "remote_port",
+      "state",
+      "pid",
+      "image",
+      "command_line"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "network_interfaces",
+    "name": "Network Interfaces",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Description",
+      "InterfaceIndex",
+      "MACAddress",
+      "IPEnabled",
+      "IPAddress",
+      "IPSubnet",
+      "DefaultIPGateway",
+      "DNSServerSearchOrder",
+      "DHCPEnabled"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "network_profiles",
+    "name": "Network Profiles Registry Key",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "os_version",
+    "name": "OS Version",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Caption",
+      "Version",
+      "BuildNumber",
+      "OSArchitecture",
+      "InstallDate",
+      "LastBootUpTime",
+      "LocalDateTime"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "powershell_history",
+    "name": "Powershell History",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "source",
+      "time",
+      "datetime",
+      "script_block_id",
+      "script_block_count",
+      "message_number",
+      "script_text",
+      "script_name",
+      "script_path",
+      "event_id",
+      "record_id",
+      "log_name",
+      "user_sid",
+      "user_profile",
+      "path",
+      "tail_line"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "prefetch",
+    "name": "Prefetch Directory",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "FullName",
+      "Length",
+      "CreationTimeUtc",
+      "LastWriteTimeUtc"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "recent_files",
+    "name": "Recent Files Data",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "FullName",
+      "Length",
+      "CreationTimeUtc",
+      "LastWriteTimeUtc"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "running_hashes",
+    "name": "Running File Hashes",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "owner",
+      "owner_state",
+      "pid",
+      "name",
+      "path",
+      "command_line",
+      "sha256",
+      "hash_state"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "services",
+    "name": "Running Services Monitoring",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "DisplayName",
+      "State",
+      "StartMode",
+      "ProcessId",
+      "PathName",
+      "StartName",
+      "ServiceType"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "scheduled_tasks",
+    "name": "Scheduled Tasks",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "TaskName",
+      "TaskPath",
+      "State",
+      "Actions",
+      "Principal"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "shares",
+    "name": "Open Shares",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "Path",
+      "Type",
+      "Description"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "startup",
+    "name": "Startup Items",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "network_state",
+    "name": "System Network State Monitoring",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "InterfaceDescription",
+      "ReceivedBytes",
+      "SentBytes",
+      "ReceivedUnicastPackets",
+      "SentUnicastPackets",
+      "ReceivedDiscardedPackets",
+      "OutboundDiscardedPackets"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "temp_files",
+    "name": "Temp Directory File Data",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "FullName",
+      "Length",
+      "CreationTimeUtc",
+      "LastWriteTimeUtc"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "root_certificates",
+    "name": "Trusted Root Certificates",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Subject",
+      "Issuer",
+      "Thumbprint",
+      "SerialNumber",
+      "NotBefore",
+      "NotAfter",
+      "HasPrivateKey"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "usb_history",
+    "name": "USBSTOR Registry Key",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "groups",
+    "name": "User Groups",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "Domain",
+      "SID",
+      "Description",
+      "Status"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "userassist",
+    "name": "UserAssist Monitoring",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "users",
+    "name": "Users",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "Domain",
+      "SID",
+      "Disabled",
+      "Lockout",
+      "Status",
+      "PasswordRequired"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "logged_in_users",
+    "name": "Users - Logged-in",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "user",
+      "domain",
+      "logon_id",
+      "logon_type",
+      "start_time",
+      "authentication_package"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "wmi_filters",
+    "name": "WMI Event Filters Monitoring",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "Name",
+      "Query",
+      "QueryLanguage",
+      "EventNamespace",
+      "Filter",
+      "Consumer"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "antivirus",
+    "name": "Windows AV Products Monitoring",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "displayName",
+      "instanceGuid",
+      "pathToSignedProductExe",
+      "pathToSignedReportingExe",
+      "productState",
+      "timestamp"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "bam",
+    "name": "Windows BAM Entries Monitoring",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "environment",
+    "name": "Windows Environment Variables",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "scope",
+      "name",
+      "value",
+      "path",
+      "kind",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "hotfixes",
+    "name": "Windows Hotfixes",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "HotFixID",
+      "Description",
+      "InstalledBy",
+      "InstalledOn",
+      "Caption"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "nt_domains",
+    "name": "Windows NT Domains Search",
+    "sensitive": false,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "DomainName",
+      "DnsForestName",
+      "DomainControllerName",
+      "DomainControllerAddress",
+      "Status"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "shellbags",
+    "name": "Windows ShellBags Monitoring",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "shimcache",
+    "name": "Windows ShimCache Monitoring",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "chrome_extensions",
+    "name": "Chrome Extensions Monitoring",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "version",
+      "permissions"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  },
+  {
+    "id": "office_mru",
+    "name": "Windows Office MRU",
+    "sensitive": true,
+    "platform": "windows",
+    "collector_version": "2026.11.16.3",
+    "fields": [
+      "path",
+      "name",
+      "kind",
+      "value",
+      "encoding",
+      "value_truncated"
+    ],
+    "description": "Windows sensor fields listed here describe the NivXForge collector. Category names follow the Cisco forensic snapshot reference; proprietary Cisco query output is not assumed identical."
+  }
+]

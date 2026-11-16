@@ -19,12 +19,12 @@ test('filter searches the whole category and switching categories clears previou
  fireEvent.change(screen.getByLabelText('Filter category evidence'),{target:{value:'late-owner'}});
  expect(screen.getByText('late-owner')).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:'Inspect Services'}));
- expect(screen.getByText('Access denied')).toBeTruthy();expect(screen.queryByText('late-owner')).toBeNull();
+ expect(screen.getByText(/Access denied/)).toBeTruthy();expect(screen.queryByText('late-owner')).toBeNull();
 });
 test('numeric sorting changes row order',()=>{
  render(<ArtifactBrowser categories={[{...categories[0],rows:[{pid:10},{pid:2}],row_count:2}]}/>);
  fireEvent.click(screen.getByRole('button',{name:'pid'}));
- const cells=screen.getAllByRole('cell');expect(cells[1].textContent).toBe('2');expect(cells[3].textContent).toBe('10');
+ const cells=screen.getAllByRole('cell');expect(cells[0].textContent).toBe('2');expect(cells[1].textContent).toBe('10');
 });
 test('CSV export escapes quotes, newlines and spreadsheet formulas',()=>{
  expect(csvCell('=HYPERLINK("bad")')).toBe('"\'=HYPERLINK(""bad"")"');

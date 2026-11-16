@@ -1,9 +1,10 @@
+import artifactCatalog from './forensic-artifacts.json';
 import ArtifactBrowser from './ArtifactBrowser';
 import React, {useEffect, useRef, useState} from 'react';
 import {useSearchParams, Link} from 'react-router-dom';
 import api from '@/lib/api';
 import {activeTenant, TENANT_BOUND_EVENT} from '@/lib/tenant';
-import {completed, pending, scoped, snapshotError, validateJob, coverage} from './snapshot-contract.mjs';
+import {completed, pending, scoped, snapshotError, validateJob} from './snapshot-contract.mjs';
 
 const date = value => {if(!value)return 'Not reported';const d=new Date(value);return Number.isNaN(d.getTime())?'Invalid timestamp':d.toISOString();};
 const label = value => String(value || 'UNKNOWN').replaceAll('_',' ');
@@ -17,7 +18,9 @@ export default function ForensicSnapshot(){
   const [job,setJob]=useState(null),[jobError,setJobError]=useState('');
   const [reason,setReason]=useState(''),[busy,setBusy]=useState(false),[requestError,setRequestError]=useState('');
   const [refresh,setRefresh]=useState(0),[jobAttempt,setJobAttempt]=useState(0);
+  const [viewerOpen,setViewerOpen]=useState(Boolean(jobId));
   const generation=useRef(0);
+  useEffect(()=>setViewerOpen(Boolean(jobId)),[jobId]);
   useEffect(()=>{const bound=()=>{generation.current++;setTenant(activeTenant());setJob(null);setJobs(null);setComputers([]);setReason('');setRequestError('');};window.addEventListener(TENANT_BOUND_EVENT,bound);return()=>{generation.current++;window.removeEventListener(TENANT_BOUND_EVENT,bound);};},[]);
   const navigate=(changes)=>{const next=new URLSearchParams(params);next.set('section','snapshot');Object.entries(changes).forEach(([k,v])=>v?next.set(k,v):next.delete(k));setParams(next);};
   useEffect(()=>{generation.current++;setBusy(false);setRequestError('');},[tenant,device]);
@@ -54,7 +57,7 @@ export default function ForensicSnapshot(){
       <div className="snapshot-controls"><label>Computer<select aria-label="Snapshot computer" value={device} disabled={busy} onChange={e=>navigate({device:e.target.value,job:''})}><option value="">Select a computer</option>{device&&!chosen&&<option value={device}>{device} — availability not confirmed</option>}{computers.map(c=><option key={c.endpoint_id} value={c.endpoint_id}>{c.hostname||c.endpoint_id} · {c.status||'Unknown status'}</option>)}</select></label>
       <label>Collection profile<select value={profile} disabled={busy} onChange={e=>setProfile(e.target.value)}><option value="process">Running processes (legacy collector)</option><option value="windows_standard" disabled={!catalog?.windows_ready}>Windows artifacts — standard</option><option value="windows_full" disabled={!catalog?.windows_ready}>Windows artifacts — all 41 categories, including sensitive history</option></select></label>
       <label>Reason<input value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)} placeholder="Investigation purpose or case reference"/></label>
-      <button type="button" onClick={request} disabled={!tenant||!device||!reason.trim()||busy}>{busy?'Requesting…':'Request snapshot'}</button></div>
+      <button type="button" onClick={request} disabled={!tenant||!device||!reason.trim()||busy}>{busy?'Requesting…':'Take Forensic Snapshot'}</button></div>
       <p className="snapshot-note">Requests use your existing permissions and are audited. A queued request does not mean collection succeeded. Offline endpoints can time out; unsupported sensors report capability unavailable.</p>
       {device&&catalog&&!catalog.windows_ready&&<p className="snapshot-alert">No compatible collector has been advertised for this computer within the last 24 hours. Windows artifact profiles require the Windows sensor; Linux currently supports process snapshots. <Link to="/edr/management/downloads">Get the forensic-capable Windows sensor</Link></p>}
       {profile==='windows_full'&&<p className="snapshot-alert">This profile includes shell history, DNS, recent filenames, environment variables and other user artifacts. These can contain credentials and private activity. Collection is limited to readable sources; offline user hives are not mounted.</p>}
@@ -67,7 +70,9 @@ export default function ForensicSnapshot(){
       <dl className="snapshot-meta">{[['Evidence / job ID',job.job_id],['Computer',job.endpoint_id],['Requested by',job.requested_by],['Requested (UTC)',date(job.requested_at)],['Capture started (UTC)',date(job.capture_started_at)],['Capture finished (UTC)',date(job.capture_finished_at)],['Reported (UTC)',date(job.reported_at)],['Sensor',job.sensor_version||'Not reported'],['Rows',job.row_count??'Not reported'],['Collection basis',job.collection_basis||'Not reported']].map(([k,v])=><React.Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></React.Fragment>)}</dl>
       {job.detail&&<p>{String(job.detail)}</p>}{job.rows_truncated&&<p role="status" className="snapshot-alert">Partial evidence: the sensor reached its row limit. This is not a complete process inventory.</p>}
       <p><Link to={`/edr/device-trajectory?device=${encodeURIComponent(job.endpoint_id)}`}>Open this computer’s Device Trajectory</Link></p>
-      <ArtifactBrowser categories={job.categories?.length ? job.categories : coverage(job).map((item,index)=>({category_id:'legacy-'+index,name:item.name,state:item.state,detail:item.note,rows:index===0&&completed(job.status)?job.rows:[],row_count:index===0&&completed(job.status)?job.rows.length:0,capture_started_at:job.capture_started_at,capture_finished_at:job.capture_finished_at}))} endpoint={computers.find(c=>c.endpoint_id===job.endpoint_id)?.hostname||job.endpoint_id} capturedAt={job.capture_started_at}/>
+      <button type="button" onClick={()=>setViewerOpen(true)}>View Snapshot</button>
+      {viewerOpen&&<SnapshotDialog onClose={()=>setViewerOpen(false)}><ArtifactBrowser categories={artifactCatalog.map(item=>{const reported=job.categories?.find(c=>c.category_id===item.id);if(reported)return {...item,...reported,name:item.name};const legacy=item.id==='module_processes'&&!job.categories?.length&&completed(job.status);return {...item,category_id:item.id,state:legacy?'COLLECTED':'NOT_COLLECTED',rows:legacy?job.rows:[],row_count:legacy?job.rows.length:0,capture_started_at:legacy?job.capture_started_at:null,capture_finished_at:legacy?job.capture_finished_at:null,detail:legacy?'Legacy process snapshot: PID, name and executable path only.':'This snapshot did not collect this category. A compatible Windows sensor and the appropriate profile are required; requesting a new snapshot does not backfill old evidence.'};})} endpoint={computers.find(c=>c.endpoint_id===job.endpoint_id)?.hostname||job.endpoint_id} capturedAt={job.capture_started_at} trajectoryUrl={`/edr/device-trajectory?device=${encodeURIComponent(job.endpoint_id)}`} onClose={()=>setViewerOpen(false)}/></SnapshotDialog>}
+
       {job.limitations?.length>0&&<ul>{job.limitations.map((item,i)=><li key={i}>{item}</li>)}</ul>}
       <p className="snapshot-note">The export includes provenance and a SHA-256 checksum. It is not a digital signature. No automatic retention or deletion schedule is configured by this feature.</p>
       </>}
@@ -79,3 +84,9 @@ export default function ForensicSnapshot(){
   </section>;
 }
 
+
+function SnapshotDialog({children,onClose}) {
+  const ref=useRef(null);
+  useEffect(()=>{const dialog=ref.current;const previous=document.activeElement;if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');return()=>{if(typeof dialog.close==='function')dialog.close();previous?.focus?.();};},[]);
+  return <dialog ref={ref} className="snapshot-dialog" aria-label="Forensic snapshot viewer" onCancel={event=>{event.preventDefault();onClose();}}>{children}</dialog>;
+}

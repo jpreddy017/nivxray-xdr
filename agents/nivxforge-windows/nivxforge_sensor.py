@@ -43,7 +43,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.5.0-windows"
+SENSOR_VERSION = "0.5.1-windows"
 PLATFORM = "WINDOWS"
 
 def _default_state_root() -> str:
