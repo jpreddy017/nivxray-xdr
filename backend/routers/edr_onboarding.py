@@ -176,9 +176,21 @@ def _describe(package: dict) -> dict[str, Any]:
             "embedded_credential_shapes": embedded,
         })
     available = bool(files) and not missing and credential_free
+    build_info = {}
+    if package.get("id") == "windows-x64-exe" and available:
+        try:
+            import json
+            with open(os.path.join(AGENTS_ROOT, package["directory"], "build-info.json"), encoding="utf-8-sig") as fh:
+                info = json.loads(fh.read(65536))
+            if info.get("artifact") == "NivXForgeEDRSetup.exe" and str(info.get("sha256", "")).lower() == files[0]["sha256"]:
+                build_info = {key: info.get(key) for key in ("sensor_version", "commit", "built_at", "sha256", "signing_status")}
+        except (OSError, ValueError, TypeError):
+            pass
     return {
         **{k: v for k, v in package.items() if k != "directory"},
-        "sensor_version": _sensor_version(package["directory"]),
+        "sensor_version": build_info.get("sensor_version") or _sensor_version(package["directory"]),
+        "build_provenance": build_info,
+        "release_status": "CI_BUILT_INTERNAL_VALIDATION" if build_info else package.get("release_status"),
         "files": files,
         "missing_files": missing,
         "credential_free": credential_free,
