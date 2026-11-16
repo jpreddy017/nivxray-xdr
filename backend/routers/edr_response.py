@@ -247,11 +247,13 @@ async def command_result(body: ResultBody,
                          who: AuthenticatedEndpoint = Depends(
                              get_authenticated_endpoint)) -> dict:
     try:
-        return await resp.record_result(
+        result = await resp.record_result(
             _db, tenant_id=sensor_tenant(who.tenant_id),
             endpoint_id=who.endpoint_id,
             command_id=body.command_id, outcome=body.outcome,
             detail=body.detail, evidence=body.evidence)
+        from services.edr.forensic_profiles import result_receipt
+        return result_receipt(result)
     except resp.ResponseError as e:
         _fail(e)
 

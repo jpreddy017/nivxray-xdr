@@ -76,6 +76,10 @@ class RequestHardeningMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         large_ok = any(path.startswith(p) for p in _LARGE_BODY_PATHS)
         cap = _MAX_LARGE_BODY_BYTES if large_ok else _MAX_BODY_BYTES
+        # Snapshot evidence is bounded to 14 MiB by its authenticated route.
+        # Allow envelope overhead without widening other agent endpoints.
+        if request.method == "POST" and path == "/api/edr/agent/command-result":
+            cap = 16 * 1024 * 1024
         if cl and cl.isdigit() and int(cl) > cap:
             log.warning(f"[{rid}] 413 payload_too_large path={path} cl={cl} cap={cap}")
             return JSONResponse(

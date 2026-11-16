@@ -12,7 +12,7 @@ ingestion cannot tell the difference.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -86,6 +86,14 @@ class AuthenticatedEndpoint(BaseModel):
         }
 
 
+class ForensicCollectionCapability(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    collector_version: str = Field(min_length=1, max_length=64)
+    platform: Literal["windows"]
+    categories: list[str] = Field(min_length=1, max_length=41)
+    reported_at: str
+
+
 class EndpointRecord(BaseModel):
     """The durable endpoint row. Exactly the fields the owner specified,
     with the three lifecycles kept SEPARATE.
@@ -127,6 +135,7 @@ class EndpointRecord(BaseModel):
     cadence_basis: Optional[str] = None
     lifecycle_reported: Optional[str] = None
     outbox_queue_depth: Optional[int] = None
+    forensic_collection: Optional[ForensicCollectionCapability] = None
 
     # Fleet placement, assigned by the PLATFORM at enrolment (never by the
     # sensor). These are durable endpoint facts, so they belong on the

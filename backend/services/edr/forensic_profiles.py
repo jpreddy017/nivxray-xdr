@@ -59,3 +59,18 @@ async def claim_one(db,tenant_id,endpoint_id):
   {'$set':{'state':'DISPATCHED','dispatched_at':now.isoformat()},'$push':{'history':{'state':'DISPATCHED','at':now.isoformat(),'actor':endpoint_id}}},
   sort=[('requested_at',1)],projection={'_id':0,'command_id':1,'action':1,'target':1},return_document=True)
  return [doc] if doc else []
+
+
+def result_receipt(result):
+    """Acknowledge persisted evidence without echoing it to the sensor.
+
+    Replays acknowledge the ORIGINAL saved result and its digest.
+    Other response actions retain their existing response contract.
+    """
+    if result.get("action") != ACTION:
+        return result
+    saved = result.get("sensor_result") or {}
+    evidence = saved.get("evidence") or {}
+    return {"command_id": result["command_id"], "state": result["state"],
+            "outcome": saved.get("outcome"), "evidence_sha256": evidence.get("sha256"),
+            "idempotent_replay": bool(result.get("idempotent_replay"))}
