@@ -18,3 +18,5 @@
 .nvf-console .snapshot-table tbody tr:hover{background:var(--surf-row-hover)}
 .nvf-console .artifact-grid table{font-family:var(--sans);font-size:12px}
 .nvf-console .artifact-record pre{font-family:var(--mono)}
+
+.nvf-console .evidence-board .security-tabs button{font-family:var(--sans)}
