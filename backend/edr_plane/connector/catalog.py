@@ -56,6 +56,26 @@ _V1_CAPABILITIES: Dict[str, bool] = {
 
 RELEASES: List[Dict[str, Any]] = [
     {
+        "release_id": "nvf-connector-windows-0.5.1-x64",
+        "product": "NivXForge Windows Connector",
+        "connector_version": "0.5.1",
+        "os": "WINDOWS", "architecture": "x64", "channel": "PREVIEW",
+        "support_status": "INTERNAL_VALIDATION",
+        "release_date": "2026-11-16", "end_of_support": None,
+        "signing_status": "UNSIGNED_INTERNAL_VALIDATION_BUILD",
+        "supported_os": ["Windows 10 21H2+", "Windows 11", "Windows Server 2019", "Windows Server 2022"],
+        "requires": ["elevated prompt for installation"],
+        "release_notes": [
+            "41 Windows forensic categories; up to 10,000 rows per category, 2 MiB per category and 12 MiB total evidence, with explicit partial status.",
+            "Adds PowerShell script-block events, structured logged-in users and byte-limited partial evidence retention. Windows CI verifies real collection, event parsing, service lifecycle and rollback.",
+            "Unsigned internal-validation build. No automatic compromise capture, memory image or disk image. Sensitive histories require the full profile.",
+        ],
+        "declared_capabilities": {**_V1_CAPABILITIES, "endpoint_exclusions": True, "forensic_snapshot": True},
+        "artifact": {"directory": "nivxforge-windows/releases/0.5.1",
+                     "files": ["NivXForgeEDRSetup.exe"], "entrypoint": "NivXForgeEDRSetup.exe",
+                     "expected_sha256": {"NivXForgeEDRSetup.exe": "9fd07ce6b7b02bfeeecbb13e95ea63e5d989eb63b1715b985ddb182709e3f717"}},
+    },
+    {
         "release_id": "nvf-connector-windows-0.5.0-x64",
         "product": "NivXForge Windows Connector",
         "connector_version": "0.5.0",
