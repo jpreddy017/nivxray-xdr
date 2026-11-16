@@ -37,9 +37,10 @@ def validate_evidence(evidence,target):
  if evidence.get('schema')!='nivxforge.windows-forensic-snapshot.v1':reject()
  categories=evidence.get('categories')
  if not isinstance(categories,list) or len(categories)!=len(target['categories']) or any(not isinstance(c,dict) for c in categories):reject()
+ if any(not isinstance(c.get('category_id'),str) for c in categories):reject()
  if {c.get('category_id') for c in categories}!=set(target['categories']):reject()
  for c in categories:
-  if c.get('state') not in STATES or not isinstance(c.get('rows'),list) or len(c['rows'])>256 or c.get('row_count')!=len(c['rows']):reject()
+  if not isinstance(c.get('state'),str) or c['state'] not in STATES or not isinstance(c.get('rows'),list) or len(c['rows'])>256 or c.get('row_count')!=len(c['rows']):reject()
   if any(not isinstance(r,dict) for r in c['rows']):reject()
   if not isinstance(c.get('issues',[]),list) or any(not isinstance(i,str) for i in c.get('issues',[])):reject()
   if c['state'] not in ('COLLECTED','PARTIAL') and c['rows']:reject()
