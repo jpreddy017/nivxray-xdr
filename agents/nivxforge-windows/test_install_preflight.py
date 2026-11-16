@@ -58,7 +58,17 @@ class PreflightTests(unittest.TestCase):
         import subprocess
         with tempfile.TemporaryDirectory() as root, \
              patch.object(setup.sensor, 'STATE_DIR', Path(root) / 'state'):
-            setup._protect_state_dir()
+            try:
+                setup._protect_state_dir()
+            except BaseException:
+                import win32security as ws
+                sd = ws.GetNamedSecurityInfo(str(setup.sensor.STATE_DIR), ws.SE_FILE_OBJECT,
+                    ws.OWNER_SECURITY_INFORMATION | ws.DACL_SECURITY_INFORMATION)
+                print('ACL_DIAGNOSTIC', ws.ConvertSidToStringSid(sd.GetSecurityDescriptorOwner()),
+                      sd.GetSecurityDescriptorControl(),
+                      [sd.GetSecurityDescriptorDacl().GetAce(i)
+                       for i in range(sd.GetSecurityDescriptorDacl().GetAceCount())])
+                raise
             self.assertTrue(setup._restricted_state_acl(setup.sensor.STATE_DIR))
             subprocess.run(['icacls', str(setup.sensor.STATE_DIR), '/grant',
                             '*S-1-1-0:(R)'], check=True, capture_output=True)
