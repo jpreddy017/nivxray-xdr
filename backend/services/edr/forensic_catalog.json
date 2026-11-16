@@ -4,286 +4,286 @@
     "name": "Autoexec items",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "bitlocker",
     "name": "BitLocker encryption",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "dns_cache",
     "name": "DNS cache",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "hosts",
     "name": "Hosts file",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "installed_programs",
     "name": "Installed programs",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "listening_ports",
     "name": "Listening ports",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "module_hashes",
     "name": "Loaded module hashes",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "module_processes",
     "name": "Loaded module processes",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "module_mapping",
     "name": "Modules mapped to processes",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "logon_sessions",
     "name": "Logon sessions",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "mapped_drives",
     "name": "Mapped drives",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "network_processes",
     "name": "Network connections and processes",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "network_interfaces",
     "name": "Network interfaces",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "network_profiles",
     "name": "Network profile registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "os_version",
     "name": "Operating system",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "powershell_history",
     "name": "PowerShell history",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "prefetch",
     "name": "Prefetch directory",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "recent_files",
     "name": "Recent files",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "running_hashes",
     "name": "Running executable hashes",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "services",
     "name": "Running services",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "scheduled_tasks",
     "name": "Scheduled tasks",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "shares",
     "name": "Shared resources",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "startup",
     "name": "Startup registry items",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "network_state",
     "name": "System network statistics",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "temp_files",
     "name": "Temporary file metadata",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "root_certificates",
     "name": "Trusted root certificates",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "usb_history",
     "name": "USB storage registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "groups",
     "name": "Local user groups",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "userassist",
     "name": "UserAssist registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "users",
     "name": "Local users",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "logged_in_users",
     "name": "Logged-in users",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "wmi_filters",
     "name": "WMI event filters",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "antivirus",
     "name": "Windows antivirus products",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "bam",
     "name": "Windows BAM registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "environment",
     "name": "Windows environment variables",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "hotfixes",
     "name": "Windows hotfixes",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "nt_domains",
     "name": "Windows NT domains",
     "sensitive": false,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "shellbags",
     "name": "Windows ShellBags registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "shimcache",
     "name": "Windows ShimCache registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "chrome_extensions",
     "name": "Chrome extensions",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   },
   {
     "id": "office_mru",
     "name": "Office recent files registry",
     "sensitive": true,
     "platform": "windows",
-    "collector_version": "2026.11.16.1"
+    "collector_version": "2026.11.16.2"
   }
 ]

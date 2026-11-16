@@ -66,6 +66,19 @@ async def _full_request(d):
     await d['edr_endpoints'].update_one({'tenant_id': OWNER, 'endpoint_id': EP}, {'$set': {'forensic_collection': {'platform':'windows','categories':list(fp.KEYS),'reported_at':datetime.now(timezone.utc).isoformat()}}})
     return await fs.request(d,tenant_id=OWNER,endpoint_id=EP,requested_by=WHO,profile='windows_full')
 
+def test_expanded_profile_accepts_large_categories_and_rejects_excess():
+    import hashlib,json
+    from services.edr import forensic_profiles as fp
+    evidence=_full_evidence()
+    category=evidence['categories'][1]
+    category.update(rows=[{'pid':i} for i in range(3000)],row_count=3000)
+    def digest():
+        raw={k:v for k,v in evidence.items() if k!='sha256'}
+        evidence['sha256']=hashlib.sha256(json.dumps(raw,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+    digest();fp.validate_evidence(evidence,fp.target_for('windows_full'))
+    category.update(rows=[{'pid':i} for i in range(10001)],row_count=10001);digest()
+    with pytest.raises(resp.ResponseError):fp.validate_evidence(evidence,fp.target_for('windows_full'))
+
 def _full_evidence():
     import hashlib,json
     from services.edr import forensic_profiles as fp

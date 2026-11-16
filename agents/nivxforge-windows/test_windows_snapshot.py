@@ -5,6 +5,21 @@ import windows_snapshot as s
 from windows_snapshot_worker import Worker, ACTION
 
 class SnapshotTests(unittest.TestCase):
+ def test_acknowledged_payload_compacts_but_receipt_prevents_recapture(self):
+  worker=Worker('https://example.invalid',{'endpoint_id':'ep_test','tenant_id':'test','agent_credential':'test'},'.')
+  db=sqlite3.connect(':memory:');db.execute('create table jobs(id text primary key,result text,reported integer)')
+  cid='cmd_'+'d'*20;payload={'command_id':cid,'outcome':'EXECUTED','evidence':{'sha256':'a'*64,'large':'x'*200000}}
+  db.execute('insert into jobs values (?,?,0)',(cid,json.dumps(payload)));db.commit()
+  worker.acknowledge(db,cid)
+  row=db.execute('select result,reported from jobs where id=?',(cid,)).fetchone()
+  self.assertLess(len(row[0]),1024);self.assertEqual(row[1],1);self.assertEqual(json.loads(row[0])['evidence_sha256'],'a'*64)
+  with patch('windows_snapshot_worker.collector.collect') as collect:
+   self.assertTrue(worker.process(db,{'command_id':cid,'action':ACTION})['receipt_only']);collect.assert_not_called()
+ def test_large_capture_retains_more_than_legacy_256_rows(self):
+  rows=[{'pid':i} for i in range(3000)]
+  result=s.collect(['os_version'],runner=lambda *a,**kw:{'state':'COLLECTED','rows':rows})
+  self.assertEqual(result['categories'][0]['row_count'],3000)
+  self.assertEqual(result['collection_limits']['rows_per_category'],10000)
  def test_catalog_covers_all_41_categories(self):
   self.assertEqual(len(s.manifest()),41)
   self.assertEqual(len({x['id'] for x in s.manifest()}),41)

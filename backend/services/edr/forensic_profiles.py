@@ -33,14 +33,14 @@ def validate_target(target,endpoint):
 def validate_evidence(evidence,target):
  from edr_plane.response import ResponseError
  def reject():raise ResponseError('INVALID_SNAPSHOT_EVIDENCE','Snapshot evidence failed schema, bounds, category, or checksum validation.',422)
- if len(json.dumps(evidence,ensure_ascii=False).encode())>2200000:reject()
+ if len(json.dumps(evidence,ensure_ascii=False).encode())>14*1024*1024:reject()
  if evidence.get('schema')!='nivxforge.windows-forensic-snapshot.v1':reject()
  categories=evidence.get('categories')
  if not isinstance(categories,list) or len(categories)!=len(target['categories']) or any(not isinstance(c,dict) for c in categories):reject()
  if any(not isinstance(c.get('category_id'),str) for c in categories):reject()
  if {c.get('category_id') for c in categories}!=set(target['categories']):reject()
  for c in categories:
-  if not isinstance(c.get('state'),str) or c['state'] not in STATES or not isinstance(c.get('rows'),list) or len(c['rows'])>256 or c.get('row_count')!=len(c['rows']):reject()
+  if not isinstance(c.get('state'),str) or c['state'] not in STATES or not isinstance(c.get('rows'),list) or len(c['rows'])>10000 or c.get('row_count')!=len(c['rows']):reject()
   if any(not isinstance(r,dict) for r in c['rows']):reject()
   if not isinstance(c.get('issues',[]),list) or any(not isinstance(i,str) for i in c.get('issues',[])):reject()
   if c['state'] not in ('COLLECTED','PARTIAL') and c['rows']:reject()
@@ -52,7 +52,7 @@ def validate_evidence(evidence,target):
 
 async def claim_one(db,tenant_id,endpoint_id):
  from edr_plane import response as resp
- now=datetime.now(timezone.utc);cutoff=(now-timedelta(seconds=600)).isoformat()
+ now=datetime.now(timezone.utc);cutoff=(now-timedelta(seconds=900)).isoformat()
  doc=await db[resp.COLLECTION].find_one_and_update(
   {'tenant_id':tenant_id,'endpoint_id':endpoint_id,'action':ACTION,
    '$or':[{'state':'REQUESTED','requested_at':{'$gte':cutoff}}, {'state':'DISPATCHED','dispatched_at':{'$lt':cutoff}}]},

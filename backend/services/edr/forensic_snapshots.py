@@ -101,7 +101,7 @@ def _status(doc: Dict[str, Any], now: Optional[datetime] = None) -> str:
     if state in ("REQUESTED", "AUTHORIZED", "DISPATCHED"):
         started = _parse(doc.get("requested_at"))
         if started and (now or _now()) - started > timedelta(
-                seconds=660 if doc.get("action") == FULL_ACTION else TIMEOUT_SECONDS):
+                seconds=960 if doc.get("action") == FULL_ACTION else TIMEOUT_SECONDS):
             return TIMED_OUT
         return RUNNING if state == "DISPATCHED" else QUEUED
     if state == "CAPABILITY_UNAVAILABLE":
@@ -152,6 +152,7 @@ def _job(doc: Dict[str, Any], *, rows: bool = False,
         out["collector_version"] = ev.get("collector_version")
         out["evidence_sha256"] = ev.get("sha256")
         out["limitations"] = ev.get("limitations") or []
+        out["collection_limits"] = ev.get("collection_limits") or {}
         out["rows"] = ev.get("rows") or []
         out["rows_truncated"] = bool(ev.get("rows_truncated"))
         out["sections"] = [] if ev.get("categories") else sections(ev.get("row_count") if ev else None)
@@ -159,7 +160,7 @@ def _job(doc: Dict[str, Any], *, rows: bool = False,
             for section in out["sections"]:
                 section["state"] = "NOT_COLLECTED"
         if status == TIMED_OUT and doc.get("action") == FULL_ACTION:
-            out["status_meaning"] = "No result arrived within 660 seconds. No completed capture is claimed."
+            out["status_meaning"] = "No result arrived within 960 seconds. No completed capture is claimed."
         out["retention_note"] = RETENTION_NOTE
     return out
 

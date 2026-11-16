@@ -1,3 +1,4 @@
+import ArtifactBrowser from './ArtifactBrowser';
 import React, {useEffect, useRef, useState} from 'react';
 import {useSearchParams, Link} from 'react-router-dom';
 import api from '@/lib/api';
@@ -15,7 +16,7 @@ export default function ForensicSnapshot(){
   const [jobs,setJobs]=useState(null),[historyError,setHistoryError]=useState('');
   const [job,setJob]=useState(null),[jobError,setJobError]=useState('');
   const [reason,setReason]=useState(''),[busy,setBusy]=useState(false),[requestError,setRequestError]=useState('');
-  const [refresh,setRefresh]=useState(0),[jobAttempt,setJobAttempt]=useState(0),[search,setSearch]=useState(''),[page,setPage]=useState(0);
+  const [refresh,setRefresh]=useState(0),[jobAttempt,setJobAttempt]=useState(0);
   const generation=useRef(0);
   useEffect(()=>{const bound=()=>{generation.current++;setTenant(activeTenant());setJob(null);setJobs(null);setComputers([]);setReason('');setRequestError('');};window.addEventListener(TENANT_BOUND_EVENT,bound);return()=>{generation.current++;window.removeEventListener(TENANT_BOUND_EVENT,bound);};},[]);
   const navigate=(changes)=>{const next=new URLSearchParams(params);next.set('section','snapshot');Object.entries(changes).forEach(([k,v])=>v?next.set(k,v):next.delete(k));setParams(next);};
@@ -32,7 +33,7 @@ export default function ForensicSnapshot(){
     return()=>{live=false;controller.abort();};
   },[tenant,device,refresh]);
   useEffect(()=>{
-    setJob(null);setJobError('');setSearch('');setPage(0);if(!tenant||!jobId)return;
+    setJob(null);setJobError('');if(!tenant||!jobId)return;
     let live=true,timer;const controller=new AbortController();
     async function poll(){try{const {data}=await api.get(`/edr/forensics/snapshots/${encodeURIComponent(jobId)}`,{signal:controller.signal});if(!live)return;validateJob(data,tenant,jobId);setJob(data);setJobError('');if(pending(data.status))timer=setTimeout(poll,5000);else setRefresh(v=>v+1);}catch(e){if(live)setJobError(snapshotError(e));}}
     poll();return()=>{live=false;clearTimeout(timer);controller.abort();};
@@ -57,7 +58,7 @@ export default function ForensicSnapshot(){
       <label>Reason<input value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)} placeholder="Investigation purpose or case reference"/></label>
       <button type="button" onClick={request} disabled={!tenant||!device||!reason.trim()||busy}>{busy?'Requesting…':'Request snapshot'}</button></div>
       <p className="snapshot-note">Requests use your existing permissions and are audited. A queued request does not mean collection succeeded. Offline endpoints can time out; unsupported sensors report capability unavailable.</p>
-      {device&&catalog&&!catalog.windows_ready&&<p className="snapshot-alert">Full Windows collection requires an upgraded endpoint sensor. No compatible collector has been advertised for this computer within the last 24 hours.</p>}
+      {device&&catalog&&!catalog.windows_ready&&<p className="snapshot-alert">No compatible collector has been advertised for this computer within the last 24 hours. Windows artifact profiles require the Windows sensor; Linux currently supports process snapshots. <Link to="/edr/management/downloads">Get the forensic-capable Windows sensor</Link></p>}
       {profile==='windows_full'&&<p className="snapshot-alert">This profile includes shell history, DNS, recent filenames, environment variables and other user artifacts. These can contain credentials and private activity. Collection is limited to readable sources; offline user hives are not mounted.</p>}
       {catalog?.categories?.length>0&&<details><summary>{catalog.categories.length} forensic artifact categories</summary><ul>{catalog.categories.map(c=><li key={c.id}>{c.name}{c.sensitive?' — sensitive profile':''}</li>)}</ul></details>}
       {requestError&&<p role="alert" className="snapshot-alert">{requestError}</p>}
@@ -68,13 +69,8 @@ export default function ForensicSnapshot(){
       <dl className="snapshot-meta">{[['Evidence / job ID',job.job_id],['Computer',job.endpoint_id],['Requested by',job.requested_by],['Requested (UTC)',date(job.requested_at)],['Capture started (UTC)',date(job.capture_started_at)],['Capture finished (UTC)',date(job.capture_finished_at)],['Reported (UTC)',date(job.reported_at)],['Sensor',job.sensor_version||'Not reported'],['Rows',job.row_count??'Not reported'],['Collection basis',job.collection_basis||'Not reported']].map(([k,v])=><React.Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></React.Fragment>)}</dl>
       {job.detail&&<p>{String(job.detail)}</p>}{job.rows_truncated&&<p role="status" className="snapshot-alert">Partial evidence: the sensor reached its row limit. This is not a complete process inventory.</p>}
       <p><Link to={`/edr/device-trajectory?device=${encodeURIComponent(job.endpoint_id)}`}>Open this computer’s Device Trajectory</Link></p>
-      {job.categories?.length>0?<ArtifactCategories categories={job.categories}/>:<><h3>Collection coverage</h3><div className="snapshot-table-wrap"><table className="snapshot-table"><thead><tr><th>Category</th><th>State</th><th>Coverage</th></tr></thead><tbody>{coverage(job).map(s=><tr key={s.name}><td>{s.name}</td><td>{label(s.state)}</td><td>{s.note}</td></tr>)}</tbody></table></div></>}
+      <ArtifactBrowser categories={job.categories?.length ? job.categories : coverage(job).map((item,index)=>({category_id:'legacy-'+index,name:item.name,state:item.state,detail:item.note,rows:index===0&&completed(job.status)?job.rows:[],row_count:index===0&&completed(job.status)?job.rows.length:0,capture_started_at:job.capture_started_at,capture_finished_at:job.capture_finished_at}))} endpoint={computers.find(c=>c.endpoint_id===job.endpoint_id)?.hostname||job.endpoint_id} capturedAt={job.capture_started_at}/>
       {job.limitations?.length>0&&<ul>{job.limitations.map((item,i)=><li key={i}>{item}</li>)}</ul>}
-      {!job.categories?.length&&<>
-      <h3>Running processes</h3>{!completed(job.status)?<p>No completed process capture is available for this job.</p>:!job.rows.length?<p>The sensor completed the capture and returned zero rows. This does not establish that the endpoint had no processes.</p>:<>
-      <label>Filter captured processes <input className="snapshot-filter" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}} placeholder="PID, name or path"/></label><p>{filtered.length} matching rows · showing {shown.length} on page {page+1}</p>
-      <div className="snapshot-table-wrap"><table className="snapshot-table"><thead><tr><th>PID</th><th>Name</th><th>Executable path</th></tr></thead><tbody>{shown.map((row,i)=><tr key={`${row.pid}-${i}`}><td>{row.pid}</td><td>{row.name||'Not readable'}</td><td>{row.path||`Not readable${row.path_unavailable?`: ${row.path_unavailable}`:''}`}</td></tr>)}</tbody></table></div><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous rows</button> <button disabled={(page+1)*100>=filtered.length} onClick={()=>setPage(p=>p+1)}>Next rows</button></>}
-      </>}
       <p className="snapshot-note">The export includes provenance and a SHA-256 checksum. It is not a digital signature. No automatic retention or deletion schedule is configured by this feature.</p>
       </>}
     </section>}
@@ -85,18 +81,3 @@ export default function ForensicSnapshot(){
   </section>;
 }
 
-function ArtifactCategories({categories}){
- const [selected,setSelected]=useState(categories[0]?.category_id||''),[query,setQuery]=useState(''),[page,setPage]=useState(0);
- const category=categories.find(c=>c.category_id===selected)||categories[0];
- const rows=(category?.rows||[]).filter(r=>JSON.stringify(r).toLowerCase().includes(query.toLowerCase()));
- const columns=Array.from(new Set(rows.slice(0,100).flatMap(r=>typeof r==='object'&&r!==null?Object.keys(r):['value']))).slice(0,24);
- const value=v=>v==null?'—':typeof v==='object'?JSON.stringify(v):String(v);
- return <section aria-label="Artifact category evidence"><h3>Artifact categories</h3>
- <div className="snapshot-table-wrap"><table className="snapshot-table"><thead><tr><th>Category</th><th>State</th><th>Rows</th><th>Open</th></tr></thead><tbody>{categories.map(c=><tr key={c.category_id}><td>{c.name}</td><td>{label(c.state)}</td><td>{c.row_count??c.rows?.length??0}</td><td><button onClick={()=>{setSelected(c.category_id);setQuery('');setPage(0);}}>Inspect {c.name}</button></td></tr>)}</tbody></table></div>
- <h4>{category?.name}</h4><p>{label(category?.state)} · {date(category?.capture_started_at)} → {date(category?.capture_finished_at)}</p>
- {category?.detail&&<p>{category.detail}</p>}{category?.rows_truncated&&<p className="snapshot-alert">The category row limit was reached; evidence is partial.</p>}{category?.issues?.map((issue,i)=><p key={i}>{issue}</p>)}
- <label>Filter category evidence <input className="snapshot-filter" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/></label><p>{rows.length} matching rows</p>
- <div className="snapshot-table-wrap"><table className="snapshot-table"><thead><tr>{columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{rows.slice(page*100,(page+1)*100).map((r,i)=><tr key={i}>{columns.map(c=><td key={c}>{value(typeof r==='object'&&r!==null?r[c]:r)}</td>)}</tr>)}</tbody></table></div>
- {!rows.length&&<p>No rows are available in this category. Read the category state before interpreting an empty result.</p>}<button disabled={!page} onClick={()=>setPage(v=>v-1)}>Previous category rows</button> <button disabled={(page+1)*100>=rows.length} onClick={()=>setPage(v=>v+1)}>Next category rows</button>
- </section>;
-}

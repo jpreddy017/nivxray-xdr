@@ -8,8 +8,11 @@ result=s.collect(include_sensitive=True)
 summary=[{'id':c['category_id'],'state':c['state'],'rows':c['row_count'],'error_type':c.get('error_type')} for c in result['categories']]
 print(json.dumps({'collector_version':s.VERSION,'categories':summary}))
 assert len(summary)==41
+assert result['collection_limits']['rows_per_category']==10000
+for row in next(c for c in result['categories'] if c['category_id']=='running_hashes')['rows']:
+ assert 'owner' in row and 'owner_state' in row
 by_id={c['id']:c for c in summary}
-for key in ('os_version','services','installed_programs','module_processes','hosts','root_certificates'):
+for key in ('os_version','services','installed_programs','module_processes','hosts','root_certificates','running_hashes','network_processes'):
  assert by_id[key]['state'] in ('COLLECTED','PARTIAL'),f'{key}: core Windows provider did not collect'
 assert not any(c.get('error_type') in ('ParseException','CommandNotFoundException') for c in summary),'Missing command or parser failure'
 print('Windows forensic provider smoke: PASS; per-category availability is reported above.')

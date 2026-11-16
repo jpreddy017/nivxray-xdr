@@ -31,7 +31,7 @@ class Worker:
         headers={'Accept':'application/json','Content-Type':'application/json'}
         if self.token:headers['Authorization']='Bearer '+self.token
         req=urllib.request.Request(self.api+path,data=raw,headers=headers,method='POST' if body is not None else 'GET')
-        with urllib.request.build_opener(NoRedirect()).open(req,timeout=15) as response:
+        with urllib.request.build_opener(NoRedirect()).open(req,timeout=30) as response:
             payload=response.read(3*1024*1024+1)
             if len(payload)>3*1024*1024:raise ValueError('Response too large')
             return json.loads(payload)
@@ -60,6 +60,23 @@ class Worker:
         db.execute('update jobs set result=? where id=?',(json.dumps(result),command_id));db.commit()
         return result
 
+    def acknowledge(self,db,command_id):
+        """Release acknowledged evidence bytes, retaining a replay receipt.
+
+        Unacknowledged evidence is never removed. The server is the evidence
+        repository; the local ledger prevents a completed capture being rerun.
+        """
+        old=db.execute('select result from jobs where id=?',(command_id,)).fetchone()
+        if not old or not old[0]:raise ValueError('Cannot acknowledge missing evidence')
+        result=json.loads(old[0])
+        receipt={'command_id':command_id,'receipt_only':True,'outcome':result.get('outcome'),
+                 'evidence_sha256':result.get('evidence',{}).get('sha256'),
+                 'detail':'Evidence acknowledged by the server; local replay receipt retained.'}
+        db.execute('update jobs set result=?,reported=1 where id=?',(json.dumps(receipt),command_id));db.commit()
+        free=db.execute('pragma freelist_count').fetchone()[0]
+        pages=db.execute('pragma page_count').fetchone()[0]
+        if free>256 and free>pages//2:db.execute('vacuum')
+
     def cycle(self,db):
         if not self.token:
             self.token=self.http('/api/edr/agent/session',{'tenant_id':self.identity['tenant_id'],'agent_credential':self.identity['agent_credential']})['session_token']
@@ -67,15 +84,20 @@ class Worker:
         # does not trigger another endpoint capture.
         for command_id,payload in db.execute('select id,result from jobs where reported=0 and result is not NULL').fetchall():
             self.http('/api/edr/agent/command-result',json.loads(payload))
-            db.execute('update jobs set reported=1 where id=?',(command_id,));db.commit()
+            self.acknowledge(db,command_id)
+        # Compact evidence acknowledged by older sensor versions as well.
+        for command_id, in db.execute('select id from jobs where reported=1 and length(result)>1024').fetchall():
+            self.acknowledge(db,command_id)
         if self.path.stat().st_size>=MAX_JOURNAL_BYTES:return
         self.http('/api/edr/agent/forensic-capabilities',{'platform':'windows','collector_version':collector.VERSION,'categories':list(collector.CATALOG)})
         commands=self.http('/api/edr/agent/forensic-commands').get('commands',[])
         for command in commands:
             if self.stop_event.is_set():return
+            prior=db.execute('select reported from jobs where id=?',(command.get('command_id'),)).fetchone()
+            if prior and prior[0]:continue
             result=self.process(db,command)
             self.http('/api/edr/agent/command-result',result)
-            db.execute('update jobs set reported=1 where id=?',(result['command_id'],));db.commit()
+            self.acknowledge(db,result['command_id'])
 
     def run(self):
         self.path.parent.mkdir(parents=True,exist_ok=True)
