@@ -43,3 +43,12 @@ test('legacy snapshots expose all 41 named categories without claiming missing e
  fireEvent.click(screen.getByRole('button',{name:'Inspect Powershell History'}));expect(screen.getByText(/This snapshot did not collect this category/)).toBeTruthy();expect(screen.queryByText('/usr/bin/example')).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'Close snapshot'}));expect(screen.queryByRole('dialog')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'View Snapshot'}));expect(screen.getByRole('dialog')).toBeTruthy();
 });
+
+test('pending capture does not open an empty evidence viewer',async()=>{
+ mocks.get.mockImplementation(async url=>({data:url.endsWith('/job-a')?{...job,status:'RUNNING',rows:[],row_count:0}:{tenant_id:'tenant-a',jobs:[],computers:[],categories:[]}}));
+ mount('/edr/forensics?section=snapshot&device=ep-a&job=job-a');
+ const button=await screen.findByRole('button',{name:'Waiting for endpoint evidence'});
+ expect(button.disabled).toBe(true);
+ expect(screen.queryByRole('dialog')).toBeNull();
+ expect(screen.queryByText(/This snapshot did not collect this category/)).toBeNull();
+});

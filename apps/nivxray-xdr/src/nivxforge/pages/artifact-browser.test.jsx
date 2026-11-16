@@ -31,3 +31,9 @@ test('CSV export escapes quotes, newlines and spreadsheet formulas',()=>{
  expect(csvCell('line1\nline2')).toBe('"line1\nline2"');expect(csvCell(0)).toBe('"0"');
  expect(evidenceColumns([{first:1},{later:2}])).toEqual(['first','later']);
 });
+
+test('partial evidence exposes source and binary limitations without opening details',()=>{
+ render(<ArtifactBrowser categories={[{category_id:'shimcache',name:'ShimCache',state:'PARTIAL',row_count:1,rows:[{name:'AppCompatCache',value_truncated:true}],issues:['Registry binary value was truncated']}]}/>);
+ expect(screen.getByLabelText('Collection limitations').textContent).toContain('Registry binary value was truncated');
+ expect(screen.getByText(/complete binary artifact is not available/)).toBeTruthy();
+});
