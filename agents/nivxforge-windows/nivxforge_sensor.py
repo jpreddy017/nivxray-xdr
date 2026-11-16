@@ -1309,9 +1309,15 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
     ident = _read_identity()
     session: dict = {"token": None}
     journal = nvx_journal.open_journal(STATE_DIR, BOOKMARK_FILE)
-    from windows_snapshot_worker import Worker
-    forensic_worker = Worker(api, ident, STATE_DIR).start()
+    forensic_worker = None
     try:
+        try:
+            from windows_snapshot_worker import Worker
+            forensic_worker = Worker(api, ident, STATE_DIR).start()
+        except Exception as exc:
+            # Optional forensic collection must not stop the telemetry loop.
+            # No capability is advertised when initialization fails.
+            print("[forensic-snapshot] unavailable: " + type(exc).__name__)
         while True:
             report = _cycle(api, ident, session, journal, interval)
             print(json.dumps(report))
@@ -1325,7 +1331,8 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
                            and report.get("failed", 0) == 0)
             time.sleep(1 if progressing else max(5, interval))
     finally:
-        forensic_worker.stop()
+        if forensic_worker is not None:
+            forensic_worker.stop()
         journal.close()
         TRANSPORT.close()
 
